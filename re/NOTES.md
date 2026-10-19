@@ -117,3 +117,39 @@ y `-0x6cee`, vx `-0x6cea`, vy `-0x6ce6`, kind `-0x6ce2`), pixel positions.
   the rail/conveyor tick handlers; steering is ignored on 0x8c–0xaa;
   cannons 0xdf–0xe2 fire once; 0x10c magnifier (300 frames); 0x10d speed
 - the forced move does not check passability itself
+
+## Projectiles (CODE 4 0x2392, called from the main loop via A5+0x3a2)
+
+40 slots of 0x30 bytes at `-0x6cf6`: +0 active, +1 draw state (0 off screen,
+3 just drawn, 2 on screen, 1 erase pending), +2 lifetime (word, type 3),
++4 x, +8 y (pixels in the level), +0xc vx, +0x10 vy, +0x14 type
+(1 normal, 2 ricochet, 3 homing). `-0x57ca` counts active projectiles.
+
+Spawn (CODE 9 0x2132, jump table A5+0x8ca) `(x, y, vx, vy)` with x/y
+relative to the view: the first slot that is inactive **and** has draw
+state 0 (so the draw state matters for slot order), type 1; returns 0 when
+all 40 are taken.
+
+Per frame, per slot in order (normal and ricochet): move by (vx, vy), box =
+pixel / 32 (also into `-0x53b2`/`-0x53ae`); outside the level → off.
+- just entered the box (speed 2: moving right x % 32 == 0, left
+  (x + 2) % 32 == 0, same for y): tiles 40–94 (walls) stop it, type 2
+  steps back and reflects using the wall test CODE 9 0x1fe4 on the
+  neighbors; tiles 192–214 become explosion 350 and stop it; other tiles:
+  `bullet_enter[tile]` (table `-0x3270`) if there is one
+- otherwise at the box center (x + 16 or y + 16 multiple of 32, depending
+  on the direction) on an occupied box: `bullet_center[tile]` (`-0x2aa0`)
+- after a handler call the rest of the frame is skipped for this slot
+- common part: draw state, reflect (type 2) or stop at the level edge
+  (x 0/0x4fc, y 0/0x31c), lifetime of type 3, hitting the player
+  (sets `-0x6d1a` unless protected or on tile 0x10e)
+
+Type 3 (homing): velocity ±2 towards the player's box center; on a wall
+tile it calls the Toolbox `Random` (trap A861) to decide which axis to undo.
+
+Handlers: mirrors 26/27/220/221 turn the direction; 24/25/28/29/219/275
+reflect; rails 144–159 switch; 162–165 colored circles set the door
+switches; 20–23 set a forced player command (`-0x3a42`); 34 splits into four;
+222–226 are cannons (spawn); 166 counts 0x110 neighbors; 218, 227, 228 call
+further functions (A5+0x8e2, 0x8d2, 0x8da). Enemies and their second box
+explode (350).

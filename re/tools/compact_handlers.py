@@ -36,6 +36,10 @@ def compact(text):
     text = re.sub(r"\(\*\*\(code \*\*\)\(unaff_A5 \+ 0x8c2\)\)\s*", "func_0x00002046", text)
     text = re.sub(r"\(\*\*\(code \*\*\)\(unaff_A5 \+ 0x8b2\)\)\s*", "FUN_00001f94", text)
     text = re.sub(r"\(\*\*\(code \*\*\)\(unaff_A5 \+ 0x3aa\)\)\s*", "explode", text)
+    # projectile handlers: the current projectile is G[-0x53aa] (index), its
+    # fields are at -0x6cf6 + 0x30 * index
+    text = re.sub(r"\*\((\w+) \*\)\(unaff_A5 \+ (?:G\[-0x53aa\]|\*\(int \*\)\(unaff_A5 \+ -0x53aa\)) \* 0x30 \+ (-0x[0-9a-f]+)\)", r"P[\2]", text)
+    text = re.sub(r"\*\((\w+) \*\)\(unaff_A5 \+ (-0x[0-9a-f]+) \+ (?:G\[-0x53aa\]|\*\(int \*\)\(unaff_A5 \+ -0x53aa\)) \* 0x30\)", r"P[\2]", text)
     text = re.sub(r"func_0x00002046\(([^,]+),([^,]+),\s*0x([0-9a-f]+)\s*\)", setcall, text)
     text = re.sub(r"FUN_00001f94\(([^,]+),([^)]+)\)", r"free(\1,\2)", text)
     text = re.sub(r"\b(int|char|short|undefined\d?|code|byte|uint|ushort|bool) \w+;", "", text)
