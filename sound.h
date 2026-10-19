@@ -1,7 +1,7 @@
 bool SOUND = true;
 
-#define NSONSM	26 //max number of sounds to load in memory
-#define NSONS 32 //number of sounds that can be simultaneously played
+#define NSOUNDSM	26 //max number of sounds to load in memory
+#define NSOUNDS 32 //number of sounds that can be simultaneously played
 
 typedef struct {
 	Uint8 *data;
@@ -16,13 +16,13 @@ Sound LoadSound (const char *file)
 	Uint8 *wav_buff;
 	SDL_AudioCVT  wav_cvt;
 	
-	SDL_AudioSpec des;
-	des.freq = 11050;
-	des.format = AUDIO_U8;
-	//des.samples = 256;
-	//des.callback = NULL;
-	des.channels = 1;
-	//des.userdata = NULL;
+	SDL_AudioSpec desired;
+	desired.freq = 11050;
+	desired.format = AUDIO_U8;
+	//desired.samples = 256;
+	//desired.callback = NULL;
+	desired.channels = 1;
+	//desired.userdata = NULL;
 	
 	if(SDL_LoadWAV(file, &wav_spec, &wav_buff, &wav_length) == NULL)
 	{
@@ -74,14 +74,14 @@ Sound LoadSound (const char *file)
 	}
 	
 	s.size = wav_length; //wav_cvt.len_cvt;
-	//printf("Size of sound : avant %d, apres %d\n",wav_cvt.len,s.size);
+	//printf("Size of sound : before %d, after %d\n",wav_cvt.len,s.size);
 	//printf("Size of sound : %d\n",wav_length);
 	return s;
 }
 
 typedef struct 
 {
-	Uint8 *ptr; //la ou on en est (NULL si son pas lu)
+	Uint8 *ptr; //current play position (NULL if the sound is not playing)
 	Uint32 i; //sound index
 }RefSound;
 
@@ -89,8 +89,8 @@ void mixaudio(void *unused, Uint8 *stream, int len);
 
 struct Sounds
 {
-	Sound s[NSONSM];
-	RefSound r[NSONS];
+	Sound s[NSOUNDSM];
+	RefSound r[NSOUNDS];
 	
 	//
 	void Init (); //initializes everything (and load sounds)
@@ -116,25 +116,25 @@ void Sounds::Load ()
 {
 	int i;
 	char file[256];
-	char tamp[256];
+	char buf[256];
 	MakeName("son00.wav", file, SOUNDS_DIRECTORY, 256);
-	for (i=1;i<NSONSM;i++)
+	for (i=1;i<NSOUNDSM;i++)
 	{
 		file[strlen(SOUNDS_DIRECTORY)+3] = '0'+i/10;
 		file[strlen(SOUNDS_DIRECTORY)+4] = '0'+i%10;
-		MakeName(file, tamp, RESOURCES, 256);
-		Load(tamp, i);
+		MakeName(file, buf, RESOURCES, 256);
+		Load(buf, i);
 	}
 }
 void Sounds::init ()
 {
 	int i;
-	for (i=0;i<NSONSM;i++)
+	for (i=0;i<NSOUNDSM;i++)
 	{
 		s[i].data = NULL;
 		s[i].size = 0;
 	}
-	for (i=0;i<NSONS;i++)
+	for (i=0;i<NSOUNDS;i++)
 	{
 		r[i].ptr = NULL;
 		r[i].i = 0;
@@ -143,30 +143,30 @@ void Sounds::init ()
 void Sounds::Start ()
 {
 	init();
-	SDL_AudioSpec des,obt;
-	des.freq = 11050;
-	des.format = AUDIO_U8;
-	des.samples = 256;
-	des.callback = mixaudio;
-	des.channels = 1;
-	des.userdata = this;
-	if (SDL_OpenAudio(&des,&obt) < 0)
+	SDL_AudioSpec desired,obtained;
+	desired.freq = 11050;
+	desired.format = AUDIO_U8;
+	desired.samples = 256;
+	desired.callback = mixaudio;
+	desired.channels = 1;
+	desired.userdata = this;
+	if (SDL_OpenAudio(&desired,&obtained) < 0)
 	{
 		printf("Unable to open Audio : %s\n",SDL_GetError());
 		exit(EXIT_FAILURE);
 	}
-	if (obt.freq != des.freq)
+	if (obtained.freq != desired.freq)
 	{
 		printf("Frequency not reached !!!!\n");
 	}
 	/*
-	printf("Audio obtenu:\n");
-	printf("freq : %d\n",obt.freq);
-	printf("samples : %d\n",obt.samples);
-	printf("channels : %d\n",obt.channels);
-	printf("format : %d\n",obt.format);
+	printf("Audio obtained:\n");
+	printf("freq : %d\n",obtained.freq);
+	printf("samples : %d\n",obtained.samples);
+	printf("channels : %d\n",obtained.channels);
+	printf("format : %d\n",obtained.format);
 	
-	printf("Liste des formats:\n");
+	printf("List of formats:\n");
 	printf("AUDIO_U8 = %d\n",AUDIO_U8);
 	printf("AUDIO_S8 = %d\n",AUDIO_S8);
 	printf("AUDIO_U16 = %d\n",AUDIO_U16);
@@ -176,7 +176,7 @@ void Sounds::Start ()
 	printf("AUDIO_U16SYS = %d\n",AUDIO_U16SYS);
 	printf("AUDIO_S16SYS = %d\n",AUDIO_S16SYS);
 	*/
-	//lancement du son
+	//start the sound
 	SDL_PauseAudio(0);
 }
 void Sounds::Stop ()
@@ -185,7 +185,7 @@ void Sounds::Stop ()
 }
 void Sounds::Play (Uint16 i) //plays the i-th sound
 {
-#if HSON
+#if HSOUND
 	if (!SOUND)
 		return;
 #else
@@ -193,7 +193,7 @@ void Sounds::Play (Uint16 i) //plays the i-th sound
 #endif
 	if (i == 0)
 		return;
-	if (i >= NSONSM)
+	if (i >= NSOUNDSM)
 	{
 		fprintf(stderr, "Sound file doesn't exist !!!\n");
 		return;
@@ -201,7 +201,7 @@ void Sounds::Play (Uint16 i) //plays the i-th sound
 	//looking for a free slot
 	///SDL_LockAudio();
 	int j;
-	for (j=0;j<NSONS;j++)
+	for (j=0;j<NSOUNDS;j++)
 	{
 		if (r[j].ptr == NULL)
 		{ //starts sounds
@@ -219,11 +219,11 @@ void mixaudio(void *userdata, Uint8 *stream, int len)
 	int i;
 	Uint32 amount;
 	Sounds *s = (Sounds *)userdata;
-	for (i=0;i<NSONS;i++)
+	for (i=0;i<NSOUNDS;i++)
 	{
 		if (s->r[i].ptr != NULL)
 		{
-			//printf("son %d...\n",i);
+			//printf("sound %d...\n",i);
 			amount = s->s[s->r[i].i].size - (s->r[i].ptr - s->s[s->r[i].i].data); //amount of remaining to play
 			if ( amount > len )
 			{

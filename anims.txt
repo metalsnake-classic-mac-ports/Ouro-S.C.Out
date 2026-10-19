@@ -1,130 +1,130 @@
-//liste des animation
-//num. : liste des images dans l'orde : temps entre deux images : son
+//list of animations
+//num. : list of images in order : time between two images : sound
 
-//ouverture porte
+//opening door
 31 : 80 90 100 110 120 130 320 330 326 0 : 4 : 11
 
-//sens unic, bas
+//one-way door, down
 1 : 91 101 111 121 131 : 2 : 17
 
-//sens unic, haut
+//one-way door, up
 2 : 92 102 112 122 132 : 2 : 17
 
-//sens unic, gauche
+//one-way door, left
 3 : 93 103 113 123 133 : 2 : 17
 
-//sens unic, droite
+//one-way door, right
 4 : 94 104 114 124 134 : 2 : 17
 
-//ouverture porte verte
+//opening green door
 5 : 85 95 105 115 125 135 321 331 327 0 : 4 : 11
 
-//ouverture porte orange
+//opening orange door
 6 : 86 96 106 116 126 136 321 331 327 0 : 4 : 11
 
-//ouverture porte jaune
+//opening yellow door
 7 : 87 97 107 117 127 137 321 331 327 0 : 4 : 11
 
-//ouverture porte marron
+//opening brown door
 8 : 88 98 108 118 128 138 321 331 327 0 : 4 : 11
 
-//ouverture barriere
+//opening barrier
 9 : 139 129 119 109 99 89 : 3 : 7
 
-//fermeture barriere
+//closing barrier
 10 : 89 99 109 119 129 139 : 3 : 7
 
-//bombe a retardement
+//time bomb
 11 : 151 152 153 154 155 156 157 158 : 10 : 0
 
-//ouverture portes d'ordi
+//opening computer doors
 12 : 168 178 188 198 208 218 : 4 : 11
 
-//fermeture portes d'ordi
+//closing computer doors
 13 : 218 208 198 188 178 168 : 4 : 11
 
-//plante verte qui pousse
+//growing green plant
 14 : 174 184 194 204 214 : 4 : 14
 
-//plante grise qui pousse
+//growing gray plant
 15 : 175 185 195 205 215 : 4 : 14
 
 //virus
 16 : 176 186 196 206 216 166 166 166 166 : 5 : 14
 
-//plaque tournante
+//turntable
 17 : 209 219 229 239 :  : 0
 
-//materialisation (on apparait au debut)
+//materialization (we appear at the start)
 18 : 283 249 259 269 279 289 299 309 319 283 : 4 : 12
 
-//onda-mania gauche, case gauche
+//onda-mania left, left box
 19 : 262 252 242 312 302 292 247 : 3 : 0 //272
 
-//onda-mania gauche, case droite
+//onda-mania left, right box
 20 : 263 253 243 313 303 293 0 : 3 : 0 //273
 
-//onda-mania haut, case haute
+//onda-mania up, upper box
 21 : 265 266 267 244 245 246 273 : 3 : 0 //272
 
-//onda-mania haut, case basse
+//onda-mania up, lower box
 22 : 275 276 277 254 255 256 0 : 3 : 0 //274
 
-//onda-mania droite, case gauche
+//onda-mania right, left box
 23 : 292 302 312 242 252 262 0 : 3 : 0 //282
 
-//onda-mania droite, case droite
+//onda-mania right, right box
 24 : 293 303 313 243 253 263 274 : 3 : 0 //272
 
-//onda-mania bas, case haute
+//onda-mania down, upper box
 25 : 246 245 244 267 266 265 0 : 3 : 0 //247
 
-//onda-mania bas, case basse
+//onda-mania down, lower box
 26 : 256 255 254 277 276 275 282 : 3 : 0 //272
 
-//explosion nous (ou lui)
+//explosion of us (or him)
 27 : 248 258 268 278 288 298 308 318 0 : 4 : 8
 
 //explosion
-28 : 390 391 392 393 394 395 396 397 0 : 2 : 0 //(son 16)
+28 : 390 391 392 393 394 395 396 397 0 : 2 : 0 //(sound 16)
 
-//explosion grenade
-29 : 400 401 402 403 404 405 406 407 224 : 2 : 0 //(son 20)
+//grenade explosion
+29 : 400 401 402 403 404 405 406 407 224 : 2 : 0 //(sound 20)
 
-//clef dans la serrure
+//key in the lock
 30 : 150 150 : 20 : 4
 
-//pile infinie
-42 : : 100 : //reserve
+//infinite battery
+42 : : 100 : //reserved
 
-//rail vert qui s'eteint
-32 : : 5 : //reserve
+//green rail switching off
+32 : : 5 : //reserved
 
-//centre explosion bombe
-33 : 390 391 392 393 394 395 396 397 0 : 2 : 0 //(son 16)
+//center of bomb explosion
+33 : 390 391 392 393 394 395 396 397 0 : 2 : 0 //(sound 16)
 
-//mechant horizontal, droite, case gauche
+//enemy horizontal, right, left box
 34 : 338 348 358 368 378 388 398 0 : 2 : 0
 
-//mechant horizontal, droite, case droite
+//enemy horizontal, right, right box
 35 : 339 349 359 369 379 389 399 328 : 2 : 0
 
-//mechant horizontal, gauche, case gauche
+//enemy horizontal, left, left box
 36 : 398 388 378 368 358 348 338 240 : 2 : 0
 
-//mechant horizontal, gauche, case droite
+//enemy horizontal, left, right box
 37 : 399 389 379 369 359 349 339 0 : 2 : 0
 
-//mechant vertical, haut, case haute
+//enemy vertical, up, upper box
 38 : 347 346 345 344 343 342 341 322 : 1 : 0
 
-//mechant vertical, haut, case basse
+//enemy vertical, up, lower box
 39 : 357 356 355 354 353 352 351 0 : 1 : 0
 
-//mechant vertical, bas, case haute
+//enemy vertical, down, upper box
 40 : 341 342 343 344 345 346 347 0 : 1 : 0
 
-//mechant vertical, bas, case basse
+//enemy vertical, down, lower box
 41 : 351 352 353 354 355 356 357 340 : 1 : 0
 
-//saut de ligne obligatoire en fin de fichier !!! (ou bien ligne qui ne sert a rien)
+//line break required at the end of the file !!! (or else a line that is not used)

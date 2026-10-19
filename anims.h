@@ -1,7 +1,7 @@
 
-#define NA	50	//max number of animations? (nombre max. d'animations)
+#define NA	50	//max number of animations
 
-#define NIM	20 //max number of frames in an animation? (nombre max. d'images dans une animation)
+#define NIM	20 //max number of frames in an animation
 
 struct Anim
 {
@@ -28,9 +28,9 @@ void LoadAnims (Anim *a)
 	{
 		a[i].init();
 	}
-	char tamp[256];
-	MakeName("anims.txt", tamp, RESOURCES, 256);
-	FILE *f = fopen(tamp,"r");
+	char buf[256];
+	MakeName("anims.txt", buf, RESOURCES, 256);
+	FILE *f = fopen(buf,"r");
 	if (!f)
 	{
 		fprintf(stderr, "Unable to load animations !!!\n");
@@ -38,29 +38,29 @@ void LoadAnims (Anim *a)
 	}
 	
 	const char *ptr, *ptr2;
-	int n = -1; //number of animations
+	int n = -1; //animation number
 	Uint16 k; //image number
 		
 	for (i=0;;i++)
 	{
-		//printf("Lecture de la ligne %d : ",i);
-		if (!readline(f, tamp, 256))
+		//printf("Reading line %d : ",i);
+		if (!readline(f, buf, 256))
 		{
-			//printf("fin...\n");
+			//printf("end...\n");
 			break;
 		}
-		//printf(tamp);
+		//printf(buf);
 		//printf("\n");
-		ptr = findstart(tamp, &n, 256); //look if there is the beginning of a new animation
+		ptr = findstart(buf, &n, 256); //look if there is the beginning of a new animation
 		if (ptr == NULL)
-			ptr = tamp;
+			ptr = buf;
 		else
 		{
 			//printf("Animation %d ...\n",n);
 		}
 		if (n >= NA)
 		{
-			fprintf(stderr, "Error : animation too big (%d) !!!\n",n);
+			fprintf(stderr, "Error : animation index too big (%d) !!!\n",n);
 			return;
 		}
 		if (n != -1)
@@ -85,10 +85,10 @@ void LoadAnims (Anim *a)
 						fprintf(stderr, "Error : too many images for animation %d !\n",n);
 				}else
 				{
-					fprintf(stderr, "Erreur : Image %d of animation %d (%d) doesn't exist !!!\n",a[n].n,n,k);
+					fprintf(stderr, "Error : Image %d of animation %d (%d) doesn't exist !!!\n",a[n].n,n,k);
 				}
 			}
-			//Password spaces
+			//skip spaces
 			ptr = pass(ptr);
 			if (*ptr == ':')
 			{
@@ -104,12 +104,12 @@ void LoadAnims (Anim *a)
 					//printf("time between two images : %d\n",t2);
 				}
 			}
-			//Password spaces
+			//skip spaces
 			ptr = pass(ptr);
 			if (*ptr == ':')
 			{
 				ptr++;
-				//reads the number of sounds
+				//reads the sound number
 				Uint16 s2;
 				ptr2 = findnum(ptr, &s2);
 				if (ptr2)

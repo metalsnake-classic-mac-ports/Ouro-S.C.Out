@@ -1,6 +1,6 @@
-//liste des objets par type
+//list of objects by type
 
-mur
+wall
 14 15 16 17 18 19 24 25 26 27 28 29 54 55 56 57 58 59 64 65 66 67 68 69 72 73 74 75 76 77 78 79
 80 81 82 83 84 85 86 87 88 90 91 92 93 94 95 96 97 98 99 100 101 102 103 104 105 106 107 108 109
 110 111 112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127 128 129 130 139
@@ -8,19 +8,19 @@ mur
 162 165 166 168 169 172 173 178 182 188 192 198
 200 201 202 208 210 211 212 214 215 216 220 221 222 223 230 231 232 233
 280 290 300 151 152 153 154 155 156 157 158
-//(definition du mur : non traversable)
+//(definition of wall : cannot be crossed)
 
-objet 
+object 
 61 62 63 70 140 144 163 164 197 207 217 284 294 304 314 286 296 306 316 291
-//(definition d'un objet : prenable)
+//(definition of an object : can be taken)
 
 missile
 61 62 63 70
 
-teleporteur
+teleporter
 226 227 228 167
 
-rail_mur
+rail_wall
 162
 172
 182
@@ -40,7 +40,7 @@ rail
 220 221 222
 230 231 232
 
-rail_actif
+rail_active
 162
 170 171 172
 182
@@ -49,9 +49,9 @@ rail_actif
 210 211 212
 222
 230 231 232
-//(definition d'un rail actif : si on est dessus, on avance !)
+//(definition of an active rail : if we are on it, we move forward !)
 
-mechant
+enemy
 242 243 244 245 246 247
 252 253 254 255 256
 262 263 265 266 267
@@ -61,27 +61,27 @@ mechant
 351 352 353 354 355 356 357 358 359
 368 369 378 379 388 389 398 399
 390 391 392 393 394 395
-//(definition d'un mechant : intouchable (sauf exception))
+//(definition of an enemy : must not be touched (with exceptions))
 
 onda-mania
 282 273 274 247
 
-onda_mania_bouge
+onda_mania_moving
 242 243 244 245 246 247 252 253 254 255 256 262 263 265 266 267 273 274 275 276 277
 282 292 293 302 303 312 313
 
-explosif
+explosive
 142 149 151
-//(definition d'un explosif : reagit quand on s'approche)
+//(definition of an explosive : reacts when we come close)
 
-porte //sens unic
+door //one-way door
 81 82 83 84
-//(porte fermee)
+//(closed door)
 
-porte_ouverte //sens unic ouvert
+door_open //open one-way door
 131 132 133 134
 
-porte_ //tous les sens unics
+door_ //all one-way doors
 81 91 101 111 121 131
 82 92 102 112 122 132
 83 93 103 113 123 133
@@ -98,8 +98,8 @@ react_ball
 273 274 275 276 277
 282 292 293 302 303
 286 296 306 316
-162 172 182 192 202 212 222 232 //rails tournant
-//(definition de react_ball : reagit aux balles (et aux explosions))
+162 172 182 192 202 212 222 232 //turning rails
+//(definition of react_ball : reacts to bullets (and explosions))
 
 stop_ball
 14 15 16 17 18 19 24 25 26 27 28 29 72 73 74 75
@@ -108,42 +108,42 @@ stop_ball
 162 165 166 168 169 172 173 178 182 188 192 198
 200 201 202 208 210 211 212 214 215 216 220 221 222 230 231 232
 300
-//(definition du stop_ball : arrete les balles)
+//(definition of stop_ball : stops bullets)
 
 act_ball
-183 193 203 213 //miroirs fixes
-284 294 304 314 //miroirs deplacables
+183 193 203 213 //fixed mirrors
+284 294 304 314 //movable mirrors
 291 280 290 301
 285 295 305 315 287
-//(definition du act_ball : agit sur la balle quand elle est au mileu (action autre qu'anihilation))
+//(definition of act_ball : acts on the bullet when it is in the middle (action other than destroying it))
 
-tapis_roulant
+conveyor_belt
 209 219 229 239
 
-fleche
+arrow
 286 296 306 316
 
-truc_ordi
+computer_thing
 197 207 217
 
-plante
+plant
 54 55 56 57 58 59 64 65 66 67 68 69 76 77 78 79
 214 196 //176 186 206 216 
-//(definition d'une plante : se detruit quand touche par balle ou explosion (sans autres effets))
+//(definition of a plant : destroyed when hit by a bullet or an explosion (no other effects))
 
-rond_colore
+colored_circle
 145 146 147 148
 
 react_on
 281 285 295 305 315
 307 310 281 283 297
-//(definition de react_on : reagit quand on passe dessus)
+//(definition of react_on : reacts when we pass over it)
 
-sol
+ground
 4 5 6 7 8 9 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52
 143 159 179 189
 
-rail_tourne
-162 172 182 192 202 212 222 232 //rails tournant
+rail_turning
+162 172 182 192 202 212 222 232 //turning rails
 
-//saut de ligne obligatoire en fin de fichier !!! (ou bien ligne qui ne sert a rien)
+//line break required at the end of the file !!! (or else a line that is not used)

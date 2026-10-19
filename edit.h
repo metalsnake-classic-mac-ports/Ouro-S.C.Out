@@ -5,11 +5,11 @@
 struct Edit
 {
 	Uint16 t[EX][EY];
-	Uint16 sel; //select what is
+	Uint16 sel; //selected image
 	
 	void Load (); //load the list of images to the editor
-	void Draw (SDL_Surface *im, SDL_Surface *ecran); //display images from the editor
-	void Draw (SDL_Surface *im, SDL_Surface *ecran, Uint16 x, Uint16 y); //display images from the editor
+	void Draw (SDL_Surface *im, SDL_Surface *screen); //display images from the editor
+	void Draw (SDL_Surface *im, SDL_Surface *screen, Uint16 x, Uint16 y); //display images from the editor
 	void Select (Uint16 x, Uint16 y); //selection
 };
 typedef struct Edit Edit;
@@ -24,29 +24,29 @@ void Edit::Select (Uint16 x, Uint16 y) //selection
 
 void Edit::Load ()
 {
-	char tamp[256];
-	MakeName("edit.txt", tamp, RESOURCES, 256);
-	FILE *f = fopen(tamp,"r");
+	char buf[256];
+	MakeName("edit.txt", buf, RESOURCES, 256);
+	FILE *f = fopen(buf,"r");
 	if (f)
 	{
-		char tamp[256];
+		char buf[256];
 		int x,y;
-		const char *ptr = tamp;
+		const char *ptr = buf;
 		for (y=0;y<EY;y++)
 		{
 			//printf("reading line %d...\n",y);
-			if (!readline(f, tamp, 256))
+			if (!readline(f, buf, 256))
 			{
 				break;
 			}
-			ptr = tamp;
-			//printf("%s\n",tamp);
+			ptr = buf;
+			//printf("%s\n",buf);
 			for (x=0;x<DIMX;x++)
 			{
 				ptr = findnum (ptr, &t[x][y]);
 				if (!ptr && x!=DIMX-1)
 				{
-					printf("Attention : line %d incomplete (%d/%d) !\n",y,x,DIMX);
+					printf("Warning : line %d incomplete (%d/%d) !\n",y,x,DIMX);
 				}
 			}
 		}
@@ -58,7 +58,7 @@ void Edit::Load ()
 	}
 }
 
-void Edit::Draw (SDL_Surface *im, SDL_Surface *ecran, Uint16 x, Uint16 y)
+void Edit::Draw (SDL_Surface *im, SDL_Surface *screen, Uint16 x, Uint16 y)
 {
 	SDL_Rect src, pos;
 	src.x = CX*(t[x][y]%10);
@@ -67,10 +67,10 @@ void Edit::Draw (SDL_Surface *im, SDL_Surface *ecran, Uint16 x, Uint16 y)
 	src.h = CY;
 	pos.x = x*CX;
 	pos.y = (y+DIMY)*CY;
-	SDL_BlitSurface(im, &src, ecran, &pos);
+	SDL_BlitSurface(im, &src, screen, &pos);
 }
 
-void Edit::Draw (SDL_Surface *im, SDL_Surface *ecran)
+void Edit::Draw (SDL_Surface *im, SDL_Surface *screen)
 {
 	Uint16 x,y;
 	for (y=0;y<EY;y++)
@@ -78,7 +78,7 @@ void Edit::Draw (SDL_Surface *im, SDL_Surface *ecran)
 		for (x=0;x<EX;x++)
 		{
 			if (t[x][y])
-				Draw(im, ecran, x, y);
+				Draw(im, screen, x, y);
 		}
 	}
 }

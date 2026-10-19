@@ -70,7 +70,7 @@ bool readline (FILE *f, char *txt, long max)
 		if (!fread(&c,sizeof(c),1,f) || i>=max)
 		{
 			if (i>=max)
-				printf("Attention : ligne trop longue !!!\n");
+				printf("Warning : line too long !!!\n");
 			return false;
 		}
 		if (c=='/' && rc=='/')
@@ -90,34 +90,34 @@ bool readline (FILE *f, char *txt, long max)
 	return true;
 }
 
-const char *findword (const char *tamp, char *word, int max) //cherche un nom de variable
+const char *findword (const char *buf, char *word, int max) //looks for a variable name
 {
 	int i;
 	bool started = false;
 	for (i=0;i<max;i++)
 	{
-		if ((*tamp >= 'a' && *tamp <= 'z') || (*tamp >= 'A' && *tamp <= 'Z'))
+		if ((*buf >= 'a' && *buf <= 'z') || (*buf >= 'A' && *buf <= 'Z'))
 			started = true;
 		if (started)
 		{
-			if (*tamp == ' ' || *tamp == '	' || *tamp == 0 || *tamp == '\n' || *tamp == 13)
+			if (*buf == ' ' || *buf == '	' || *buf == 0 || *buf == '\n' || *buf == 13)
 			{
 				*word = 0;
-				return tamp;
+				return buf;
 			}
-			*word = *tamp;
+			*word = *buf;
 			word++;
 		}else
 		{
-			if (*tamp == 0 || *tamp == '\n' || *tamp == 13)
+			if (*buf == 0 || *buf == '\n' || *buf == 13)
 				return NULL;
 		}
-		tamp++;
+		buf++;
 	}
 	return NULL;
 }
 
-const char *pass (const char *txt) //passe les espaces
+const char *pass (const char *txt) //skips spaces
 {
 	while(*txt == ' ' || *txt == '	' || *txt == '\240')
 	{
@@ -126,7 +126,7 @@ const char *pass (const char *txt) //passe les espaces
 	return txt;
 }
 
-const char *readnum (const char *txt, int *n) //lit un entier positif
+const char *readnum (const char *txt, int *n) //reads a positive integer
 {
 	if (*txt < '0' || *txt > '9')
 		return NULL;
@@ -144,15 +144,15 @@ const char *findstart (const char *txt, int *n, int max)
 {
 	int i = 0;
 	int n2;
-	//passe les espaces
+	//skips spaces
 	txt = pass(txt);
-	//lit un nombre entier
+	//reads an integer
 	txt = readnum(txt, &n2);
 	if (!txt)
 		return NULL;
-	//passe les espaces
+	//skips spaces
 	txt = pass(txt);
-	//lit ':'
+	//reads ':'
 	if (*txt == ':')
 	{
 		*n = n2;
@@ -190,9 +190,9 @@ const char *findnum (const char *word, Uint16 *n)
 		word++;
 	}
 	*/
-	//passe les espaces
+	//skips spaces
 	word = pass(word);
-	//lit un nombre
+	//reads a number
 	int n2;
 	word = readnum(word,&n2);
 	*n = n2;
