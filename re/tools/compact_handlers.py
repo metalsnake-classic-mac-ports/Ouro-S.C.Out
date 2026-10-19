@@ -1,6 +1,6 @@
 """Write the decompiled handlers of one table in a compact, normalized form.
 
-X/Y = the handler's box (-0x53b2/-0x53ae), set(x, y, tile, skip) =
+X/Y = the handler's box (-0x53b2/-0x53ae, explosions -0x6d22/-0x6d1e), set(x, y, tile, skip) =
 CODE 9 0x2046, free(x, y) = CODE 9 0x1f94, G[-0x...] = A5 globals.
 
 Usage: python3 compact_handlers.py <work dir> <table name> <out file>
@@ -22,14 +22,20 @@ def body(seg, off):
 def compact(text):
     text = text[text.index("{") + 1:text.rindex("}")]
     text = re.sub(r"\s+", " ", text)
-    text = re.sub(r"\*\((?:undefined4|int) \*\)\(unaff_A5 \+ -0x53b2\)", "X", text)
-    text = re.sub(r"\*\((?:undefined4|int) \*\)\(unaff_A5 \+ -0x53ae\)", "Y", text)
+    # the box: -0x53b2/-0x53ae (tick handlers), -0x6d22/-0x6d1e (explosions)
+    text = re.sub(r"\*\((?:undefined4|int) \*\)\(unaff_A5 \+ -0x(?:53b2|6d22)\)", "X", text)
+    text = re.sub(r"\*\((?:undefined4|int) \*\)\(unaff_A5 \+ -0x(?:53ae|6d1e)\)", "Y", text)
     text = re.sub(r"\*\((\w+) \*\)\(unaff_A5 \+ (-?0x[0-9a-f]+)\)", r"G[\2]", text)
 
     def setcall(m):
         v = int(m.group(3), 16)
         return f"set({m.group(1)},{m.group(2)},{v >> 16},{(v >> 8) & 0xff})"
 
+    # calls through the jump table: A5+0x8c2 = CODE 9 0x2046 (set),
+    # A5+0x8b2 = CODE 9 0x1f94 (free), A5+0x3aa = CODE 4 0x0 (explode)
+    text = re.sub(r"\(\*\*\(code \*\*\)\(unaff_A5 \+ 0x8c2\)\)\s*", "func_0x00002046", text)
+    text = re.sub(r"\(\*\*\(code \*\*\)\(unaff_A5 \+ 0x8b2\)\)\s*", "FUN_00001f94", text)
+    text = re.sub(r"\(\*\*\(code \*\*\)\(unaff_A5 \+ 0x3aa\)\)\s*", "explode", text)
     text = re.sub(r"func_0x00002046\(([^,]+),([^,]+),\s*0x([0-9a-f]+)\s*\)", setcall, text)
     text = re.sub(r"FUN_00001f94\(([^,]+),([^)]+)\)", r"free(\1,\2)", text)
     text = re.sub(r"\b(int|char|short|undefined\d?|code|byte|uint|ushort|bool) \w+;", "", text)

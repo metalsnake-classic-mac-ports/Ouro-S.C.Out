@@ -78,8 +78,21 @@ zero bytes after every zero word; `DREL` relocates pointers.
 `re/tools/thinkc_globals.py` rebuilds the 0x6e48 bytes of globals.
 
 Explosion CODE 4 0x0 `(x, y)`: `explosion[tile]`, and if the player is at
-(x, y), not invincible (`-0x5392`) and the tile is not 0x10e: player death
-animation (tile 0x150) and `-0x5396` = 300.
+(x, y), not protected (`-0x5392`) and the tile is not 0x10e: player death
+animation (tile 0x150) and `-0x5396` = 300. Most explosion handlers set the
+explosion animation 350 (things in motion also on their second box);
+162–165 set the door switches `-0x53b8`…`-0x53b5`; 179 (target) sets
+`-0x3a46` = 120 (level end); 33 sets `-0x5392` and explodes its neighbors.
+
+Bug of the original: explosions of moving enemies write their second box
+without a bounds check; on the bottom edge the skip flag lands in the
+automaton's own position variable. Real levels have walls on almost all
+edge boxes, so it hardly matters; the Rust version ignores such writes.
+
+Testing: `re/tools/emu_world.py` (real levels) and `re/tools/emu_fuzz.py`
+(random levels with walls around) run the original world automaton in
+Unicorn; the test `crates/scout-data/tests/original_world.rs` compares the
+Rust version frame by frame (tiles, floor, skip flags, global flags).
 
 Projectiles: 40 entries of 0x30 bytes at `-0x6cf6` (active, …, x `-0x6cf2`,
 y `-0x6cee`, vx `-0x6cea`, vy `-0x6ce6`, kind `-0x6ce2`), pixel positions.

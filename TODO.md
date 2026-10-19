@@ -51,10 +51,14 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         (198 animation steps generated, the rest ported by hand). Matches the original
         exactly in all 101 levels over 3000 frames and in 300 random scenarios
         (`re/tools/emu_world.py`, `re/tools/emu_fuzz.py`, test `original_world`)
-  - [ ] Explosions (handler table `-0x22d0`, 150 handlers) and player death
+  - [x] Explosions (handler table `-0x22d0`, 150 handlers): death of the player, colored
+        circles set the door switches, the target starts the 120-frame level end,
+        chain reactions. All 150 handlers covered by the random scenarios and matching
+  - [ ] Count down `dying` / `level_end` and end the level like the main loop does
   - [ ] Projectiles (tables `-0x3270` / `-0x2aa0`), cannons, mirrors
   - [ ] Rails/conveyors carrying the player (`-0x539e` → forced direction)
-  - [ ] Who sets the switch flags `-0x53b8`…`-0x53b4` and the carried object `-0x578c`
+  - [x] Switch flags `-0x53b8`…`-0x53b5`: set by exploding colored circles 162–165
+  - [ ] Who sets `-0x53b4` (switch of tile 61) and the carried object `-0x578c`
 
 The sections below were written for the old port and stay as a reference.
 The old port now lives in `legacy-port/`, so `build/` below means `legacy-port/build/`.

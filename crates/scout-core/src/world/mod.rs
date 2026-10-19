@@ -10,6 +10,7 @@
 //! `re/NOTES.md`); comments name the tile values and code addresses.
 
 mod animations;
+mod explosion;
 
 use crate::Level;
 use crate::game::Game;
@@ -45,6 +46,13 @@ pub struct World {
     pub carried: u16,
     /// Set when a rail or conveyor pulse reaches the player (`-0x539e`).
     pub picked_up: bool,
+    /// Explosions do not kill the player (`-0x5392`), set by a chain reaction.
+    pub no_death: bool,
+    /// Frames left after the player died (`-0x5396`), 0 = alive.
+    pub dying: u16,
+    /// Frames left until the level ends after the target was destroyed
+    /// (`-0x3a46`), 0 = not destroyed.
+    pub level_end: u16,
 }
 
 impl Default for World {
@@ -56,6 +64,9 @@ impl Default for World {
             switches: [false; 5],
             carried: 0,
             picked_up: false,
+            no_death: false,
+            dying: 0,
+            level_end: 0,
         }
     }
 }
@@ -122,9 +133,6 @@ impl Game {
         self.set(x, y, 0, false);
         self.set_floor(x, y, PLAIN_FLOOR, false);
     }
-
-    /// An explosion on a box (CODE 4 0x0). Not ported yet.
-    fn explode(&mut self, _x: i32, _y: i32) {}
 
     fn explode_around(&mut self, x: i32, y: i32) {
         for (dx, dy) in AROUND {

@@ -11,7 +11,8 @@ The player stands still on the start box (doors and rails react to that).
 
 Usage: python3 emu_world.py <work dir> <level 1..101 | all> <frames> <out dir>
 Writes <out dir>/world_LLL.txt: one line per change, "frame box tile floor skip"
-(frame 0 lists the start state of boxes that are not empty).
+(frame 0 lists the start state of all boxes), and "g frame no_death dying
+level_end s0 s1 s2 s3 s4" when these globals change.
 (needs unicorn; uses the translation tables of scout-core via loader_tables.json)
 """
 import json
@@ -128,6 +129,12 @@ class Original:
     def skips(self):
         return list(self.uc.mem_read(A5 - 0x5780, 960))
 
+    def flags(self):
+        """Global state the world changes: no_death, dying, level_end, switches."""
+        switches = list(self.uc.mem_read(A5 - 0x53B8, 5))
+        return (self.uc.mem_read(A5 - 0x5392, 1)[0], self.g32(-0x5396), self.g32(-0x3A46),
+                *[1 if s else 0 for s in switches])
+
 
 def level_from_disk(work, number):
     lv = open(f"{work}/rsrc/unpacked_SHAP_6642.bin", "rb").read()
@@ -146,8 +153,17 @@ def record(work, level, frames, out_dir):
     orig = Original(work)
     tiles, floor, start = level_from_disk(work, level)
     orig.load_level(tiles, floor, start)
-    state = (tiles, floor, [0] * (W * H))
     lines = [f"0 {i} {t} {f} 0" for i, (t, f) in enumerate(zip(tiles, floor))]
+    lines += run_frames(orig, frames, (tiles, floor, [0] * (W * H)))
+    open(f"{out_dir}/world_{level:03d}.txt", "w").write("\n".join(lines) + "\n")
+    return len(lines) - W * H
+
+
+def run_frames(orig, frames, state):
+    """Run frames and return the change lines (boxes and flags)."""
+    lines = []
+    flags = orig.flags()
+    lines.append("g 0 " + " ".join(map(str, flags)))
     for n in range(1, frames + 1):
         orig.frame()
         new = (orig.tiles(), orig.floor(), orig.skips())
@@ -155,8 +171,10 @@ def record(work, level, frames, out_dir):
             if any(a[i] != b[i] for a, b in zip(state, new)):
                 lines.append(f"{n} {i} {new[0][i]} {new[1][i]} {new[2][i]}")
         state = new
-    open(f"{out_dir}/world_{level:03d}.txt", "w").write("\n".join(lines) + "\n")
-    return len(lines) - W * H
+        if orig.flags() != flags:
+            flags = orig.flags()
+            lines.append(f"g {n} " + " ".join(map(str, flags)))
+    return lines
 
 
 def main():

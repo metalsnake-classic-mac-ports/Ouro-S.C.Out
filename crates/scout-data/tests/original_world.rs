@@ -22,9 +22,15 @@ struct BoxState {
 }
 
 /// Reference changes per frame: frame → [(box, state)].
-fn read_reference(text: &str) -> Vec<Vec<(usize, BoxState)>> {
+fn read_reference(text: &str) -> Reference {
     let mut frames: Vec<Vec<(usize, BoxState)>> = Vec::new();
+    let mut flags = Vec::new();
     for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("g ") {
+            let v: Vec<i64> = rest.split(' ').map(|n| n.parse().unwrap()).collect();
+            flags.push((v[0] as usize, v[1..9].try_into().unwrap()));
+            continue;
+        }
         let v: Vec<i64> = line.split(' ').map(|n| n.parse().unwrap()).collect();
         let frame = v[0] as usize;
         if frames.len() <= frame {
@@ -37,7 +43,31 @@ fn read_reference(text: &str) -> Vec<Vec<(usize, BoxState)>> {
         };
         frames[frame].push((v[1] as usize, state));
     }
-    frames
+    Reference { frames, flags }
+}
+
+/// Global state of the world: no_death, dying, level_end, switches.
+type Flags = [i64; 8];
+
+/// Reference changes per frame: frame → [(box, state)], and (frame, flags).
+struct Reference {
+    frames: Vec<Vec<(usize, BoxState)>>,
+    flags: Vec<(usize, Flags)>,
+}
+
+fn flags_of(game: &Game) -> Flags {
+    let w = &game.world;
+    let s = |i: usize| w.switches[i] as i64;
+    [
+        w.no_death as i64,
+        w.dying as i64,
+        w.level_end as i64,
+        s(0),
+        s(1),
+        s(2),
+        s(3),
+        s(4),
+    ]
 }
 
 fn state_of(game: &Game) -> Vec<BoxState> {
@@ -55,7 +85,8 @@ fn state_of(game: &Game) -> Vec<BoxState> {
 
 /// Play the frames on `game` and compare with the reference; returns the
 /// first difference.
-fn compare(mut game: Game, frames: &[Vec<(usize, BoxState)>], label: &str) -> Option<String> {
+fn compare(mut game: Game, reference: &Reference, label: &str) -> Option<String> {
+    let mut expected_flags = flags_of(&game);
     let mut expected = vec![
         BoxState {
             tile: 0,
@@ -65,12 +96,21 @@ fn compare(mut game: Game, frames: &[Vec<(usize, BoxState)>], label: &str) -> Op
         Level::CELLS
     ];
     let start = state_of(&game);
-    for (frame, changes) in frames.iter().enumerate() {
+    for (frame, changes) in reference.frames.iter().enumerate() {
         for &(i, state) in changes {
             expected[i] = state;
         }
         if frame > 0 {
             game.tick(Command::None);
+        }
+        if let Some((_, f)) = reference.flags.iter().rev().find(|(at, _)| *at == frame) {
+            expected_flags = *f;
+        }
+        if flags_of(&game) != expected_flags {
+            return Some(format!(
+                "{label}: frame {frame}: flags expected {expected_flags:?}, got {:?}",
+                flags_of(&game)
+            ));
         }
         let actual = state_of(&game);
         if let Some(i) = (0..Level::CELLS).find(|&i| actual[i] != expected[i]) {
@@ -141,7 +181,7 @@ fn world_matches_the_original_in_random_scenarios() {
         let frames = read_reference(body);
         let mut tiles = [0; Level::CELLS];
         let mut floor = [0; Level::CELLS];
-        for &(i, state) in &frames[0] {
+        for &(i, state) in &frames.frames[0] {
             tiles[i] = state.tile;
             floor[i] = state.floor;
         }
