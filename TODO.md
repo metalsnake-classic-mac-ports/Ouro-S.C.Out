@@ -57,7 +57,26 @@ Everything is in the resource fork of the application:
     94, 95, 99). Partly leftovers from saving with the port's editor (start tile 11 → 283,
     empty ground 0 → 41), partly real edits (e.g. level 8: 48 tiles, level 71: a grenade
     replaced by an arrow). The new version uses the original data.
-- [ ] Identify the graphics in `SHAP 5100`–`5200` and compare them with `images.bmp`
+- [x] Identify the graphics (`re/tools/tiles.py`, `re/tools/pict.py`)
+  - The port's `images.bmp` (32×25 tiles, 320×200 view) comes from the **MS-DOS version**.
+    The Mac version has its own graphics: 32×32 tiles, a view of 14×10 tiles (448×320).
+  - `SHAP 5101`: 480 opaque tiles, 32×32, 8 bit, stored one after another (1024 bytes each).
+    Floor values and tile values ≥ 40 index into it directly.
+  - `SHAP 5100`: 39 objects (tile values 1–39), 2048 bytes each = 32×32 pixels + 32×32 mask.
+    Drawn on top of the floor tile.
+  - `SHAP 5102`–`5108`: still unknown (screen frame, sprites?)
+  - `SHAP 5200`: music ("composed by frederic motte"). The port has no music.
+  - `PICT 1000`, `1001`, `1002`, `2000`, `256`: intro, illustrations, Kalisto logo, about box.
+    They decode correctly with their own color tables.
+- [ ] **Palette of the game screen.** The tiles are drawn without color conversion
+      (offscreen port with the screen's color table). The screen's color table is set by the
+      Mac Palette Manager from `pltt 128` (`CODE 6` at 0x85e: `GetNewPalette`, color table
+      blacked out, `SetPalette`). Which palette entry ends up at which index is decided by
+      Mac OS at runtime; obvious mappings don't match the box screenshots (green floor = index 169).
+      → read it from the running original in an emulator.
+- Code: compiled for the **68020** (uses `muls.l`, memory-indirect addressing).
+  Ghidra headless: `re/tools/ghidra/` (use processor `68000:BE:32:MC68020`).
+  Level loader: `CODE 5` at 0x48c. Draw list for the view: `CODE 9` around 0x2c0.
 - [ ] Run the original in an emulator (Basilisk II or Mini vMac, needs a Mac II/Quadra ROM)
       to compare behavior
 - [ ] Rename the sound files after the original resource names
