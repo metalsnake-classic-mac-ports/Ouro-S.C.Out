@@ -147,6 +147,7 @@ impl Game {
             }
         }
         self.world_frame();
+        self.projectiles_frame();
     }
 
     /// Whether a box in view-relative coordinates can be entered

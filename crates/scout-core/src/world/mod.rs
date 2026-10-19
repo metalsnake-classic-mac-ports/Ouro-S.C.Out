@@ -11,6 +11,11 @@
 
 mod animations;
 mod explosion;
+pub mod projectiles;
+mod random;
+
+pub use projectiles::{Kind, Projectile};
+pub use random::MacRandom;
 
 use crate::Level;
 use crate::game::Game;
@@ -30,6 +35,10 @@ const PLAIN_FLOOR: u16 = 13;
 pub enum Event {
     /// The player got picked up by a rail or conveyor pulse.
     PickedUp,
+    /// A computer terminal was hit.
+    Computer,
+    /// A cannon fired.
+    Cannon,
 }
 
 /// State of the world automaton.
@@ -53,6 +62,18 @@ pub struct World {
     /// Frames left until the level ends after the target was destroyed
     /// (`-0x3a46`), 0 = not destroyed.
     pub level_end: u16,
+    pub projectiles: [Projectile; projectiles::SLOTS],
+    /// Active projectiles plus those still to be erased (`-0x57ca`).
+    pub projectile_count: i32,
+    /// A command for the player set by direction objects (`-0x3a42`), −1 = none.
+    pub forced_command: i16,
+    /// A projectile hit the player (`-0x6d1a`).
+    pub player_hit: bool,
+    /// The player is on screen and can be hit (`-0x184`).
+    pub player_visible: bool,
+    /// Hits on reinforced walls per box (`-0x1ae8`).
+    pub wall_hits: [u16; Level::CELLS],
+    pub random: MacRandom,
 }
 
 impl Default for World {
@@ -67,6 +88,13 @@ impl Default for World {
             no_death: false,
             dying: 0,
             level_end: 0,
+            projectiles: [Projectile::default(); projectiles::SLOTS],
+            projectile_count: 0,
+            forced_command: -1,
+            player_hit: false,
+            player_visible: true,
+            wall_hits: [0; Level::CELLS],
+            random: MacRandom::default(),
         }
     }
 }
@@ -260,13 +288,13 @@ impl Game {
     }
 }
 
-fn index(x: i32, y: i32) -> Option<usize> {
+pub(crate) fn index(x: i32, y: i32) -> Option<usize> {
     ((0..Level::WIDTH as i32).contains(&x) && (0..Level::HEIGHT as i32).contains(&y))
         .then(|| y as usize * Level::WIDTH + x as usize)
 }
 
 /// The eight neighbors in the order the original visits them.
-const AROUND: [(i32, i32); 8] = [
+pub(crate) const AROUND: [(i32, i32); 8] = [
     (-1, -1),
     (0, -1),
     (1, -1),

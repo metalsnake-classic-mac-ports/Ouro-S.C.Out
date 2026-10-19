@@ -103,7 +103,7 @@ impl Game {
 
     /// The box and every free box around it (but not the player's) get
     /// `tile` (CODE 4 0x0186, 0x04da).
-    fn spread(&mut self, x: i32, y: i32, tile: u16) {
+    pub(super) fn spread(&mut self, x: i32, y: i32, tile: u16) {
         self.set(x, y, tile, true);
         for (dx, dy) in AROUND {
             let (nx, ny) = (x + dx, y + dy);

@@ -153,3 +153,16 @@ switches; 20–23 set a forced player command (`-0x3a42`); 34 splits into four;
 222–226 are cannons (spawn); 166 counts 0x110 neighbors; 218, 227, 228 call
 further functions (A5+0x8e2, 0x8d2, 0x8da). Enemies and their second box
 explode (350).
+
+Reinforced wall 218 (enter handler CODE 4 0x42e8) pushes the low words of
+the box x/y (`-0x53b0`, `-0x53ac`) and calls CODE 9 0x5586: hit counter
+word at `-0x1ae8 + 2·(40·y + x)`, at 20 the box explodes. That function
+also starts `-0x6cfe` at 600 (cleared when the wall explodes); the main loop
+counts it down and at 0 runs an empty 1000-iteration loop, i.e. a tiny
+delay with no effect on the game (not ported).
+
+Checked against the original: the harness replaces the two `Random` traps
+(CODE 4 0x2524, CODE 9 0x221e) by NOPs and puts Park-Miller numbers on the
+stack, records all 40 slots per frame plus count, forced command, player
+hit and seed. The random scenarios add projectiles of all types (some aimed
+at a box), computers with chips, earlier wall hits and a random view.
