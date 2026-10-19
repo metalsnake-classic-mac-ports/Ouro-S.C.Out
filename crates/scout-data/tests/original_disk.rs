@@ -36,6 +36,21 @@ fn counts_match_the_original() {
 }
 
 #[test]
+fn level_1_starts_like_in_the_screenshot() {
+    let Some(game) = load() else { return };
+    assert_eq!(game.levels[0].start(), Some((2, 2)));
+    assert_eq!(game.levels[0].start_view(), (0, 0));
+}
+
+#[test]
+fn every_level_has_a_start() {
+    let Some(game) = load() else { return };
+    for (n, level) in game.levels.iter().enumerate() {
+        assert!(level.start().is_some(), "level {}", n + 1);
+    }
+}
+
+#[test]
 fn level_codes() {
     let Some(game) = load() else { return };
     assert_eq!(game.level_codes[0], "RAFAFE"); // level 2

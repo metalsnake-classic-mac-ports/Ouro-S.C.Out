@@ -20,7 +20,7 @@ use std::path::Path;
 use scout_core::Level;
 
 pub use error::{Error, Result};
-pub use graphics::{ObjectSet, TileSet};
+pub use graphics::{Bitmap, Frame, ObjectSet, TileSet};
 pub use palette::{Palette, Rgb};
 pub use pict::IndexedImage;
 use resource::ResourceFork;
@@ -29,6 +29,9 @@ const APPLICATION: &str = "S.C.OUT";
 const SHAP: &[u8; 4] = b"SHAP";
 const OBJECTS_ID: i16 = 5100;
 const TILES_ID: i16 = 5101;
+const FRAME_TOP_ID: i16 = 5102;
+const FRAME_BOTTOM_ID: i16 = 5103;
+const FRAME_SIDES_ID: i16 = 5104;
 const CODES_ID: i16 = 5300;
 const LEVELS_ID: i16 = 6642;
 const GAME_PALETTE_ID: i16 = 128;
@@ -40,6 +43,7 @@ pub struct GameData {
     pub levels: Vec<Level>,
     pub tiles: TileSet,
     pub objects: ObjectSet,
+    pub frame: Frame,
     /// The colors of the game screen: palette index → color for the tiles
     /// and objects (see [`Palette::from_palette_manager`]).
     pub game_palette: Palette,
@@ -120,6 +124,11 @@ impl GameData {
             levels: parse_levels(&shap(LEVELS_ID)?)?,
             tiles: TileSet::new(shap(TILES_ID)?)?,
             objects: ObjectSet::new(shap(OBJECTS_ID)?)?,
+            frame: Frame::new(
+                shap(FRAME_TOP_ID)?,
+                shap(FRAME_BOTTOM_ID)?,
+                shap(FRAME_SIDES_ID)?,
+            )?,
             game_palette,
             level_codes: parse_codes(&shap(CODES_ID)?),
             palettes,

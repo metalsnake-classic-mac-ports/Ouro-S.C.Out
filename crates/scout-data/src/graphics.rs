@@ -7,6 +7,64 @@ const TILE_BYTES: usize = TILE_SIZE * TILE_SIZE;
 /// Objects store, per row, 8 × (4 mask bytes, 4 pixel bytes).
 const OBJECT_BYTES: usize = 2 * TILE_BYTES;
 
+/// A rectangular 8-bit image (palette indices, row by row).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Bitmap {
+    pub width: usize,
+    pub height: usize,
+    pub pixels: Vec<u8>,
+}
+
+impl Bitmap {
+    pub fn new(width: usize, height: usize, pixels: Vec<u8>) -> Result<Self> {
+        if pixels.len() != width * height {
+            return Err(corrupt(format!(
+                "bitmap of {width} × {height} has {} bytes",
+                pixels.len()
+            )));
+        }
+        Ok(Self {
+            width,
+            height,
+            pixels,
+        })
+    }
+}
+
+/// The frame around the game view (a 512 × 364 area, the view is 448 × 320
+/// inside it at (32, 32)).
+#[derive(Debug, Clone)]
+pub struct Frame {
+    /// `SHAP 5102`, 448 × 32, above the view.
+    pub top: Bitmap,
+    /// `SHAP 5103`, 448 × 12, below the view.
+    pub bottom: Bitmap,
+    /// `SHAP 5104` (first half), 32 × 364, left of the view.
+    pub left: Bitmap,
+    /// `SHAP 5104` (second half), 32 × 364, right of the view.
+    pub right: Bitmap,
+}
+
+impl Frame {
+    pub const WIDTH: usize = 512;
+    pub const HEIGHT: usize = 364;
+    pub const VIEW_X: usize = 32;
+    pub const VIEW_Y: usize = 32;
+
+    pub fn new(top: Vec<u8>, bottom: Vec<u8>, sides: Vec<u8>) -> Result<Self> {
+        let side = 32 * Self::HEIGHT;
+        if sides.len() != 2 * side {
+            return Err(corrupt(format!("frame sides are {} bytes", sides.len())));
+        }
+        Ok(Self {
+            top: Bitmap::new(448, 32, top)?,
+            bottom: Bitmap::new(448, 12, bottom)?,
+            left: Bitmap::new(32, Self::HEIGHT, sides[..side].to_vec())?,
+            right: Bitmap::new(32, Self::HEIGHT, sides[side..].to_vec())?,
+        })
+    }
+}
+
 /// Opaque 32 × 32 tiles, stored one after another (`SHAP 5101`).
 #[derive(Debug, Clone)]
 pub struct TileSet {

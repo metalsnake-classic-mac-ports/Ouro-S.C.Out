@@ -2,12 +2,12 @@
 //!
 //! Usage:
 //!   scout [DISK]                          show the levels in a window
-//!   scout [DISK] --export LEVEL OUT.bmp [PALETTE]
+//!   scout [DISK] --export LEVEL OUT.bmp [screen|map] [PALETTE]
 //!
 //! DISK is the original `SCOUT_1_4.dsk`. Without it, `SCOUT_DISK` is used,
 //! then `SCOUT_1_4.dsk` in the current folder, then `re/work/SCOUT_1_4.dsk`.
 //!
-//! Keys: ←/→ level, ↑/↓ palette, Esc quit.
+//! Keys: ←/→ level, Tab game screen / level map, ↑/↓ palette, Esc quit.
 
 mod render;
 
@@ -30,7 +30,7 @@ fn main() -> Result<()> {
         Some(at) => {
             let rest: Vec<String> = args.drain(at..).skip(1).collect();
             if rest.len() < 2 {
-                bail!("usage: scout [DISK] --export LEVEL OUT.bmp [PALETTE]");
+                bail!("usage: scout [DISK] --export LEVEL OUT.bmp [screen|map] [PALETTE]");
             }
             Some(rest)
         }
@@ -42,8 +42,13 @@ fn main() -> Result<()> {
     match export {
         Some(rest) => {
             let level: usize = rest[0].parse().context("LEVEL must be a number from 1")?;
-            let palette = rest.get(2).map(String::as_str).unwrap_or(DEFAULT_PALETTE);
-            export_level(&game, level, palette, &PathBuf::from(&rest[1]))
+            let view = match rest.get(2).map(String::as_str) {
+                None | Some("screen") => View::Screen,
+                Some("map") => View::Map,
+                Some(other) => bail!("unknown view {other:?}, use screen or map"),
+            };
+            let palette = rest.get(3).map(String::as_str).unwrap_or(DEFAULT_PALETTE);
+            export_level(&game, level, view, palette, &PathBuf::from(&rest[1]))
         }
         None => run_viewer(&game),
     }
@@ -75,57 +80,73 @@ fn palette_index(game: &GameData, name: &str) -> Result<usize> {
         })
 }
 
-fn export_level(game: &GameData, level: usize, palette: &str, out: &Path) -> Result<()> {
-    let data = game
-        .levels
-        .get(level.wrapping_sub(1))
-        .with_context(|| format!("level {level} does not exist (1..={})", game.levels.len()))?;
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum View {
+    /// The 640 × 480 game screen at the start of the level.
+    Screen,
+    /// The whole level.
+    Map,
+}
+
+fn draw(game: &GameData, level: usize, view: View) -> render::Canvas {
+    let level = &game.levels[level];
+    match view {
+        View::Screen => render::start_screen(game, level),
+        View::Map => render::level_map(game, level),
+    }
+}
+
+fn export_level(
+    game: &GameData,
+    level: usize,
+    view: View,
+    palette: &str,
+    out: &Path,
+) -> Result<()> {
+    if level == 0 || level > game.levels.len() {
+        bail!("level {level} does not exist (1..={})", game.levels.len());
+    }
     let palette = &game.palettes[palette_index(game, palette)?].palette;
-    let mut rgb = vec![0; render::WIDTH * render::HEIGHT * 3];
-    render::to_rgb24(
-        &render::level_indices(game, data),
-        palette,
-        &mut rgb,
-        render::WIDTH * 3,
-    );
-    render::write_bmp(out, &rgb).with_context(|| format!("writing {}", out.display()))
+    let canvas = draw(game, level - 1, view);
+    let mut rgb = vec![0; canvas.width * canvas.height * 3];
+    canvas.to_rgb24(palette, &mut rgb, canvas.width * 3);
+    render::write_bmp(out, canvas.width, canvas.height, &rgb)
+        .with_context(|| format!("writing {}", out.display()))
 }
 
 fn run_viewer(game: &GameData) -> Result<()> {
     let sdl = sdl3::init()?;
     let video = sdl.video()?;
     let window = video
-        .window("S.C.Out", render::WIDTH as u32, render::HEIGHT as u32)
+        .window(
+            "S.C.Out",
+            2 * render::SCREEN_WIDTH as u32,
+            2 * render::SCREEN_HEIGHT as u32,
+        )
         .resizable()
         .position_centered()
         .build()?;
     let mut canvas = window.into_canvas();
-    canvas.set_logical_size(
-        render::WIDTH as u32,
-        render::HEIGHT as u32,
-        SDL_LOGICAL_PRESENTATION_LETTERBOX,
-    )?;
     let creator = canvas.texture_creator();
-    let mut texture = creator.create_texture_streaming(
-        PixelFormat::RGB24,
-        render::WIDTH as u32,
-        render::HEIGHT as u32,
-    )?;
-    texture.set_scale_mode(ScaleMode::Nearest);
 
     let mut level = 0usize;
+    let mut view = View::Screen;
     let mut palette = palette_index(game, DEFAULT_PALETTE)?;
-    let mut indices = render::level_indices(game, &game.levels[level]);
+    let mut image = draw(game, level, view);
     let mut events = sdl.event_pump()?;
     let mut redraw = true;
     loop {
         if redraw {
             let p = &game.palettes[palette];
+            let (w, h) = (image.width as u32, image.height as u32);
+            let mut texture = creator.create_texture_streaming(PixelFormat::RGB24, w, h)?;
+            texture.set_scale_mode(ScaleMode::Nearest);
             texture.with_lock(None, |buf: &mut [u8], pitch: usize| {
-                render::to_rgb24(&indices, &p.palette, buf, pitch)
+                image.to_rgb24(&p.palette, buf, pitch)
             })?;
+            canvas.set_logical_size(w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX)?;
             canvas.window_mut().set_title(&format!(
-                "S.C.Out – level {}/{} – palette {} (←/→ level, ↑/↓ palette)",
+                "S.C.Out – level {}/{} – palette {} (←/→ level, Tab screen/map, ↑/↓ palette)",
                 level + 1,
                 game.levels.len(),
                 p.name
@@ -151,9 +172,15 @@ fn run_viewer(game: &GameData) -> Result<()> {
                     Keycode::Left => level = (level + n - 1) % n,
                     Keycode::Up => palette = (palette + 1) % p,
                     Keycode::Down => palette = (palette + p - 1) % p,
+                    Keycode::Tab => {
+                        view = match view {
+                            View::Screen => View::Map,
+                            View::Map => View::Screen,
+                        }
+                    }
                     _ => continue,
                 }
-                indices = render::level_indices(game, &game.levels[level]);
+                image = draw(game, level, view);
                 redraw = true;
             }
             Event::Window { .. } => redraw = true,
