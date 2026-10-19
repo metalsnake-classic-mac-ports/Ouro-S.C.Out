@@ -28,7 +28,9 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 
 ### Next
 
-- [ ] Player sprite, screen frame (`SHAP 5102`–`5108`?)
+- [x] Screen frame; level 1 start screen matches the original screenshot (99.15 %)
+- [ ] Player sprite and the start animation (striped frame around object 15 in the original)
+- [ ] Side panel displays (`SHAP 5105`, `5108`), fonts (`5106`, `5107`)
 - [ ] Remaining graphics: `SHAP 5102`–`5108` (screen frame? sprites?)
 - [ ] Sounds (`snd ` resources) and music (`SHAP 5200`)
 - [ ] Game logic in `scout-core`, starting with movement, using the original code as reference
@@ -85,7 +87,13 @@ Everything is in the resource fork of the application:
     Floor values and tile values ≥ 40 index into it directly.
   - `SHAP 5100`: 39 objects (tile values 1–39), 2048 bytes each = 32×32 pixels + 32×32 mask.
     Drawn on top of the floor tile.
-  - `SHAP 5102`–`5108`: still unknown (screen frame, sprites?)
+  - `SHAP 5102`: top band (448×32), `5103`: bottom bar (448×12), `5104`: left and right
+    side panel (2 × 32×364). Together with the view a 512×364 frame at (64, 68) on the
+    640×480 screen; the view is at (96, 100).
+  - `SHAP 5106`: large font, 45 glyphs 32×32 masked (A–Z, 0–9, punctuation)
+  - `SHAP 5107`: small font, the same 45 glyphs 16×16 masked
+  - `SHAP 5108`: nine 32×32 pink panel pieces (side panel indicators?)
+  - `SHAP 5105`: 19 small green displays of 28×24 (status monitor in the side panels?)
   - `SHAP 5200`: music ("composed by frederic motte"). The port has no music.
   - `PICT 1000`, `1001`, `1002`, `2000`, `256`: intro, illustrations, Kalisto logo, about box.
     They decode correctly with their own color tables.
