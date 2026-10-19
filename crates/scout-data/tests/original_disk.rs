@@ -69,8 +69,8 @@ fn levels_match_the_port_where_it_was_not_edited() {
         let same = (0..Level::HEIGHT).all(|y| {
             (0..Level::WIDTH).all(|x| {
                 let i = y * Level::WIDTH + x;
-                level.tile(x, y) == u16::from_le_bytes([chunk[2 * i], chunk[2 * i + 1]])
-                    && level.floor(x, y) == chunk[2 * Level::CELLS + i]
+                level.file_tile(x, y) == u16::from_le_bytes([chunk[2 * i], chunk[2 * i + 1]])
+                    && level.file_floor(x, y) == chunk[2 * Level::CELLS + i]
             })
         });
         assert_eq!(same, !edited.contains(&n), "level {}", n + 1);

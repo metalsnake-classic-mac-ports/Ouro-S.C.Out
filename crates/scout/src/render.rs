@@ -1,28 +1,24 @@
-//! Software rendering into palette indices, like the original: level values
-//! are translated to Mac graphics indices; indices from 40 up are opaque
-//! tiles, indices below are objects drawn with their mask on top of the
+//! Software rendering into palette indices, like the original: tile values
+//! (Mac graphics indices, see `scout_core::Level`) from 40 up are opaque
+//! tiles, values below are objects drawn with their mask on top of the
 //! floor tile.
 
-use scout_core::Level;
+use scout_core::{Game, Level};
 use scout_data::graphics::TILE_SIZE;
-use scout_data::{Bitmap, Frame, GameData, Palette, translate};
+use scout_data::{Bitmap, Frame, GameData, Palette};
 
-/// Mac graphics indices from here on are opaque tiles, below are objects.
-const FIRST_SOLID_GRAPHIC: u16 = 40;
 /// Palette index used where the game data has no graphic for a value.
 const MISSING: u8 = 0;
 /// Black in the game palette (screen index 255 = palette entry 1).
 const BLACK: u8 = 255;
-/// The object the original shows on the start box when a level begins.
-/// (Seen in a screenshot of the original; the player animation is not
-/// decoded yet.)
-const START_OBJECT: usize = 15;
 
 pub const SCREEN_WIDTH: usize = 640;
 pub const SCREEN_HEIGHT: usize = 480;
 /// Position of the frame on the 640 × 480 screen of the original.
 const FRAME_X: usize = 64;
 const FRAME_Y: usize = 68;
+const VIEW_X: usize = FRAME_X + Frame::VIEW_X;
+const VIEW_Y: usize = FRAME_Y + Frame::VIEW_Y;
 
 /// An image of palette indices.
 pub struct Canvas {
@@ -51,48 +47,48 @@ impl Canvas {
     /// Draw one level box at pixel position (x, y).
     fn draw_box(
         &mut self,
-        game: &GameData,
+        data: &GameData,
         level: &Level,
         bx: usize,
         by: usize,
         x: usize,
         y: usize,
     ) {
-        let raw = level.tile(bx, by);
-        let value = if level.is_start_marker(bx, by) {
-            0
-        } else {
-            translate::tile(raw)
-        };
-        let (base, object) = if value >= FIRST_SOLID_GRAPHIC {
+        let value = level.tile(bx, by);
+        let (base, object) = if value >= Level::FIRST_SOLID_TILE {
             (value as usize, None)
         } else {
             (
-                translate::floor(level.floor(bx, by)) as usize,
+                level.floor(bx, by) as usize,
                 (value != 0).then_some(value as usize),
             )
         };
         for row in 0..TILE_SIZE {
             let at = (y + row) * self.width + x;
-            match game.tiles.tile(base) {
+            match data.tiles.tile(base) {
                 Some(tile) => self.pixels[at..at + TILE_SIZE]
                     .copy_from_slice(&tile[row * TILE_SIZE..(row + 1) * TILE_SIZE]),
                 None => self.pixels[at..at + TILE_SIZE].fill(MISSING),
             }
         }
         if let Some(object) = object {
-            self.draw_object(game, object, x, y);
+            self.draw_object(data, object, x as i32, y as i32);
         }
     }
 
-    fn draw_object(&mut self, game: &GameData, object: usize, x: usize, y: usize) {
-        if object >= game.objects.len() {
+    /// Draw a masked object at pixel position (x, y), clipped to the canvas.
+    fn draw_object(&mut self, data: &GameData, object: usize, x: i32, y: i32) {
+        if object >= data.objects.len() {
             return;
         }
         for row in 0..TILE_SIZE {
             for col in 0..TILE_SIZE {
-                if let Some(p) = game.objects.pixel(object, col, row) {
-                    self.pixels[(y + row) * self.width + x + col] = p;
+                let (px, py) = (x + col as i32, y + row as i32);
+                if px < 0 || py < 0 || px as usize >= self.width || py as usize >= self.height {
+                    continue;
+                }
+                if let Some(p) = data.objects.pixel(object, col, row) {
+                    self.pixels[py as usize * self.width + px as usize] = p;
                 }
             }
         }
@@ -110,54 +106,52 @@ impl Canvas {
     }
 }
 
-/// The whole level (40 × 24 boxes) without frame.
-pub fn level_map(game: &GameData, level: &Level) -> Canvas {
+/// The whole level (40 × 24 boxes) without frame, with the player.
+pub fn level_map(data: &GameData, game: &Game) -> Canvas {
     let mut canvas = Canvas::new(Level::WIDTH * TILE_SIZE, Level::HEIGHT * TILE_SIZE, MISSING);
     for by in 0..Level::HEIGHT {
         for bx in 0..Level::WIDTH {
-            canvas.draw_box(game, level, bx, by, bx * TILE_SIZE, by * TILE_SIZE);
+            canvas.draw_box(data, &game.level, bx, by, bx * TILE_SIZE, by * TILE_SIZE);
         }
     }
-    if let Some((sx, sy)) = level.start() {
-        canvas.draw_object(game, START_OBJECT, sx * TILE_SIZE, sy * TILE_SIZE);
-    }
+    let p = &game.player;
+    let (ox, oy) = p.offset();
+    let x = (p.x * TILE_SIZE) as i32 + ox;
+    let y = (p.y * TILE_SIZE) as i32 + oy;
+    canvas.draw_object(data, p.sprite(), x, y);
     canvas
 }
 
-/// The 640 × 480 game screen at the start of a level, as the original
-/// shows it (without the Mac menu bar).
-pub fn start_screen(game: &GameData, level: &Level) -> Canvas {
+/// The 640 × 480 game screen as the original shows it (without the Mac
+/// menu bar): frame, the 14 × 10 view and the player.
+pub fn game_screen(data: &GameData, game: &Game) -> Canvas {
     let mut canvas = Canvas::new(SCREEN_WIDTH, SCREEN_HEIGHT, BLACK);
-    let frame = &game.frame;
-    let view_x = FRAME_X + Frame::VIEW_X;
-    let view_y = FRAME_Y + Frame::VIEW_Y;
-    canvas.blit(&frame.top, view_x, FRAME_Y);
+    let frame = &data.frame;
+    canvas.blit(&frame.top, VIEW_X, FRAME_Y);
     canvas.blit(&frame.left, FRAME_X, FRAME_Y);
     canvas.blit(
         &frame.right,
-        view_x + Level::VIEW_WIDTH * TILE_SIZE,
+        VIEW_X + Level::VIEW_WIDTH * TILE_SIZE,
         FRAME_Y,
     );
     canvas.blit(
         &frame.bottom,
-        view_x,
-        view_y + Level::VIEW_HEIGHT * TILE_SIZE,
+        VIEW_X,
+        VIEW_Y + Level::VIEW_HEIGHT * TILE_SIZE,
     );
 
-    let (vx, vy) = level.start_view();
+    let (vx, vy) = game.view;
     for by in 0..Level::VIEW_HEIGHT {
         for bx in 0..Level::VIEW_WIDTH {
-            let (x, y) = (view_x + bx * TILE_SIZE, view_y + by * TILE_SIZE);
-            canvas.draw_box(game, level, vx + bx, vy + by, x, y);
+            let (x, y) = (VIEW_X + bx * TILE_SIZE, VIEW_Y + by * TILE_SIZE);
+            canvas.draw_box(data, &game.level, vx + bx, vy + by, x, y);
         }
     }
-    if let Some((sx, sy)) = level.start() {
-        let (x, y) = (
-            view_x + (sx - vx) * TILE_SIZE,
-            view_y + (sy - vy) * TILE_SIZE,
-        );
-        canvas.draw_object(game, START_OBJECT, x, y);
-    }
+    let p = &game.player;
+    let (ox, oy) = p.offset();
+    let x = VIEW_X as i32 + (p.x as i32 - vx as i32) * TILE_SIZE as i32 + ox;
+    let y = VIEW_Y as i32 + (p.y as i32 - vy as i32) * TILE_SIZE as i32 + oy;
+    canvas.draw_object(data, p.sprite(), x, y);
     canvas
 }
 

@@ -33,7 +33,21 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [ ] Side panel displays (`SHAP 5105`, `5108`), fonts (`5106`, `5107`)
 - [ ] Remaining graphics: `SHAP 5102`–`5108` (screen frame? sprites?)
 - [ ] Sounds (`snd ` resources) and music (`SHAP 5200`)
-- [ ] Game logic in `scout-core`, starting with movement, using the original code as reference
+- [ ] Game logic in `scout-core`, using the original code as reference
+  - [x] Main loop (CODE 9, 0x0): single-threaded, one pass = one frame
+  - [x] Input (CODE 6, 0x7a8): only the first pressed key counts; commands 0–3 move,
+        7 and 4 are actions (once per key press), `5` starts a 300-frame self destruct,
+        Caps Lock + Q / P quit / pause
+  - [x] Movement (CODE 9, 0xb70 and 0x1f12): a move is one box, 4 px per frame (8 frames);
+        passable: values < 40, 184–188, ≥ 219; one-way tiles 243–246 block one direction;
+        the view scrolls one box per frame (up to 6 sideways / 4 up or down)
+  - [x] Player sprite: object 4 × turret + hull direction (objects 0–15), starts facing down
+  - [ ] Frame rate of the original (provisional 30 fps; to be measured in the emulator)
+  - [ ] Start pad animation (tile 264 after loading, 267 in the screenshot)
+  - [ ] Tiles that act on the player (CODE 9, 0xb70 switch: arrows/conveyors 0x8c–0xa9,
+        tiles > 291 on enter/leave, 0xdf–0xe2 …), steering is blocked on 0x8c–0xaa
+  - [ ] Actions (commands 4 and 7), items, shooting
+  - [ ] Everything else: CODE 4 and 9 have about 250 small functions each (tile handlers?)
 
 The sections below were written for the old port and stay as a reference.
 The old port now lives in `legacy-port/`, so `build/` below means `legacy-port/build/`.
@@ -106,6 +120,12 @@ Everything is in the resource fork of the application:
 - Code: compiled for the **68020** (uses `muls.l`, memory-indirect addressing).
   Ghidra headless: `re/tools/ghidra/` (use processor `68000:BE:32:MC68020`).
   Level loader: `CODE 5` at 0x48c. Draw list for the view: `CODE 9` around 0x2c0.
+  Toolbox traps stop Ghidra's decoding; `re/tools/ghidra/patch_traps.py` replaces them
+  with TRAP #15 first, `re/tools/ghidra/decompile_all.sh` runs everything,
+  `re/tools/xref.py` finds callers through the jump table.
+  Important globals (offsets from A5): -0x579a/-0x5796 player box, -0x57aa direction,
+  -0x57a6 pixels left of the move, -0x57ae speed, -0x57c6/-0x57c2 view, -0x5790 command,
+  -0x6546 level map (40 × 24, translated values).
 - [x] Run the original in an emulator: Basilisk II with a Performa 630 ROM and System 7.0,
       see `re/tools/emulator/` (ROM and system disk are not in the repo)
 - [x] Level 69 code: the original accepts `MUFUPO` (as in its data); `MUFUMO` from the port

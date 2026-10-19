@@ -13,7 +13,6 @@ pub mod lzrw1a;
 pub mod palette;
 pub mod pict;
 pub mod resource;
-pub mod translate;
 
 use std::path::Path;
 
@@ -155,7 +154,7 @@ fn parse_levels(data: &[u8]) -> Result<Vec<Level>> {
                 *tile = u16::from_le_bytes([chunk[2 * i], chunk[2 * i + 1]]);
             }
             let floor: [u8; Level::CELLS] = chunk[2 * Level::CELLS..].try_into().unwrap();
-            Level::new(tiles, floor)
+            Level::from_file(tiles, floor)
         })
         .collect())
 }
@@ -180,8 +179,8 @@ mod tests {
         data[2 * Level::CELLS + Level::WIDTH] = 41; // floor of box (0, 1)
         let levels = parse_levels(&data).unwrap();
         assert_eq!(levels.len(), 1);
-        assert_eq!(levels[0].tile(1, 0), 300);
-        assert_eq!(levels[0].floor(0, 1), 41);
+        assert_eq!(levels[0].file_tile(1, 0), 300);
+        assert_eq!(levels[0].file_floor(0, 1), 41);
         assert!(parse_levels(&data[1..]).is_err());
     }
 

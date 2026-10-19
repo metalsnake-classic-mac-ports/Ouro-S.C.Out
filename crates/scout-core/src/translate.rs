@@ -1,8 +1,9 @@
-//! Translation of level values to the Mac graphics.
+//! Translation of level file values to the values the Mac version works with.
 //!
 //! The level files use the numbering of the MS-DOS version. While loading a
 //! level, the Mac version (CODE 5 at 0x48c) translates every tile value to an
 //! index into its tile/object graphics and every floor value to a tile index.
+//! All game logic of the Mac version works on these translated values.
 //! Unknown tile values become 255 (the `default` case of the original).
 //! These tables were produced by running that function in a 68020 emulator
 //! (`re/tools/emulate_level_loader.py`).

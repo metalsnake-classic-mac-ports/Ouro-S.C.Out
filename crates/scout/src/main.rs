@@ -1,28 +1,34 @@
-//! S.C.Out level viewer (first milestone of the new implementation).
+//! S.C.Out for macOS, Windows and Linux (work in progress).
 //!
 //! Usage:
-//!   scout [DISK]                          show the levels in a window
+//!   scout [DISK]                                  play
 //!   scout [DISK] --export LEVEL OUT.bmp [screen|map] [PALETTE]
 //!
 //! DISK is the original `SCOUT_1_4.dsk`. Without it, `SCOUT_DISK` is used,
 //! then `SCOUT_1_4.dsk` in the current folder, then `re/work/SCOUT_1_4.dsk`.
 //!
-//! Keys: ←/→ level, Tab game screen / level map, ↑/↓ palette, Esc quit.
+//! Keys: arrows move, N/P next/previous level, R restart the level,
+//! Tab game screen / level map, F1 palette, Esc quit.
 
 mod render;
 
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
+use scout_core::{Command, Dir, Game};
 use scout_data::GameData;
 use sdl3::event::Event;
-use sdl3::keyboard::Keycode;
+use sdl3::keyboard::{KeyboardState, Keycode, Scancode};
 use sdl3::pixels::PixelFormat;
 use sdl3::render::ScaleMode;
 use sdl3::sys::render::SDL_LOGICAL_PRESENTATION_LETTERBOX;
 
 /// Palette shown first: the colors of the game screen.
 const DEFAULT_PALETTE: &str = "game";
+/// Frames per second of the simulation. Provisional: the frame rate of the
+/// original has not been measured yet (see TODO.md).
+const FRAMES_PER_SECOND: u32 = 30;
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
@@ -37,7 +43,7 @@ fn main() -> Result<()> {
         None => None,
     };
     let disk = find_disk(args.first().map(PathBuf::from))?;
-    let game = GameData::load(&disk).with_context(|| format!("loading {}", disk.display()))?;
+    let data = GameData::load(&disk).with_context(|| format!("loading {}", disk.display()))?;
 
     match export {
         Some(rest) => {
@@ -48,9 +54,9 @@ fn main() -> Result<()> {
                 Some(other) => bail!("unknown view {other:?}, use screen or map"),
             };
             let palette = rest.get(3).map(String::as_str).unwrap_or(DEFAULT_PALETTE);
-            export_level(&game, level, view, palette, &PathBuf::from(&rest[1]))
+            export_level(&data, level, view, palette, &PathBuf::from(&rest[1]))
         }
-        None => run_viewer(&game),
+        None => run(&data),
     }
 }
 
@@ -70,51 +76,68 @@ fn find_disk(arg: Option<PathBuf>) -> Result<PathBuf> {
     bail!("original disk image SCOUT_1_4.dsk not found; pass its path as the first argument")
 }
 
-fn palette_index(game: &GameData, name: &str) -> Result<usize> {
-    game.palettes
+fn palette_index(data: &GameData, name: &str) -> Result<usize> {
+    data.palettes
         .iter()
         .position(|p| p.name.eq_ignore_ascii_case(name))
         .with_context(|| {
-            let names: Vec<_> = game.palettes.iter().map(|p| p.name.as_str()).collect();
+            let names: Vec<_> = data.palettes.iter().map(|p| p.name.as_str()).collect();
             format!("unknown palette {name:?}; available: {}", names.join(", "))
         })
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum View {
-    /// The 640 × 480 game screen at the start of the level.
+    /// The 640 × 480 game screen.
     Screen,
     /// The whole level.
     Map,
 }
 
-fn draw(game: &GameData, level: usize, view: View) -> render::Canvas {
-    let level = &game.levels[level];
+fn draw(data: &GameData, game: &Game, view: View) -> render::Canvas {
     match view {
-        View::Screen => render::start_screen(game, level),
-        View::Map => render::level_map(game, level),
+        View::Screen => render::game_screen(data, game),
+        View::Map => render::level_map(data, game),
     }
 }
 
 fn export_level(
-    game: &GameData,
+    data: &GameData,
     level: usize,
     view: View,
     palette: &str,
     out: &Path,
 ) -> Result<()> {
-    if level == 0 || level > game.levels.len() {
-        bail!("level {level} does not exist (1..={})", game.levels.len());
+    if level == 0 || level > data.levels.len() {
+        bail!("level {level} does not exist (1..={})", data.levels.len());
     }
-    let palette = &game.palettes[palette_index(game, palette)?].palette;
-    let canvas = draw(game, level - 1, view);
+    let palette = &data.palettes[palette_index(data, palette)?].palette;
+    let game = Game::new(data.levels[level - 1].clone());
+    let canvas = draw(data, &game, view);
     let mut rgb = vec![0; canvas.width * canvas.height * 3];
     canvas.to_rgb24(palette, &mut rgb, canvas.width * 3);
     render::write_bmp(out, canvas.width, canvas.height, &rgb)
         .with_context(|| format!("writing {}", out.display()))
 }
 
-fn run_viewer(game: &GameData) -> Result<()> {
+/// The command for this frame from the keyboard. Like the original, only
+/// one key counts; it scans the Mac key codes in ascending order, which for
+/// the arrow keys is left, right, down, up.
+fn command(keys: &KeyboardState) -> Command {
+    for (key, dir) in [
+        (Scancode::Left, Dir::Left),
+        (Scancode::Right, Dir::Right),
+        (Scancode::Down, Dir::Down),
+        (Scancode::Up, Dir::Up),
+    ] {
+        if keys.is_scancode_pressed(key) {
+            return Command::Move(dir);
+        }
+    }
+    Command::None
+}
+
+fn run(data: &GameData) -> Result<()> {
     let sdl = sdl3::init()?;
     let video = sdl.video()?;
     let window = video
@@ -130,61 +153,82 @@ fn run_viewer(game: &GameData) -> Result<()> {
     let creator = canvas.texture_creator();
 
     let mut level = 0usize;
+    let mut game = Game::new(data.levels[level].clone());
     let mut view = View::Screen;
-    let mut palette = palette_index(game, DEFAULT_PALETTE)?;
-    let mut image = draw(game, level, view);
+    let mut palette = palette_index(data, DEFAULT_PALETTE)?;
     let mut events = sdl.event_pump()?;
-    let mut redraw = true;
+    let frame_time = Duration::from_secs(1) / FRAMES_PER_SECOND;
+    let mut next_frame = Instant::now();
+    let mut title = String::new();
     loop {
-        if redraw {
-            let p = &game.palettes[palette];
-            let (w, h) = (image.width as u32, image.height as u32);
-            let mut texture = creator.create_texture_streaming(PixelFormat::RGB24, w, h)?;
-            texture.set_scale_mode(ScaleMode::Nearest);
-            texture.with_lock(None, |buf: &mut [u8], pitch: usize| {
-                image.to_rgb24(&p.palette, buf, pitch)
-            })?;
-            canvas.set_logical_size(w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX)?;
-            canvas.window_mut().set_title(&format!(
-                "S.C.Out – level {}/{} – palette {} (←/→ level, Tab screen/map, ↑/↓ palette)",
-                level + 1,
-                game.levels.len(),
-                p.name
-            ))?;
-            canvas.clear();
-            canvas.copy(&texture, None, None)?;
-            canvas.present();
-            redraw = false;
-        }
-        match events.wait_event() {
-            Event::Quit { .. }
-            | Event::KeyDown {
-                keycode: Some(Keycode::Escape),
-                ..
-            } => return Ok(()),
-            Event::KeyDown {
-                keycode: Some(key), ..
-            } => {
-                let n = game.levels.len();
-                let p = game.palettes.len();
-                match key {
-                    Keycode::Right => level = (level + 1) % n,
-                    Keycode::Left => level = (level + n - 1) % n,
-                    Keycode::Up => palette = (palette + 1) % p,
-                    Keycode::Down => palette = (palette + p - 1) % p,
-                    Keycode::Tab => {
-                        view = match view {
-                            View::Screen => View::Map,
-                            View::Map => View::Screen,
+        for event in events.poll_iter() {
+            match event {
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => return Ok(()),
+                Event::KeyDown {
+                    keycode: Some(key),
+                    repeat: false,
+                    ..
+                } => {
+                    let n = data.levels.len();
+                    match key {
+                        Keycode::N => level = (level + 1) % n,
+                        Keycode::P => level = (level + n - 1) % n,
+                        Keycode::R => {}
+                        Keycode::Tab => {
+                            view = match view {
+                                View::Screen => View::Map,
+                                View::Map => View::Screen,
+                            };
+                            continue;
                         }
+                        Keycode::F1 => {
+                            palette = (palette + 1) % data.palettes.len();
+                            continue;
+                        }
+                        _ => continue,
                     }
-                    _ => continue,
+                    game = Game::new(data.levels[level].clone());
                 }
-                image = draw(game, level, view);
-                redraw = true;
+                _ => {}
             }
-            Event::Window { .. } => redraw = true,
-            _ => {}
         }
+
+        let now = Instant::now();
+        while next_frame <= now {
+            game.tick(command(&events.keyboard_state()));
+            next_frame += frame_time;
+        }
+
+        let image = draw(data, &game, view);
+        let p = &data.palettes[palette];
+        let (w, h) = (image.width as u32, image.height as u32);
+        let mut texture = creator.create_texture_streaming(PixelFormat::RGB24, w, h)?;
+        texture.set_scale_mode(ScaleMode::Nearest);
+        texture.with_lock(None, |buf: &mut [u8], pitch: usize| {
+            image.to_rgb24(&p.palette, buf, pitch)
+        })?;
+        canvas.set_logical_size(w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX)?;
+        let new_title = format!(
+            "S.C.Out – level {}/{}{} (arrows move, N/P level, R restart, Tab map)",
+            level + 1,
+            data.levels.len(),
+            if p.name == DEFAULT_PALETTE {
+                String::new()
+            } else {
+                format!(" – palette {}", p.name)
+            }
+        );
+        if new_title != title {
+            canvas.window_mut().set_title(&new_title)?;
+            title = new_title;
+        }
+        canvas.clear();
+        canvas.copy(&texture, None, None)?;
+        canvas.present();
+        std::thread::sleep(next_frame.saturating_duration_since(Instant::now()));
     }
 }
