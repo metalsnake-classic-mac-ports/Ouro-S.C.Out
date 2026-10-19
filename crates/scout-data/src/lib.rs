@@ -31,6 +31,7 @@ const OBJECTS_ID: i16 = 5100;
 const TILES_ID: i16 = 5101;
 const CODES_ID: i16 = 5300;
 const LEVELS_ID: i16 = 6642;
+const GAME_PALETTE_ID: i16 = 128;
 const LEVEL_BYTES: usize = 2880;
 
 /// All game data needed by the game, loaded from the original disk.
@@ -39,6 +40,9 @@ pub struct GameData {
     pub levels: Vec<Level>,
     pub tiles: TileSet,
     pub objects: ObjectSet,
+    /// The colors of the game screen: palette index → color for the tiles
+    /// and objects (see [`Palette::from_palette_manager`]).
+    pub game_palette: Palette,
     /// Level codes; `level_codes[0]` is the code of level 2.
     pub level_codes: Vec<String>,
     /// All palettes: the 'pltt' resources and the color tables of the pictures.
@@ -81,6 +85,13 @@ impl GameData {
         let shap = |id| -> Result<Vec<u8>> { lzrw1a::unpack_shap(&res.get(SHAP, id)?.data) };
 
         let mut palettes = Vec::new();
+        let game_palette = Palette::from_palette_manager(&Palette::from_pltt(
+            &res.get(b"pltt", GAME_PALETTE_ID)?.data,
+        )?);
+        palettes.push(NamedPalette {
+            name: "game".to_string(),
+            palette: game_palette.clone(),
+        });
         let mut pltts: Vec<_> = res.of_kind(b"pltt").collect();
         pltts.sort_by_key(|r| r.id);
         for r in pltts {
@@ -109,6 +120,7 @@ impl GameData {
             levels: parse_levels(&shap(LEVELS_ID)?)?,
             tiles: TileSet::new(shap(TILES_ID)?)?,
             objects: ObjectSet::new(shap(OBJECTS_ID)?)?,
+            game_palette,
             level_codes: parse_codes(&shap(CODES_ID)?),
             palettes,
             pictures,

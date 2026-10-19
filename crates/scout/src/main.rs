@@ -21,9 +21,8 @@ use sdl3::pixels::PixelFormat;
 use sdl3::render::ScaleMode;
 use sdl3::sys::render::SDL_LOGICAL_PRESENTATION_LETTERBOX;
 
-/// Palette shown first. The real in-game palette is not known yet (see
-/// TODO.md); this one at least has the green floor of the box screenshots.
-const DEFAULT_PALETTE: &str = "PICT 1000";
+/// Palette shown first: the colors of the game screen.
+const DEFAULT_PALETTE: &str = "game";
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();

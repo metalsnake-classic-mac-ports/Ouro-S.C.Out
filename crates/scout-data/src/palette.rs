@@ -29,6 +29,24 @@ impl Palette {
         Ok(Self { colors })
     }
 
+    /// The screen colors the Mac Palette Manager produces from a palette
+    /// resource of the game (`pltt 128`).
+    ///
+    /// The game activates its palette with `SetPalette` and draws the
+    /// graphics without color translation, so the pixel values are indices
+    /// into the screen's color table. The Palette Manager puts palette entry
+    /// `(256 - swap_nibbles(i)) mod 256` at screen index `i`. This rule was
+    /// derived from a screenshot of the running original (level 1) and holds
+    /// for all 85 indices visible there.
+    pub fn from_palette_manager(pltt: &Palette) -> Self {
+        let mut colors = [Rgb::default(); 256];
+        for (i, color) in colors.iter_mut().enumerate() {
+            let swapped = ((i & 0x0F) << 4) | (i >> 4);
+            *color = pltt.colors[(256 - swapped) & 0xFF];
+        }
+        Self { colors }
+    }
+
     /// Parse a QuickDraw ColorTable (as embedded in PICT pixmaps).
     /// Returns the palette and the size of the table in bytes.
     pub fn from_color_table(data: &[u8]) -> Result<(Self, usize)> {
@@ -95,6 +113,21 @@ mod tests {
             }
         );
         assert_eq!(p.colors[2], Rgb::default());
+    }
+
+    #[test]
+    fn palette_manager_order() {
+        let mut pltt = Palette {
+            colors: [Rgb::default(); 256],
+        };
+        for (i, c) in pltt.colors.iter_mut().enumerate() {
+            c.r = i as u8;
+        }
+        let screen = Palette::from_palette_manager(&pltt);
+        // (index, palette entry) pairs seen in the screenshot of the original
+        for (index, entry) in [(0, 0), (4, 192), (20, 191), (159, 7), (254, 17), (255, 1)] {
+            assert_eq!(screen.colors[index].r, entry, "index {index}");
+        }
     }
 
     #[test]

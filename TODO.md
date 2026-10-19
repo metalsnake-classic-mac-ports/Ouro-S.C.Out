@@ -22,11 +22,13 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
       (tables taken by running CODE 5 / 0x48c in a 68020 emulator, see
       `re/tools/emulate_level_loader.py` and `crates/scout-data/src/translate.rs`)
 - [x] Level viewer: ←/→ level, ↑/↓ palette; `--export` writes a BMP
-- [ ] Correct in-game palette (see below)
+- [x] Correct in-game palette: `pltt 128` in Palette Manager order, screen index i =
+      entry (256 − swap_nibbles(i)) mod 256. Derived from a screenshot of the running original;
+      level 1 now matches that screenshot pixel for pixel except the player sprite
 
 ### Next
 
-- [ ] Palette (emulator, or derive it from the box screenshot of level 1)
+- [ ] Player sprite, screen frame (`SHAP 5102`–`5108`?)
 - [ ] Remaining graphics: `SHAP 5102`–`5108` (screen frame? sprites?)
 - [ ] Sounds (`snd ` resources) and music (`SHAP 5200`)
 - [ ] Game logic in `scout-core`, starting with movement, using the original code as reference
@@ -87,7 +89,7 @@ Everything is in the resource fork of the application:
   - `SHAP 5200`: music ("composed by frederic motte"). The port has no music.
   - `PICT 1000`, `1001`, `1002`, `2000`, `256`: intro, illustrations, Kalisto logo, about box.
     They decode correctly with their own color tables.
-- [ ] **Palette of the game screen.** The tiles are drawn without color conversion
+- [x] **Palette of the game screen** (solved, see Milestone 1). The tiles are drawn without color conversion
       (offscreen port with the screen's color table). The screen's color table is set by the
       Mac Palette Manager from `pltt 128` (`CODE 6` at 0x85e: `GetNewPalette`, color table
       blacked out, `SetPalette`). Which palette entry ends up at which index is decided by
