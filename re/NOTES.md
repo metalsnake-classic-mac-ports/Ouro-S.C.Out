@@ -62,10 +62,20 @@ map and the visible view buffer, sets the skip flag `-0x5780[cell]` and
 | `-0x22d0` explosion | CODE 4 0x0 | explosion at the box |
 
 World automaton CODE 9 0x23fa: per frame it processes the cells
-`k·N … k·N + N − 1` (`N` = `-0x6d04`, `k` = frame counter); for each cell
+`k·N … k·N + N − 1` (`N` = `-0x6d04` = **96**, so every cell every 10 frames;
+`k` = frame counter); for each cell
 with skip flag set it clears the flag, otherwise it calls `tick[tile]`
-with `-0x53b2`/`-0x53ae` = x/y. Most tick handlers just set the next tile
-of an animation (e.g. 56 → 57 → 58 …).
+with `-0x53b2`/`-0x53ae` = x/y. Of the 227 tick handlers, about 100 just set
+the next tile of an animation (e.g. 56 → 57 → 58 …). Others move things:
+e.g. 400 (enemy): if the box to the right is free (CODE 9 0x1f94), the own
+box becomes 0x191 and the right box 0x192 with skip flag; otherwise 0x19f
+(turn). 243 (one-way door) closes again (0x6d) unless the player is next to it.
+
+## Initialized globals
+
+THINK C: CODE 1 copies `DATA` word by word below A5 and inserts `ZERO[i]`
+zero bytes after every zero word; `DREL` relocates pointers.
+`re/tools/thinkc_globals.py` rebuilds the 0x6e48 bytes of globals.
 
 Explosion CODE 4 0x0 `(x, y)`: `explosion[tile]`, and if the player is at
 (x, y), not invincible (`-0x5392`) and the tile is not 0x10e: player death
