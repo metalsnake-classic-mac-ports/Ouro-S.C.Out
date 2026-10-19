@@ -1,1 +1,5 @@
 re/work/
+.DS_Store
+legacy-port/build/SCOUT
+legacy-port/build/prefs.dat
+*.o

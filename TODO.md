@@ -13,6 +13,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   Paul Mercat's C++ port shows where to look
 
 The sections below were written for the old port and stay as a reference.
+The old port now lives in `legacy-port/`, so `build/` below means `legacy-port/build/`.
 
 ## 0. Run the current code as a baseline
 
