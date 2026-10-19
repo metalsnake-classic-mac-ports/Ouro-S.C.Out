@@ -49,11 +49,11 @@ pub fn level_indices(game: &GameData, level: &Level) -> Vec<u8> {
 
 /// Convert palette indices to packed RGB24 rows with the given pitch.
 pub fn to_rgb24(indices: &[u8], palette: &Palette, out: &mut [u8], pitch: usize) {
-    for (y, row) in indices.chunks_exact(WIDTH).enumerate() {
+    for (y, row) in indices.as_chunks::<WIDTH>().0.iter().enumerate() {
         let line = &mut out[y * pitch..y * pitch + WIDTH * 3];
-        for (px, &i) in line.chunks_exact_mut(3).zip(row) {
+        for (px, &i) in line.as_chunks_mut::<3>().0.iter_mut().zip(row) {
             let c = palette.colors[i as usize];
-            px.copy_from_slice(&[c.r, c.g, c.b]);
+            *px = [c.r, c.g, c.b];
         }
     }
 }
@@ -74,7 +74,7 @@ pub fn write_bmp(path: &std::path::Path, rgb: &[u8]) -> std::io::Result<()> {
     bmp.extend_from_slice(&24u16.to_le_bytes());
     bmp.extend_from_slice(&[0; 24]);
     for y in (0..HEIGHT).rev() {
-        for px in rgb[y * row..(y + 1) * row].chunks_exact(3) {
+        for px in rgb[y * row..(y + 1) * row].as_chunks::<3>().0 {
             bmp.extend_from_slice(&[px[2], px[1], px[0]]);
         }
     }

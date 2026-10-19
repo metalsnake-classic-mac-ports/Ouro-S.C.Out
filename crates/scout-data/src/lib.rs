@@ -125,7 +125,9 @@ fn parse_levels(data: &[u8]) -> Result<Vec<Level>> {
         )));
     }
     Ok(data
-        .chunks_exact(LEVEL_BYTES)
+        .as_chunks::<LEVEL_BYTES>()
+        .0
+        .iter()
         .map(|chunk| {
             let mut tiles = [0u16; Level::CELLS];
             for (i, tile) in tiles.iter_mut().enumerate() {

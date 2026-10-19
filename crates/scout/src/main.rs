@@ -11,7 +11,7 @@
 
 mod render;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 use scout_data::GameData;
@@ -76,7 +76,7 @@ fn palette_index(game: &GameData, name: &str) -> Result<usize> {
         })
 }
 
-fn export_level(game: &GameData, level: usize, palette: &str, out: &PathBuf) -> Result<()> {
+fn export_level(game: &GameData, level: usize, palette: &str, out: &Path) -> Result<()> {
     let data = game
         .levels
         .get(level.wrapping_sub(1))
