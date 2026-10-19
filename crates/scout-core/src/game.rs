@@ -5,6 +5,7 @@
 //! original.
 
 use crate::Level;
+use crate::world::{Event, World};
 
 /// Size of a box in pixels.
 pub const BOX: i32 = 32;
@@ -93,6 +94,9 @@ pub struct Game {
     pub view: (usize, usize),
     /// A running scroll of the view: direction and boxes left.
     scroll: Option<(Dir, usize)>,
+    pub world: World,
+    /// Events of the last frames for the frontend; it drains them.
+    pub events: Vec<Event>,
 }
 
 impl Game {
@@ -111,6 +115,8 @@ impl Game {
             },
             view,
             scroll: None,
+            world: World::default(),
+            events: Vec::new(),
         }
     }
 
@@ -140,6 +146,7 @@ impl Game {
                 self.arrive();
             }
         }
+        self.world_frame();
     }
 
     /// Whether a box in view-relative coordinates can be entered

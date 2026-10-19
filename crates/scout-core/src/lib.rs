@@ -6,6 +6,8 @@
 pub mod game;
 pub mod level;
 pub mod translate;
+pub mod world;
 
 pub use game::{Command, Dir, Game};
 pub use level::Level;
+pub use world::{Event, World};

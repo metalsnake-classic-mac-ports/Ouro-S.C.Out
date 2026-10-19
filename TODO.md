@@ -47,7 +47,14 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   - [ ] Tiles that act on the player (CODE 9, 0xb70 switch: arrows/conveyors 0x8c–0xa9,
         tiles > 291 on enter/leave, 0xdf–0xe2 …), steering is blocked on 0x8c–0xaa
   - [ ] Actions (commands 4 and 7), items, shooting
-  - [ ] Everything else: CODE 4 and 9 have about 250 small functions each (tile handlers?)
+  - [x] World automaton (CODE 9 0x23fa): 96 boxes per frame, skip flags, 254 tick handlers
+        (198 animation steps generated, the rest ported by hand). Matches the original
+        exactly in all 101 levels over 3000 frames and in 300 random scenarios
+        (`re/tools/emu_world.py`, `re/tools/emu_fuzz.py`, test `original_world`)
+  - [ ] Explosions (handler table `-0x22d0`, 150 handlers) and player death
+  - [ ] Projectiles (tables `-0x3270` / `-0x2aa0`), cannons, mirrors
+  - [ ] Rails/conveyors carrying the player (`-0x539e` → forced direction)
+  - [ ] Who sets the switch flags `-0x53b8`…`-0x53b4` and the carried object `-0x578c`
 
 The sections below were written for the old port and stay as a reference.
 The old port now lives in `legacy-port/`, so `build/` below means `legacy-port/build/`.

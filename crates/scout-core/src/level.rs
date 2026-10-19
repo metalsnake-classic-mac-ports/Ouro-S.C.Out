@@ -59,6 +59,22 @@ impl Level {
         }
     }
 
+    /// Build a level from already translated values (tests, editors).
+    /// The start box keeps its tile; the file values are set to 0.
+    pub fn from_translated(
+        tiles: [u16; Self::CELLS],
+        floor: [u16; Self::CELLS],
+        start: Option<(usize, usize)>,
+    ) -> Self {
+        Self {
+            tiles,
+            floor,
+            file_tiles: [0; Self::CELLS],
+            file_floor: [0; Self::CELLS],
+            start,
+        }
+    }
+
     /// The (translated) tile value of a box.
     pub fn tile(&self, x: usize, y: usize) -> u16 {
         self.tiles[Self::index(x, y)]
@@ -71,6 +87,10 @@ impl Level {
     /// The (translated) floor tile of a box.
     pub fn floor(&self, x: usize, y: usize) -> u16 {
         self.floor[Self::index(x, y)]
+    }
+
+    pub fn set_floor(&mut self, x: usize, y: usize, value: u16) {
+        self.floor[Self::index(x, y)] = value;
     }
 
     /// The tile value as stored in the level file.
