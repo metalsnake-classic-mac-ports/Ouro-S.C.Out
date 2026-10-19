@@ -100,7 +100,9 @@ Everything is in the resource fork of the application:
   Level loader: `CODE 5` at 0x48c. Draw list for the view: `CODE 9` around 0x2c0.
 - [x] Run the original in an emulator: Basilisk II with a Performa 630 ROM and System 7.0,
       see `re/tools/emulator/` (ROM and system disk are not in the repo)
-- [ ] Level 69 code: does the game accept `MUFUPO` (original data) or `MUFUMO`?
+- [x] Level 69 code: the original accepts `MUFUPO` (as in its data); `MUFUMO` from the port
+      and the Codebook gives "Wrong Code" (tested in the emulator, 2026-10-19).
+      The original shows level numbers from 0 (so level 69 is shown as "68").
 - [ ] Rename the sound files after the original resource names
 - [ ] Write down what works and what doesn't (crashes, flickering, sound, timing)
 
