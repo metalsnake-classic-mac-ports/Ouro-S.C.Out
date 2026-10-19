@@ -98,8 +98,9 @@ Everything is in the resource fork of the application:
 - Code: compiled for the **68020** (uses `muls.l`, memory-indirect addressing).
   Ghidra headless: `re/tools/ghidra/` (use processor `68000:BE:32:MC68020`).
   Level loader: `CODE 5` at 0x48c. Draw list for the view: `CODE 9` around 0x2c0.
-- [ ] Run the original in an emulator (Basilisk II or Mini vMac, needs a Mac II/Quadra ROM)
-      to compare behavior
+- [x] Run the original in an emulator: Basilisk II with a Performa 630 ROM and System 7.0,
+      see `re/tools/emulator/` (ROM and system disk are not in the repo)
+- [ ] Level 69 code: does the game accept `MUFUPO` (original data) or `MUFUMO`?
 - [ ] Rename the sound files after the original resource names
 - [ ] Write down what works and what doesn't (crashes, flickering, sound, timing)
 
