@@ -1,0 +1,10 @@
+[package]
+name = "scout-data"
+description = "Reads the game data of the original S.C.Out Mac disk (1993)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+scout-core.workspace = true
+thiserror.workspace = true

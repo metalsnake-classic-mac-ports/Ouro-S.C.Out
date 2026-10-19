@@ -12,6 +12,25 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - the original 68k code (Ghidra) is the reference for the game logic,
   Paul Mercat's C++ port shows where to look
 
+### Milestone 1: show the levels ✓
+
+- [x] Cargo workspace: `scout-core`, `scout-data`, `scout` (SDL3)
+- [x] Read the original disk image directly: HFS, resource fork, LZRW1-A, PICT, pltt
+- [x] Levels, tiles, objects, level codes, pictures; tests against the real disk
+      (skipped without it) and against the 92 levels the port did not change
+- [x] Level values are translated to Mac graphics like the original loader does
+      (tables taken by running CODE 5 / 0x48c in a 68020 emulator, see
+      `re/tools/emulate_level_loader.py` and `crates/scout-data/src/translate.rs`)
+- [x] Level viewer: ←/→ level, ↑/↓ palette; `--export` writes a BMP
+- [ ] Correct in-game palette (see below)
+
+### Next
+
+- [ ] Palette (emulator, or derive it from the box screenshot of level 1)
+- [ ] Remaining graphics: `SHAP 5102`–`5108` (screen frame? sprites?)
+- [ ] Sounds (`snd ` resources) and music (`SHAP 5200`)
+- [ ] Game logic in `scout-core`, starting with movement, using the original code as reference
+
 The sections below were written for the old port and stay as a reference.
 The old port now lives in `legacy-port/`, so `build/` below means `legacy-port/build/`.
 

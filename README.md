@@ -9,7 +9,24 @@ to the original as possible, with optional modern extensions.
 
 Work in progress, see [TODO.md](TODO.md).
 
+## Building
+You need Rust (via [rustup](https://rustup.rs)) and SDL3
+(macOS: `brew install sdl3`). Then:
+
+    cargo test
+    cargo run -p scout -- path/to/SCOUT_1_4.dsk
+
+For now `scout` is a level viewer: ←/→ switches the level, ↑/↓ the palette.
+`scout DISK --export LEVEL out.bmp [PALETTE]` writes a level as an image.
+
+The tests that need the original disk look for it in `SCOUT_DISK` or at
+`re/work/SCOUT_1_4.dsk` and are skipped without it.
+
 ## Folders
+- `crates/scout-core/`: game model and simulation, no I/O
+- `crates/scout-data/`: reads the original disk image (HFS, resource fork,
+  LZRW1-A, PICT, palettes, levels, graphics)
+- `crates/scout/`: the SDL3 frontend
 - `legacy-port/`: the C++/SDL 1.2 port by Paul Mercat (2008), translated from
   French to English. It is kept as a reference. Its source was published at
   http://mercat.jean.free.fr/S.C.Out/

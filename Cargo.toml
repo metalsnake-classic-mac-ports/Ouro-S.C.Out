@@ -1,0 +1,15 @@
+[workspace]
+resolver = "3"
+members = ["crates/scout-core", "crates/scout-data", "crates/scout"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+scout-core = { path = "crates/scout-core" }
+scout-data = { path = "crates/scout-data" }
+thiserror = "2"
+anyhow = "1"
+sdl3 = "0.20"

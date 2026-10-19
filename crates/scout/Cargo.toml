@@ -1,0 +1,12 @@
+[package]
+name = "scout"
+description = "S.C.Out for macOS, Windows and Linux"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+scout-core.workspace = true
+scout-data.workspace = true
+anyhow.workspace = true
+sdl3.workspace = true
