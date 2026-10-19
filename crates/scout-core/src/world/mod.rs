@@ -166,7 +166,7 @@ impl Game {
             // (0x387c).
             181 if self.world.pulse == 0 => {
                 let below = self.tile_at(x, y + 1);
-                let rail = (0x8C..=0x9F).contains(&below) && below % 2 == 0;
+                let rail = (0x8C..=0x9F).contains(&below) && below.is_multiple_of(2);
                 let other = ((0xA7..=0xAA).contains(&below) || (0xF7..=0x103).contains(&below))
                     && below % 2 == 1;
                 if rail || other {
