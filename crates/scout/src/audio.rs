@@ -7,6 +7,9 @@ use scout_data::Sound;
 use sdl3::audio::{AudioFormat, AudioSpec, AudioStreamOwner};
 
 const OUTPUT_RATE: u32 = 22254;
+/// Frames the audio device buffers: 256 (about 6 ms) instead of SDL's
+/// default 1024 (23 ms), so sounds start with the picture.
+const DEVICE_FRAMES: &str = "256";
 const SILENCE: u8 = 0x80;
 
 pub struct Audio {
@@ -14,8 +17,11 @@ pub struct Audio {
 }
 
 impl Audio {
-    /// Open the default output; without one the game is silent.
+    /// Open the default output; without one the game is silent. Call
+    /// before anything else opens audio (the hint applies when the device
+    /// opens).
     pub fn open(sdl: &sdl3::Sdl) -> Self {
+        sdl3::hint::set("SDL_AUDIO_DEVICE_SAMPLE_FRAMES", DEVICE_FRAMES);
         let stream = (|| -> Result<AudioStreamOwner> {
             let spec = AudioSpec {
                 freq: Some(OUTPUT_RATE as i32),
@@ -55,6 +61,9 @@ impl Audio {
             .collect();
         let _ = stream.clear();
         let _ = stream.put_data(&samples);
+        // Without this the stream keeps the last samples back for its
+        // resampler and never becomes empty, so the channel looks busy.
+        let _ = stream.flush();
     }
 
     /// The channel is still playing.
