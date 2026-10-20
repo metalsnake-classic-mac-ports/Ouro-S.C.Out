@@ -143,7 +143,9 @@ impl GameData {
                 shap(FRAME_SIDES_ID)?,
             )?,
             icons: shap(ICONS_ID)?
-                .chunks_exact(ICON_WIDTH * ICON_HEIGHT)
+                .as_chunks::<{ ICON_WIDTH * ICON_HEIGHT }>()
+                .0
+                .iter()
                 .map(|c| Bitmap::new(ICON_WIDTH, ICON_HEIGHT, c.to_vec()))
                 .collect::<Result<_>>()?,
             font: ObjectSet::new(shap(FONT_ID)?)?,
