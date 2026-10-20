@@ -27,13 +27,24 @@ entry to (segment, offset). Function pointers stored in globals are
 Single-threaded; one pass is one frame:
 
 1. swap view buffers (`-0x57d6` / `-0x57d2`)
-2. frame counter `-0x6d08` = (`-0x6d08` + 1) mod (960 / `-0x6d04`)
-3. read input (CODE 6 0x7a8) unless the player is dying
-4. if no special state (`-0x538c` = 0, e.g. magnifier): player update
-   (CODE 9 0xb70, skipped during the self-destruct countdown `-0x5396`),
-   world automaton (CODE 9 0x23fa), projectiles (jump table, CODE 4),
-   CODE 9 0x25a, draw (`-0x1b00`)
-5. sounds/music, end conditions (`-0x6d0c`: 1 pause, 0xfd quit, 2/3 won/lost …)
+2. frame counter `-0x6d08` = (`-0x6d08` + 1) mod (960 / `-0x6d04`); every
+   10th frame the pulse `-0x5390` (mod 30)
+3. accelerator `-0x538e` counts down; at 0 the speed `-0x57ae` is 4 again
+4. if the player stands (`-0x57a6` = 0): read the key (CODE 6 0x7a8), or
+   command −1 while the level ends (`-0x3a46` ≠ 0); while moving the
+   command `-0x5790` keeps its value
+5. without magnifier (`-0x538c` = 0): player update (CODE 9 0xb70) or, while
+   dying (`-0x5396` ≠ 0), count that down; world automaton (CODE 9 0x23fa),
+   projectiles (CODE 4 0x2392), view buffer (CODE 9 0x25a), stop all
+   projectiles if `-0x6d00` (tile 0x114), draw (`-0x1b00`). With magnifier:
+   count it down; at 0 back to the player (CODE 4 0x2048), else CODE 4
+   0x1fde (the move keys move the view one box)
+6. sounds; `-0x3a46` > 1 counts down, at 1 the level is won (`-0x6d0c` = 3)
+   unless dying (then `-0x5396` = 1); `-0x5396` = 1 (and no level end):
+   lives `-0x6dac` − 1 and `-0x6d0c` = 0xff (no lives left), 0xfe (self
+   destruct) or 2; command 6 / 9 end with 1 / 0xfd
+7. command 8 the first time (`-0x6cfc`), not in the magnifier: self
+   destruct, `-0x5396` = 300, player hidden, tile 0x150 on the player
 
 ## Input (CODE 6 0x7a8)
 
@@ -123,6 +134,49 @@ y `-0x6cee`, vx `-0x6cea`, vy `-0x6ce6`, kind `-0x6ce2`), pixel positions.
 - passable (CODE 9 0x1f12, view-relative): < 40, 184–188, ≥ 219
 - one-way: target 246 not from the right … (left 246, up 243, right 245,
   down 244)
+
+Ported completely to `scout-core/src/player.rs` and checked against the
+original main loop running in Unicorn (`re/tools/emu_play.py`: the real
+loop with keys fed into CODE 6 0x7a8, sound and blitting replaced by RTS,
+stopping at CODE 9 0x28 after each pass), 101 levels × 3000 frames of
+random keys plus 1000 random levels full of player tiles × 600 frames.
+What the code does when the player stands on a box (`-0x57a6` = 0):
+
+- hit by a projectile (`-0x6d1a`): tile 0x150, dying 300, done
+- mines around (CODE 4 0x1c50): 0xb6/0xb7 explode with the player's box,
+  0xb8 → 0xb9
+- the tile (read from the view buffer, which mirrors the map in view):
+  ≥ 0x124 explodes; leaving rails/conveyors (0x8c–0xaa, 0xf7–0xfe) clears
+  the rail flag `-0x539e`; on 0x8c–0xaa the move keys do nothing
+- tile switch (table at CODE 9 0x1dae): 0xe8 explodes when carrying,
+  0x63–0x67 explode, conveyors 0xef–0xf2 repeat the direction (not when
+  firing), cannons 0xdf–0xe2 fire once per visit (`-0x5398`), 0x10a →
+  0x10b + checkpoint (CODE 5 0x301e), 0x10d accelerator (600 frames speed
+  8), 0x10c magnifier (300 frames; projectiles move once more, the frame
+  ends), 0x114 stops all projectiles, rails steer (`-0x53a2`) while on a
+  rail
+- forced command `-0x3a42` replaces the command
+- commands (table CODE 9 0x1d9e): 0–3 move (passable, one-way doors,
+  enemies in the way explode with the player), 7 use, 4 fire; with no move
+  command a rail direction starts a move
+- use (7): with empty hands: teleporter 0x101–0x104 → last box with 0x105–
+  0x108 (CODE 4 0x2054, the view scrolls box by box to center the target),
+  chips 0x110–0x112 (socket 0xff stays), objects < 40 (missiles 16–19 load
+  the turret), on a rail a piece of rail (31). Carrying: swap with objects
+  < 40, teleport, or drop: 30 (key) on 0x100 clears switch 4, 31 fills rail
+  gaps (tile + 1), chips into sockets 0xff, otherwise only on empty boxes
+- fire (4): the loaded missile from the turret (spawn CODE 9 0x2132 takes
+  view-relative pixels)
+
+Moving: 4 (8) px per frame; on arrival at view column 1/12 or row 1/8 the
+view scrolls by up to 6/4 boxes within the same frame (CODE 9 0x3c6 …), each
+step redraws (one VBL) and updates the drawing state of the projectiles
+(CODE 9 0x232c). Teleporting likewise. The rewrite does the logic at once
+and lets the frontend show the extra frames (`Game::tick`, `shown_view`).
+
+Bugs of the original: the checkpoint copies the saved projectile count
+(always 0) into the live one instead of the other way round. During the
+magnifier the player's pixel position keeps referring to the old view.
 - view scrolls one box per frame when the player arrives one box from the
   edge (up to 6 sideways, 4 up/down)
 - switch on the tile under the player: rails 0x8c–0xa9 and conveyors

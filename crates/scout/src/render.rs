@@ -142,7 +142,7 @@ pub fn game_screen(data: &GameData, game: &Game) -> Canvas {
         VIEW_Y + Level::VIEW_HEIGHT * TILE_SIZE,
     );
 
-    let (vx, vy) = game.view;
+    let (vx, vy) = game.shown_view();
     for by in 0..Level::VIEW_HEIGHT {
         for bx in 0..Level::VIEW_WIDTH {
             let (x, y) = (VIEW_X + bx * TILE_SIZE, VIEW_Y + by * TILE_SIZE);

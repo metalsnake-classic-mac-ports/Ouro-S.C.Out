@@ -106,14 +106,9 @@ impl World {
 }
 
 impl Game {
-    /// One frame of the world: advance the counters like the main loop of
-    /// the original (CODE 9 0x0) and run the automaton on the next slice
-    /// (CODE 9 0x23fa).
+    /// One frame of the world: the automaton on the next slice of boxes
+    /// (CODE 9 0x23fa); the main loop advances the counters before.
     pub(crate) fn world_frame(&mut self) {
-        self.world.frame = (self.world.frame + 1) % FRAMES_PER_PASS;
-        if self.world.frame == 0 {
-            self.world.pulse = (self.world.pulse + 1) % PULSE_PERIOD;
-        }
         let start = self.world.frame * BOXES_PER_FRAME;
         for i in start..start + BOXES_PER_FRAME {
             if self.world.skip[i] {
@@ -135,7 +130,7 @@ impl Game {
     }
 
     /// Replace the floor and set the box's skip flag (CODE 9 0x20e4).
-    fn set_floor(&mut self, x: i32, y: i32, floor: u16, skip: bool) {
+    pub(crate) fn set_floor(&mut self, x: i32, y: i32, floor: u16, skip: bool) {
         if let Some(i) = index(x, y) {
             self.level.set_floor(x as usize, y as usize, floor);
             self.world.skip[i] = skip;
@@ -143,7 +138,7 @@ impl Game {
     }
 
     /// The tile of a box, 0 outside the level.
-    fn tile_at(&self, x: i32, y: i32) -> u16 {
+    pub(crate) fn tile_at(&self, x: i32, y: i32) -> u16 {
         index(x, y).map_or(0, |_| self.level.tile(x as usize, y as usize))
     }
 

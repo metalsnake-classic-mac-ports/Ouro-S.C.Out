@@ -27,6 +27,7 @@ impl Game {
         if !self.world.no_death && self.player_at(x, y) && tile != SAFE_TILE {
             self.set(x, y, BIG_EXPLOSION, true);
             self.world.dying = DEATH_FRAMES;
+            self.world.player_visible = false;
         }
     }
 

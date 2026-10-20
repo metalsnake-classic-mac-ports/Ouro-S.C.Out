@@ -5,9 +5,10 @@
 
 pub mod game;
 pub mod level;
+mod player;
 pub mod translate;
 pub mod world;
 
-pub use game::{Command, Dir, Game};
+pub use game::{Dir, Exit, Game, Key};
 pub use level::Level;
 pub use world::{Event, World};

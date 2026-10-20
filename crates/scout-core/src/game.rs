@@ -1,8 +1,10 @@
-//! The running game: player, view and the per-frame update.
+//! The running game: the main loop of the original (CODE 9, 0x0).
 //!
-//! Follows the main loop of the original (CODE 9, 0x0) and its player
-//! update (CODE 9, 0xb70). One call of [`Game::tick`] is one frame of the
-//! original.
+//! [`Game::frame`] is one pass of that loop: counters, keyboard, player,
+//! world, projectiles and the countdowns of death and level end.
+//! [`Game::tick`] wraps it for a frontend running at 60 frames per second:
+//! the start animation and the extra frames the original spends drawing
+//! while it scrolls or teleports.
 
 use crate::Level;
 use crate::world::{Event, World};
@@ -18,6 +20,12 @@ pub const INTRO_FRAMES: usize = 64;
 const INTRO_FIRST_TILE: u16 = 0xAB;
 /// The closed hatch the start box shows after the animation.
 pub const START_HATCH: u16 = 0x10B;
+/// Lives at the start of a game (CODE 2).
+pub const LIVES: i16 = 5;
+/// Frames between the player's death and the end of the level.
+const DEATH_FRAMES: u16 = 300;
+/// The big explosion the player turns into.
+const BIG_EXPLOSION: u16 = 0x150;
 
 /// A direction, numbered like in the original.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,38 +48,69 @@ impl Dir {
         }
     }
 
-    /// One-way door tile that cannot be entered when moving this way.
-    fn blocking_one_way(self) -> u16 {
-        match self {
-            Dir::Left => 0xF6,
-            Dir::Up => 0xF3,
-            Dir::Right => 0xF5,
-            Dir::Down => 0xF4,
-        }
+    pub(crate) fn from_index(i: i32) -> Option<Dir> {
+        Dir::ALL.get(usize::try_from(i).ok()?).copied()
     }
 }
 
-/// The input of one frame. The original only looks at the first pressed
-/// key, so there is at most one command per frame.
+/// The key held in a frame. The original only looks at the first pressed
+/// key, so there is at most one per frame.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum Command {
+pub enum Key {
     #[default]
     None,
     Move(Dir),
+    /// Take, drop, swap or teleport (command 7; acts when pressed).
+    Use,
+    /// Fire the carried missile (command 4; acts when pressed).
+    Fire,
+    /// Key `5` on the keypad: blow yourself up.
+    SelfDestruct,
+}
+
+/// How a level ended (`-0x6d0c`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Exit {
+    /// Lost a life (2).
+    Died,
+    /// The target was destroyed (3).
+    Won,
+    /// Lost a life by self destruction (0xfe).
+    SelfDestructed,
+    /// Lost the last life (0xff).
+    GameOver,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Player {
-    /// Box position in the level.
+    /// Box position in the level (`-0x579a`, `-0x5796`).
     pub x: usize,
     pub y: usize,
-    /// Direction of the hull.
+    /// Direction of the hull (`-0x57aa`).
     pub dir: Dir,
-    /// Direction of the turret (the sprite variant).
+    /// Direction of the turret, the sprite variant (`-0x5786`).
     pub turret: Dir,
-    /// Pixels left of the current move (0 = standing).
+    /// The turret stays put: a missile is loaded (`-0x5788`).
+    pub turret_locked: bool,
+    /// Pixels left of the current move, 0 = standing (`-0x57a6`).
     pub remaining: i32,
+    /// Pixels per frame (`-0x57ae`).
     pub speed: i32,
+    /// The command of the frame (`-0x5790`): 0–3 move, 4 fire, 7 use,
+    /// 8 self destruct, −1 none. Kept while moving.
+    pub command: i32,
+    /// A cannon under the player has fired since the last move (`-0x5398`).
+    pub cannon_fired: bool,
+    /// Frames left of the accelerator (`-0x538e`).
+    pub accelerator: u16,
+    /// Frames left of the magnifier (`-0x538c`).
+    pub magnifier: u16,
+    /// Self destruction was used in this level (`-0x6cfc`).
+    pub self_destructed: bool,
+    /// Lives left (`-0x6dac`).
+    pub lives: i16,
+    use_held: bool,
+    fire_held: bool,
 }
 
 impl Player {
@@ -90,21 +129,44 @@ impl Player {
         };
         (dx * done, dy * done)
     }
+
+    /// The box the player is moving to (`-0x53c0`, `-0x53bc`).
+    pub fn target(&self) -> (usize, usize) {
+        if self.remaining == 0 {
+            return (self.x, self.y);
+        }
+        let (dx, dy) = self.dir.delta();
+        ((self.x as i32 + dx) as usize, (self.y as i32 + dy) as usize)
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct Game {
     pub level: Level,
     pub player: Player,
-    /// Top left box of the 14 × 10 view.
+    /// Top left box of the 14 × 10 view (`-0x57c6`, `-0x57c2`).
     pub view: (usize, usize),
-    /// A running scroll of the view: direction and boxes left.
-    scroll: Option<(Dir, usize)>,
     pub world: World,
     /// Events of the last frames for the frontend; it drains them.
     pub events: Vec<Event>,
+    /// How the level ended; no more frames run then.
+    pub exit: Option<Exit>,
+    /// All projectiles stop at the end of the frame (`-0x6d00`).
+    pub(crate) clear_shots: bool,
     /// Next step of the start animation while it runs.
     intro: Option<usize>,
+    /// Frames the original spends drawing after the last frame (scrolling
+    /// one box per frame, teleporting); [`Game::tick`] waits them out.
+    pub(crate) stall: Stall,
+}
+
+/// The view moving to its new position for the frontend: the logic has
+/// moved it at once, the original showed one box per frame.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Stall {
+    pub frames: usize,
+    /// View before the move and boxes per frame towards the new one.
+    pub scroll: Option<((usize, usize), Dir)>,
 }
 
 impl Game {
@@ -118,14 +180,25 @@ impl Game {
                 y,
                 dir: Dir::Down,
                 turret: Dir::Down,
+                turret_locked: false,
                 remaining: 0,
                 speed: NORMAL_SPEED,
+                command: -1,
+                cannon_fired: false,
+                accelerator: 0,
+                magnifier: 0,
+                self_destructed: false,
+                lives: LIVES,
+                use_held: false,
+                fire_held: false,
             },
             view,
-            scroll: None,
             world: World::default(),
             events: Vec::new(),
+            exit: None,
+            clear_shots: false,
             intro: None,
+            stall: Stall::default(),
         }
     }
 
@@ -151,12 +224,32 @@ impl Game {
         self.intro.is_some()
     }
 
-    pub fn is_scrolling(&self) -> bool {
-        self.scroll.is_some()
+    /// The view to draw: lags behind [`Game::view`] while the original
+    /// would still be scrolling.
+    pub fn shown_view(&self) -> (usize, usize) {
+        match self.stall.scroll {
+            Some((from, dir)) if self.stall.frames > 0 => {
+                let (dx, dy) = dir.delta();
+                let (fx, fy) = (from.0 as i32, from.1 as i32);
+                let moved = |from: i32, to: usize, d: i32| {
+                    if d == 0 {
+                        to as i32
+                    } else {
+                        let steps = (to as i32 - from).abs() - self.stall.frames as i32;
+                        from + d * steps.max(0)
+                    }
+                };
+                (
+                    moved(fx, self.view.0, dx) as usize,
+                    moved(fy, self.view.1, dy) as usize,
+                )
+            }
+            _ => self.view,
+        }
     }
 
-    /// Advance one frame.
-    pub fn tick(&mut self, command: Command) {
+    /// Advance one frame of real time (1/60 s).
+    pub fn tick(&mut self, key: Key) {
         if let Some(step) = self.intro {
             if step < INTRO_FRAMES {
                 let (x, y) = (self.player.x as i32, self.player.y as i32);
@@ -167,95 +260,132 @@ impl Game {
             }
             return;
         }
-        // The original scrolls one box per frame and runs no player update
-        // meanwhile (CODE 9, 0x5b2 and friends).
-        if let Some((dir, left)) = self.scroll {
-            let (dx, dy) = dir.delta();
-            self.view.0 = (self.view.0 as i32 + dx) as usize;
-            self.view.1 = (self.view.1 as i32 + dy) as usize;
-            self.scroll = (left > 1).then_some((dir, left - 1));
+        if self.stall.frames > 0 {
+            self.stall.frames -= 1;
+            if self.stall.frames == 0 {
+                self.stall.scroll = None;
+            }
             return;
         }
-        if self.player.remaining == 0
-            && let Command::Move(dir) = command
-        {
-            self.try_start_move(dir);
+        self.frame(key);
+    }
+
+    /// One pass of the main loop (CODE 9 0x28 … 0x248).
+    pub fn frame(&mut self, key: Key) {
+        if self.exit.is_some() {
+            return;
         }
-        if self.player.remaining > 0 {
-            self.player.remaining = (self.player.remaining - self.player.speed).max(0);
-            if self.player.remaining == 0 {
-                self.arrive();
+        self.world.frame = (self.world.frame + 1) % crate::world::FRAMES_PER_PASS;
+        if self.world.frame == 0 {
+            self.world.pulse = (self.world.pulse + 1) % crate::world::PULSE_PERIOD;
+        }
+        if self.player.accelerator != 0 {
+            self.player.accelerator -= 1;
+            if self.player.accelerator == 0 {
+                self.player.speed = NORMAL_SPEED;
             }
+        }
+        if self.player.remaining == 0 {
+            if self.world.level_end == 0 {
+                self.read_key(key);
+            } else {
+                self.player.command = -1;
+            }
+        }
+        if self.player.magnifier == 0 {
+            if self.world.dying == 0 {
+                self.player_frame();
+            } else {
+                self.world.dying -= 1;
+            }
+            self.world_frame();
+            self.projectiles_frame();
+            if self.clear_shots {
+                for p in self.world.projectiles.iter_mut() {
+                    p.active = false;
+                    if p.draw > 1 {
+                        p.draw = 1;
+                    }
+                }
+                self.clear_shots = false;
+            }
+        } else {
+            self.player.magnifier -= 1;
+            if self.player.magnifier == 0 {
+                self.teleport(None);
+                self.player.command = -1;
+            } else {
+                self.magnifier_frame();
+            }
+        }
+        if self.world.level_end > 1 {
+            self.world.level_end -= 1;
+        }
+        if self.world.level_end == 1 {
+            if self.world.dying == 0 {
+                self.exit = Some(Exit::Won);
+            } else {
+                self.world.dying = 1;
+            }
+        }
+        if self.world.dying == 1 && self.world.level_end == 0 {
+            self.player.lives -= 1;
+            self.exit = Some(if self.player.lives == 0 {
+                Exit::GameOver
+            } else if self.player.self_destructed {
+                Exit::SelfDestructed
+            } else {
+                Exit::Died
+            });
+        }
+        if self.player.command == 8 && !self.player.self_destructed && self.player.magnifier == 0 {
+            self.player.self_destructed = true;
+            if self.world.dying == 0 {
+                self.world.dying = DEATH_FRAMES;
+                self.world.player_visible = false;
+                let (x, y) = (self.player.x as i32, self.player.y as i32);
+                self.set(x, y, BIG_EXPLOSION, false);
+            }
+        }
+    }
+
+    /// The keyboard routine (CODE 6 0x7a8): use and fire act once per
+    /// press.
+    fn read_key(&mut self, key: Key) {
+        let p = &mut self.player;
+        p.command = match key {
+            Key::Move(dir) => dir as i32,
+            Key::SelfDestruct => 8,
+            _ => -1,
+        };
+        if key == Key::Use {
+            if !p.use_held {
+                p.command = 7;
+            }
+            p.use_held = true;
+        } else {
+            p.use_held = false;
+        }
+        if key == Key::Fire {
+            if !p.fire_held {
+                p.command = 4;
+            }
+            p.fire_held = true;
+        } else {
+            p.fire_held = false;
+        }
+    }
+
+    /// Only the world and the projectiles, as the reference recordings of
+    /// the world automaton were made (`re/tools/emu_world.py`).
+    #[doc(hidden)]
+    pub fn world_only_frame(&mut self) {
+        self.world.frame = (self.world.frame + 1) % crate::world::FRAMES_PER_PASS;
+        if self.world.frame == 0 {
+            self.world.pulse = (self.world.pulse + 1) % crate::world::PULSE_PERIOD;
         }
         self.world_frame();
         self.projectiles_frame();
-    }
-
-    /// Whether a box in view-relative coordinates can be entered
-    /// (CODE 9, 0x1f12): the view's edge blocks; floor and objects (below 40),
-    /// tiles 184–188 and tiles from 219 up are free, other tiles block.
-    fn passable(&self, rel_x: i32, rel_y: i32) -> bool {
-        if !(0..Level::VIEW_WIDTH as i32).contains(&rel_x)
-            || !(0..Level::VIEW_HEIGHT as i32).contains(&rel_y)
-        {
-            return false;
-        }
-        let x = self.view.0 + rel_x as usize;
-        let y = self.view.1 + rel_y as usize;
-        let tile = self.level.tile(x, y);
-        tile < Level::FIRST_SOLID_TILE || (0xB8..=0xBC).contains(&tile) || tile >= 0xDB
-    }
-
-    fn try_start_move(&mut self, dir: Dir) {
-        let (dx, dy) = dir.delta();
-        let rel_x = self.player.x as i32 - self.view.0 as i32 + dx;
-        let rel_y = self.player.y as i32 - self.view.1 as i32 + dy;
-        if !self.passable(rel_x, rel_y) {
-            return;
-        }
-        let target = self.level.tile(
-            (self.player.x as i32 + dx) as usize,
-            (self.player.y as i32 + dy) as usize,
-        );
-        if target == dir.blocking_one_way() {
-            return;
-        }
-        self.player.dir = dir;
-        self.player.turret = dir;
-        self.player.remaining = BOX;
-    }
-
-    /// The move to the next box is complete: update the box position and
-    /// start scrolling when the player is near the edge of the view.
-    fn arrive(&mut self) {
-        let (dx, dy) = self.player.dir.delta();
-        self.player.x = (self.player.x as i32 + dx) as usize;
-        self.player.y = (self.player.y as i32 + dy) as usize;
-        let (vx, vy) = (self.view.0 as i32, self.view.1 as i32);
-        let rel_x = self.player.x as i32 - vx;
-        let rel_y = self.player.y as i32 - vy;
-        let boxes = match self.player.dir {
-            Dir::Left if rel_x == 1 && vx != 0 => vx.min(6),
-            Dir::Up if rel_y == 1 && vy != 0 => vy.min(4),
-            Dir::Right if rel_x == 12 && vx != 26 => {
-                if rel_x + vx + 7 > 39 {
-                    38 - (rel_x + vx)
-                } else {
-                    6
-                }
-            }
-            Dir::Down if rel_y == 8 && vy != 15 => {
-                if rel_y + vy + 5 > 23 {
-                    22 - (rel_y + vy)
-                } else {
-                    4
-                }
-            }
-            _ => 0,
-        };
-        if boxes > 0 {
-            self.scroll = Some((self.player.dir, boxes as usize));
-        }
     }
 }
 
@@ -272,7 +402,7 @@ mod tests {
         let mut shown = vec![game.level.tile(5, 5)];
         while game.in_intro() {
             assert!(!game.world.player_visible);
-            game.tick(Command::Move(Dir::Right));
+            game.tick(Key::Move(Dir::Right));
             shown.push(game.level.tile(5, 5));
         }
         assert_eq!(shown.len(), INTRO_FRAMES + 1);
@@ -286,26 +416,22 @@ mod tests {
     /// A wall tile in the translated numbering (index 48: wall).
     const WALL: u16 = 48;
 
-    fn run(game: &mut Game, command: Command, frames: usize) {
+    fn run(game: &mut Game, key: Key, frames: usize) {
         for _ in 0..frames {
-            game.tick(command);
+            game.frame(key);
         }
     }
 
     #[test]
-    fn a_move_takes_eight_frames() {
+    fn a_move_takes_eight_frames_and_starts_at_once() {
         let mut game = Game::new(test_level(&[], (5, 5)));
-        assert_eq!(
-            game.player.sprite(),
-            15,
-            "starts facing down like the original"
-        );
-        game.tick(Command::Move(Dir::Right));
+        assert_eq!(game.player.sprite(), 15, "starts facing down");
+        game.frame(Key::Move(Dir::Right));
         assert_eq!(game.player.offset(), (4, 0));
         assert_eq!(game.player.sprite(), 4 * 2 + 2);
-        run(&mut game, Command::None, 6);
+        run(&mut game, Key::None, 6);
         assert_eq!((game.player.x, game.player.offset()), (5, (28, 0)));
-        game.tick(Command::None);
+        game.frame(Key::None);
         assert_eq!((game.player.x, game.player.y), (6, 5));
         assert_eq!(game.player.offset(), (0, 0));
     }
@@ -313,76 +439,76 @@ mod tests {
     #[test]
     fn keys_are_ignored_while_moving() {
         let mut game = Game::new(test_level(&[], (5, 5)));
-        game.tick(Command::Move(Dir::Right));
-        run(&mut game, Command::Move(Dir::Down), 7);
+        game.frame(Key::Move(Dir::Right));
+        run(&mut game, Key::Move(Dir::Down), 7);
         assert_eq!((game.player.x, game.player.y), (6, 5));
     }
 
     #[test]
     fn walls_block_and_the_player_does_not_turn() {
         let mut game = Game::new(test_level(&[(6, 5, WALL)], (5, 5)));
-        game.tick(Command::Move(Dir::Right));
+        game.frame(Key::Move(Dir::Right));
         assert_eq!(game.player.remaining, 0);
         assert_eq!(game.player.dir, Dir::Down);
-    }
-
-    #[test]
-    fn passable_tiles() {
-        for (tile, free) in [
-            (0, true),
-            (39, true),
-            (40, false),
-            (183, false),
-            (184, true),
-            (188, true),
-            (189, false),
-            (218, false),
-            (219, true),
-            (300, true),
-        ] {
-            let mut game = Game::new(test_level(&[(6, 5, tile)], (5, 5)));
-            game.tick(Command::Move(Dir::Right));
-            assert_eq!(game.player.remaining > 0, free, "tile {tile}");
-        }
     }
 
     #[test]
     fn one_way_doors_block_one_direction() {
         // 0xF5 cannot be entered moving right, but moving left is fine.
         let mut game = Game::new(test_level(&[(6, 5, 0xF5), (4, 5, 0xF5)], (5, 5)));
-        game.tick(Command::Move(Dir::Right));
+        game.frame(Key::Move(Dir::Right));
         assert_eq!(game.player.remaining, 0);
-        game.tick(Command::Move(Dir::Left));
+        game.frame(Key::Move(Dir::Left));
         assert!(game.player.remaining > 0);
     }
 
     #[test]
-    fn the_view_scrolls_one_box_per_frame_near_the_edge() {
-        // Start view (0, 0); walking right to view column 12 scrolls by 6.
+    fn the_view_scrolls_within_the_frame_of_arrival() {
+        // Start view (0, 0); arriving at view column 12 scrolls by 6.
         let mut game = Game::new(test_level(&[], (10, 5)));
         assert_eq!(game.view, (0, 0));
-        run(&mut game, Command::Move(Dir::Right), 8);
-        assert_eq!(game.player.x, 11);
-        assert!(!game.is_scrolling());
-        run(&mut game, Command::Move(Dir::Right), 8);
+        run(&mut game, Key::Move(Dir::Right), 16);
         assert_eq!(game.player.x, 12);
-        assert!(game.is_scrolling());
-        run(&mut game, Command::Move(Dir::Right), 6);
         assert_eq!(game.view, (6, 0));
-        assert!(!game.is_scrolling());
-        assert_eq!(game.player.remaining, 0, "no moves while scrolling");
+        // The frontend shows the player at the new box first, then the
+        // scroll over the following frames.
+        assert_eq!(game.shown_view(), (0, 0));
+        game.tick(Key::None);
+        assert_eq!(game.shown_view(), (0, 0));
+        game.tick(Key::None);
+        assert_eq!(game.shown_view(), (1, 0));
     }
 
     #[test]
-    fn scrolling_stops_at_the_level_edge() {
-        let mut game = Game::new(test_level(&[], (35, 5)));
-        assert_eq!(game.view.0, 26);
-        // Walking left to view column 1 scrolls by 6.
-        let (_, _) = game.view;
-        run(&mut game, Command::Move(Dir::Left), 8 * 8);
-        assert_eq!(game.player.x, 27);
-        assert!(game.is_scrolling());
-        run(&mut game, Command::None, 6);
-        assert_eq!(game.view.0, 20);
+    fn teleporting_centers_the_view_on_the_target() {
+        // Teleporter 0x101 at the start, its target 0x105 far down right.
+        let mut game = Game::new(test_level(&[(5, 5, 0x101), (27, 17, 0x105)], (5, 5)));
+        assert_eq!(game.view, (0, 0));
+        game.set(5, 5, 0x101, false);
+        game.frame(Key::Use);
+        assert_eq!((game.player.x, game.player.y), (27, 17));
+        // Target 7 / 5 boxes from the view's corner, clamped to the level.
+        assert_eq!(game.view, (20, 12));
+        // 3 boxes each way (the order of the steps cannot be observed).
+        let mut game = Game::new(test_level(&[(7, 5, 0x101), (17, 13, 0x105)], (7, 5)));
+        game.set(7, 5, 0x101, false);
+        game.view = (7, 5);
+        game.frame(Key::Use);
+        assert_eq!(game.view, (10, 8));
+        assert_eq!(game.stall.scroll, None);
+    }
+
+    #[test]
+    fn use_takes_and_drops_objects() {
+        // 25 is an object on the floor.
+        let mut game = Game::new(test_level(&[(6, 5, 25)], (5, 5)));
+        run(&mut game, Key::Move(Dir::Right), 8);
+        game.frame(Key::Use);
+        assert_eq!((game.world.carried, game.level.tile(6, 5)), (25, 0));
+        game.frame(Key::Use);
+        assert_eq!(game.world.carried, 25, "acts once per press");
+        game.frame(Key::None);
+        game.frame(Key::Use);
+        assert_eq!((game.world.carried, game.level.tile(6, 5)), (0, 25));
     }
 }

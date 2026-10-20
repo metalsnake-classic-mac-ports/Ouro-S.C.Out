@@ -121,6 +121,25 @@ impl Game {
         }
     }
 
+    /// Drawing state after the view moved one box (CODE 9 0x232c): erased
+    /// projectiles free their slot, those outside the view are dropped
+    /// from the screen, those inside are (re)drawn.
+    pub(crate) fn update_draw_states(&mut self) {
+        let (left, top) = (self.view.0 as i32 * BOX, self.view.1 as i32 * BOX);
+        for p in self.world.projectiles.iter_mut() {
+            if !p.active {
+                if p.draw == 1 {
+                    self.world.projectile_count -= 1;
+                    p.draw = 0;
+                }
+            } else if p.x < left || left + 0x1BC < p.x || p.y < top || top + 0x13C < p.y {
+                p.draw = 0;
+            } else {
+                p.draw = if p.draw == 0 { 3 } else { 2 };
+            }
+        }
+    }
+
     /// Move all projectiles one frame (CODE 4 0x2392).
     pub(crate) fn projectiles_frame(&mut self) {
         for i in 0..SLOTS {

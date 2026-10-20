@@ -7,8 +7,9 @@
 //! DISK is the original `SCOUT_1_4.dsk`. Without it, `SCOUT_DISK` is used,
 //! then `SCOUT_1_4.dsk` in the current folder, then `re/work/SCOUT_1_4.dsk`.
 //!
-//! Keys: arrows move, N/P next/previous level, R restart the level,
-//! Tab game screen / level map, F1 palette, Esc quit.
+//! Keys: arrows move, Return takes / drops / teleports, Space fires,
+//! Backspace blows yourself up, N/P next/previous level, R restart the
+//! level, Tab game screen / level map, F1 palette, Esc quit.
 
 mod render;
 
@@ -16,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
-use scout_core::{Command, Dir, Game};
+use scout_core::{Dir, Exit, Game, Key};
 use scout_data::GameData;
 use sdl3::event::Event;
 use sdl3::keyboard::{KeyboardState, Keycode, Scancode};
@@ -129,21 +130,22 @@ fn begin(data: &GameData, level: usize) -> Game {
     game
 }
 
-/// The command for this frame from the keyboard. Like the original, only
-/// one key counts; it scans the Mac key codes in ascending order, which for
-/// the arrow keys is left, right, down, up.
-fn command(keys: &KeyboardState) -> Command {
-    for (key, dir) in [
-        (Scancode::Left, Dir::Left),
-        (Scancode::Right, Dir::Right),
-        (Scancode::Down, Dir::Down),
-        (Scancode::Up, Dir::Up),
+/// The key of this frame. Like the original, only one key counts.
+fn key(keys: &KeyboardState) -> Key {
+    for (code, key) in [
+        (Scancode::Left, Key::Move(Dir::Left)),
+        (Scancode::Right, Key::Move(Dir::Right)),
+        (Scancode::Down, Key::Move(Dir::Down)),
+        (Scancode::Up, Key::Move(Dir::Up)),
+        (Scancode::Return, Key::Use),
+        (Scancode::Space, Key::Fire),
+        (Scancode::Backspace, Key::SelfDestruct),
     ] {
-        if keys.is_scancode_pressed(key) {
-            return Command::Move(dir);
+        if keys.is_scancode_pressed(code) {
+            return key;
         }
     }
-    Command::None
+    Key::None
 }
 
 fn run(data: &GameData) -> Result<()> {
@@ -208,8 +210,16 @@ fn run(data: &GameData) -> Result<()> {
 
         let now = Instant::now();
         while next_frame <= now {
-            game.tick(command(&events.keyboard_state()));
+            game.tick(key(&events.keyboard_state()));
             next_frame += frame_time;
+            match game.exit {
+                Some(Exit::Won) => {
+                    level = (level + 1) % data.levels.len();
+                    game = begin(data, level);
+                }
+                Some(_) => game = begin(data, level),
+                None => {}
+            }
         }
 
         let image = draw(data, &game, view);

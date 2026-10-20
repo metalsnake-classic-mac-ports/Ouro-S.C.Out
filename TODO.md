@@ -40,7 +40,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         Caps Lock + Q / P quit / pause
   - [x] Movement (CODE 9, 0xb70 and 0x1f12): a move is one box, 4 px per frame (8 frames);
         passable: values < 40, 184–188, ≥ 219; one-way tiles 243–246 block one direction;
-        the view scrolls one box per frame (up to 6 sideways / 4 up or down)
+        the view scrolls up to 6 sideways / 4 up or down, within one frame of the logic
   - [x] Player sprite: object 4 × turret + hull direction (objects 0–15), starts facing down
   - [x] Frame rate of the original: one frame per vertical blank, 60 fps (VBL task in
         CODE 6, wait in CODE 8; measured in Basilisk II with `SCOUT_FPS=1`). Slower Macs of
@@ -48,9 +48,14 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         recording: start animation 8 frames per step, player 4 px per frame at 60 fps
   - [x] Start pad animation: 0x108 after loading, 64 frames 0xab…0xb2, then the closed
         hatch 0x10b (267), as the screenshot of the original shows
-  - [ ] Tiles that act on the player (CODE 9, 0xb70 switch: arrows/conveyors 0x8c–0xa9,
-        tiles > 291 on enter/leave, 0xdf–0xe2 …), steering is blocked on 0x8c–0xaa
-  - [ ] Actions (commands 4 and 7), items, shooting
+  - [x] Player update completely (CODE 9 0xb70, `player.rs`): tiles acting on the player,
+        mines, rails and conveyors, cannons, hatch/checkpoint, accelerator, magnifier,
+        teleporters, take / swap / drop, chips, firing missiles, scrolling. Main loop with
+        death, level end, lives and self destruct. Matches the original in 101 levels ×
+        3000 frames of random keys and 1000 random levels × 600 frames
+        (`re/tools/emu_play.py`, tests `playing_matches_the_original*`)
+  - [ ] Restart from the last checkpoint after losing a life (state saved by CODE 5 0x301e,
+        restored by CODE 5 ≈ 0x2c00); lives across levels, game over, level codes
   - [x] World automaton (CODE 9 0x23fa): 96 boxes per frame, skip flags, 254 tick handlers
         (198 animation steps generated, the rest ported by hand). Matches the original
         exactly in all 101 levels over 3000 frames and in 500 random scenarios
@@ -58,14 +63,14 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   - [x] Explosions (handler table `-0x22d0`, 150 handlers): death of the player, colored
         circles set the door switches, the target starts the 120-frame level end,
         chain reactions. All 150 handlers covered by the random scenarios and matching
-  - [ ] Count down `dying` / `level_end` and end the level like the main loop does
   - [x] Projectiles (tables `-0x3270` / `-0x2aa0`), cannons, mirrors, homing projectiles
         with the Toolbox `Random`: all 40 slots match the original frame by frame in 500
         random scenarios (projectiles of all types, aimed shots, computers, wall hits)
   - [ ] Check `Random` number for number against a real Mac (Basilisk II)
-  - [ ] Rails/conveyors carrying the player (`-0x539e` → forced direction)
+  - [x] Rails/conveyors carrying the player (`-0x539e` → forced direction)
   - [x] Switch flags `-0x53b8`…`-0x53b5`: set by exploding colored circles 162–165
-  - [ ] Who sets `-0x53b4` (switch of tile 61) and the carried object `-0x578c`
+  - [x] Who sets `-0x53b4` (switch of tile 61) and the carried object `-0x578c`: the player;
+        dropping the key (object 30) on tile 0x100 clears `-0x53b4`
 
 The sections below were written for the old port and stay as a reference.
 The old port now lives in `legacy-port/`, so `build/` below means `legacy-port/build/`.
