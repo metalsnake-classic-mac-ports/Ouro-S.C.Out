@@ -1,5 +1,5 @@
 diff --git a/BasiliskII/src/Unix/main_unix.cpp b/BasiliskII/src/Unix/main_unix.cpp
-index 08a700a..3b94864 100755
+index 08a700a..c6a0b9e 100755
 --- a/BasiliskII/src/Unix/main_unix.cpp
 +++ b/BasiliskII/src/Unix/main_unix.cpp
 @@ -219,6 +219,10 @@ static const char *gui_connection_path = NULL;	// GUI connection identifier
@@ -38,7 +38,7 @@ index 08a700a..3b94864 100755
  #if EMULATED_68K
  	// Exit 680x0 emulation
  	Exit680x0();
-@@ -1306,6 +1321,42 @@ static void one_second(void)
+@@ -1306,6 +1321,43 @@ static void one_second(void)
  #endif
  }
  
@@ -68,8 +68,9 @@ index 08a700a..3b94864 100755
 +		uint64 now = GetTicks_usec();
 +		if (now - start >= 1000000) {
 +			uint32 ticks = ReadMacInt32(0x16a);
-+			fprintf(stderr, "scout: %u game frames, %u Mac ticks in %.3f s\n",
-+				frames, ticks_start ? ticks - ticks_start : 0, (now - start) / 1e6);
++			fprintf(stderr, "scout: %u game frames, %u Mac ticks in %.3f s, [0x64] = %08x\n",
++				frames, ticks_start ? ticks - ticks_start : 0, (now - start) / 1e6,
++				ReadMacInt32(0x64));
 +			frames = 0;
 +			ticks_start = ticks;
 +			start = now;

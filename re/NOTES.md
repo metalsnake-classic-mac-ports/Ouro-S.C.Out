@@ -51,9 +51,12 @@ Single-threaded; one pass is one frame:
 Only the first pressed key (GetKeys + KCHR) counts. Command `-0x5790`:
 0–3 configured direction keys (left, up, right, down), 7 and 4 actions
 (edge-triggered), 8 = key `5` (self destruct after 300 frames),
-9 / 6 = Caps Lock + Q / P, −1 nothing. The direction keys are set in
-Game → Setting; version 1.4 as shipped uses the keypad 4 / 8 / 6 / 2. The
-rewrite uses the arrow keys instead.
+9 / 6 = Caps Lock + Q / P, −1 nothing. The keys are set in Game →
+Setting (stored as characters via the KCHR table): right 6, left 4, up 8,
+down 2, get/drop Enter, fire 5. The self destruct test is the character
+`5` itself, so with these defaults tapping 5 fires and holding it (two
+frames standing still) blows the player up. The rewrite uses the arrow
+keys, Return, Space and Backspace instead.
 
 Speed checked against a screen recording of the original in Basilisk II:
 the start animation steps every 8 frames, the player moves 4 pixels per
@@ -173,6 +176,14 @@ view scrolls by up to 6/4 boxes within the same frame (CODE 9 0x3c6 …), each
 step redraws (one VBL) and updates the drawing state of the projectiles
 (CODE 9 0x232c). Teleporting likewise. The rewrite does the logic at once
 and lets the frontend show the extra frames (`Game::tick`, `shown_view`).
+
+Drawing projectiles (CODE 8 0x364, after the player): a 4 × 4 pattern with
+the top left corner at the projectile position, middle rows 0x64 0x65 0x65
+0x65 (orange, yellow), top and bottom row two pixels from the bytes at the
+addresses 0x64 and 0x65 (`move.b $64.w` instead of `#$64`): the level-1
+interrupt vector. Basilisk II has 0x01009b60 there (grey top, white
+bottom); on a real Mac it points into ROM (0x408…, grey). Saved
+background under each projectile is restored first (slot +0x20).
 
 Bugs of the original: the checkpoint copies the saved projectile count
 (always 0) into the live one instead of the other way round. During the

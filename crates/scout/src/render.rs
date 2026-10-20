@@ -20,6 +20,25 @@ const FRAME_Y: usize = 68;
 const VIEW_X: usize = FRAME_X + Frame::VIEW_X;
 const VIEW_Y: usize = FRAME_Y + Frame::VIEW_Y;
 
+/// A projectile as the original draws it (CODE 8 0x364): 4 × 4 pixels with
+/// the top left corner at its position. The original takes the colors of
+/// the top and bottom row from the bytes at addresses 0x64 and 0x65 (a bug:
+/// `move.b $64.w` instead of `#$64`), part of an interrupt vector that
+/// depends on the Mac; Basilisk II has 0x01 (grey) and 0x00 (white) there.
+/// `None` is transparent.
+const PROJECTILE: [[Option<u8>; 4]; 4] = {
+    const TOP: Option<u8> = Some(0x01);
+    const BOTTOM: Option<u8> = Some(0x00);
+    const ORANGE: Option<u8> = Some(0x64);
+    const YELLOW: Option<u8> = Some(0x65);
+    [
+        [None, TOP, TOP, None],
+        [ORANGE, YELLOW, YELLOW, YELLOW],
+        [ORANGE, YELLOW, YELLOW, YELLOW],
+        [None, BOTTOM, BOTTOM, None],
+    ]
+};
+
 /// An image of palette indices.
 pub struct Canvas {
     pub width: usize,
@@ -73,6 +92,30 @@ impl Canvas {
         }
         if let Some(object) = object {
             self.draw_object(data, object, x as i32, y as i32);
+        }
+    }
+
+    /// The projectiles the original has on screen (drawing state 2 or 3),
+    /// clipped to the view.
+    fn draw_projectiles(&mut self, game: &Game, (vx, vy): (usize, usize)) {
+        let (w, h) = (
+            (Level::VIEW_WIDTH * TILE_SIZE) as i32,
+            (Level::VIEW_HEIGHT * TILE_SIZE) as i32,
+        );
+        for p in game.world.projectiles.iter().filter(|p| p.draw > 1) {
+            let left = p.x - (vx * TILE_SIZE) as i32;
+            let top = p.y - (vy * TILE_SIZE) as i32;
+            for (dy, row) in PROJECTILE.iter().enumerate() {
+                for (dx, color) in row.iter().enumerate() {
+                    let (x, y) = (left + dx as i32, top + dy as i32);
+                    if let Some(c) = color
+                        && (0..w).contains(&x)
+                        && (0..h).contains(&y)
+                    {
+                        self.pixels[(VIEW_Y + y as usize) * self.width + VIEW_X + x as usize] = *c;
+                    }
+                }
+            }
         }
     }
 
@@ -156,6 +199,7 @@ pub fn game_screen(data: &GameData, game: &Game) -> Canvas {
     if game.world.player_visible {
         canvas.draw_object(data, p.sprite(), x, y);
     }
+    canvas.draw_projectiles(game, (vx, vy));
     canvas
 }
 

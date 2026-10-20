@@ -54,6 +54,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         death, level end, lives and self destruct. Matches the original in 101 levels ×
         3000 frames of random keys and 1000 random levels × 600 frames
         (`re/tools/emu_play.py`, tests `playing_matches_the_original*`)
+  - [x] Projectiles drawn like the original (4 × 4, CODE 8 0x364)
   - [ ] Restart from the last checkpoint after losing a life (state saved by CODE 5 0x301e,
         restored by CODE 5 ≈ 0x2c00); lives across levels, game over, level codes
   - [x] World automaton (CODE 9 0x23fa): 96 boxes per frame, skip flags, 254 tick handlers
