@@ -64,7 +64,7 @@ pub enum Key {
     Use,
     /// Fire the carried missile (command 4; acts when pressed).
     Fire,
-    /// Key `5` on the keypad: blow yourself up.
+    /// Esc in the original: blow yourself up.
     SelfDestruct,
 }
 

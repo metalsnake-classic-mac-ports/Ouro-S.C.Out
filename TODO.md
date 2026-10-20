@@ -36,7 +36,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [ ] Game logic in `scout-core`, using the original code as reference
   - [x] Main loop (CODE 9, 0x0): single-threaded, one pass = one frame
   - [x] Input (CODE 6, 0x7a8): only the first pressed key counts; commands 0–3 move,
-        7 and 4 are actions (once per key press), `5` starts a 300-frame self destruct,
+        7 and 4 are actions (once per key press), Esc starts a 300-frame self destruct,
         Caps Lock + Q / P quit / pause
   - [x] Movement (CODE 9, 0xb70 and 0x1f12): a move is one box, 4 px per frame (8 frames);
         passable: values < 40, 184–188, ≥ 219; one-way tiles 243–246 block one direction;

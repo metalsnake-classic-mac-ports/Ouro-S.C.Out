@@ -48,15 +48,14 @@ Single-threaded; one pass is one frame:
 
 ## Input (CODE 6 0x7a8)
 
-Only the first pressed key (GetKeys + KCHR) counts. Command `-0x5790`:
-0–3 configured direction keys (left, up, right, down), 7 and 4 actions
-(edge-triggered), 8 = key `5` (self destruct after 300 frames),
-9 / 6 = Caps Lock + Q / P, −1 nothing. The keys are set in Game →
-Setting (stored as characters via the KCHR table): right 6, left 4, up 8,
-down 2, get/drop Enter, fire 5. The self destruct test is the character
-`5` itself, so with these defaults tapping 5 fires and holding it (two
-frames standing still) blows the player up. The rewrite uses the arrow
-keys, Return, Space and Backspace instead.
+Only the first pressed key counts: GetKeys, raw key codes translated to
+virtual key codes with the `KMAP` resource (CODE 6 0x222, table at
+`-0x1152`). Command `-0x5790`: 0–3 configured direction keys (left, up,
+right, down), 7 and 4 actions (edge-triggered), 8 = Esc (virtual code
+0x35: self destruct, 300 frames), 9 / 6 = Caps Lock + Q / P, −1 nothing.
+The keys are set in Game → Setting (as virtual key codes): right 6, left
+4, up 8, down 2 on the keypad, get/drop Enter, fire keypad 5. The rewrite
+uses the arrow keys, Return, Space and Backspace instead.
 
 Speed checked against a screen recording of the original in Basilisk II:
 the start animation steps every 8 frames, the player moves 4 pixels per
