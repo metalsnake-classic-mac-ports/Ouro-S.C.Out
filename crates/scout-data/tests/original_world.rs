@@ -232,6 +232,7 @@ fn world_matches_the_original() {
         let frames = read_reference(&text);
         let label = format!("level {}", n + 1);
         let mut game = Game::new(level.clone());
+        game.skip_intro();
         apply_header(&mut game, text.lines().next().unwrap());
         failures.extend(compare(game, &frames, &label));
     }

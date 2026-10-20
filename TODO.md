@@ -43,7 +43,8 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         the view scrolls one box per frame (up to 6 sideways / 4 up or down)
   - [x] Player sprite: object 4 × turret + hull direction (objects 0–15), starts facing down
   - [ ] Frame rate of the original (provisional 30 fps; to be measured in the emulator)
-  - [ ] Start pad animation (tile 264 after loading, 267 in the screenshot)
+  - [x] Start pad animation: 0x108 after loading, 64 frames 0xab…0xb2, then the closed
+        hatch 0x10b (267), as the screenshot of the original shows
   - [ ] Tiles that act on the player (CODE 9, 0xb70 switch: arrows/conveyors 0x8c–0xa9,
         tiles > 291 on enter/leave, 0xdf–0xe2 …), steering is blocked on 0x8c–0xaa
   - [ ] Actions (commands 4 and 7), items, shooting

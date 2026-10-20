@@ -47,6 +47,13 @@ Only the first pressed key (GetKeys + KCHR) counts. Command `-0x5790`:
 `-0x6546`: 40 × 24 words, values translated from the level file by the
 loader (CODE 5 0x48c; tables in `crates/scout-core/src/translate.rs`).
 Values < 40: object on floor, ≥ 40: full tile. The start box gets 0x108.
+The loader fills the level copy at `-0x481a` (restart copy); starting the
+level copies it to the map `-0x6546`, then plays the start animation
+(CODE 5 ≈ 0x2ee0, player hidden via `-0x184` = 0, no world or player
+update): 64 rounds of set_tile(start, 0xab + i/8, no skip) + redraw, then
+0x10b (closed hatch) and `-0x184` = 1. So in play the start box is 0x10b.
+The player code turns 0x10a (file values 288/297) into 0x10b when the
+player stands on it.
 
 Set a tile: CODE 9 0x2046 `(x, y, (tile << 16) | (skip << 8))` writes the
 map and the visible view buffer, sets the skip flag `-0x5780[cell]` and

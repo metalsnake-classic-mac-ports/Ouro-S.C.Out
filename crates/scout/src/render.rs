@@ -118,7 +118,9 @@ pub fn level_map(data: &GameData, game: &Game) -> Canvas {
     let (ox, oy) = p.offset();
     let x = (p.x * TILE_SIZE) as i32 + ox;
     let y = (p.y * TILE_SIZE) as i32 + oy;
-    canvas.draw_object(data, p.sprite(), x, y);
+    if game.world.player_visible {
+        canvas.draw_object(data, p.sprite(), x, y);
+    }
     canvas
 }
 
@@ -151,7 +153,9 @@ pub fn game_screen(data: &GameData, game: &Game) -> Canvas {
     let (ox, oy) = p.offset();
     let x = VIEW_X as i32 + (p.x as i32 - vx as i32) * TILE_SIZE as i32 + ox;
     let y = VIEW_Y as i32 + (p.y as i32 - vy as i32) * TILE_SIZE as i32 + oy;
-    canvas.draw_object(data, p.sprite(), x, y);
+    if game.world.player_visible {
+        canvas.draw_object(data, p.sprite(), x, y);
+    }
     canvas
 }
 

@@ -190,7 +190,9 @@ def level_from_disk(work, number):
     starts = {1, 2, 3, 10, 11, 12, 13, 20, 21, 22, 23, 30, 31, 32, 33}
     tiles = [0 if v in starts else t["tiles"].get(str(v), 255) for v in file_tiles]
     start = max(i for i, v in enumerate(file_tiles) if v in starts)
-    tiles[start] = 0x108
+    # the loader puts 0x108 there; the start animation (CODE 5 ≈ 0x2ee0)
+    # leaves the closed hatch 0x10b when the game begins
+    tiles[start] = 0x10B
     floor = [t["floor"][str(v)] for v in chunk[1920:]]
     return tiles, floor, (start % W, start // W)
 

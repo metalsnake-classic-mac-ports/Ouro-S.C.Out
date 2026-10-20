@@ -112,12 +112,20 @@ fn export_level(
         bail!("level {level} does not exist (1..={})", data.levels.len());
     }
     let palette = &data.palettes[palette_index(data, palette)?].palette;
-    let game = Game::new(data.levels[level - 1].clone());
+    let mut game = Game::new(data.levels[level - 1].clone());
+    game.skip_intro();
     let canvas = draw(data, &game, view);
     let mut rgb = vec![0; canvas.width * canvas.height * 3];
     canvas.to_rgb24(palette, &mut rgb, canvas.width * 3);
     render::write_bmp(out, canvas.width, canvas.height, &rgb)
         .with_context(|| format!("writing {}", out.display()))
+}
+
+/// A level from its start animation on.
+fn begin(data: &GameData, level: usize) -> Game {
+    let mut game = Game::new(data.levels[level].clone());
+    game.start_intro();
+    game
 }
 
 /// The command for this frame from the keyboard. Like the original, only
@@ -153,7 +161,7 @@ fn run(data: &GameData) -> Result<()> {
     let creator = canvas.texture_creator();
 
     let mut level = 0usize;
-    let mut game = Game::new(data.levels[level].clone());
+    let mut game = begin(data, level);
     let mut view = View::Screen;
     let mut palette = palette_index(data, DEFAULT_PALETTE)?;
     let mut events = sdl.event_pump()?;
@@ -191,7 +199,7 @@ fn run(data: &GameData) -> Result<()> {
                         }
                         _ => continue,
                     }
-                    game = Game::new(data.levels[level].clone());
+                    game = begin(data, level);
                 }
                 _ => {}
             }

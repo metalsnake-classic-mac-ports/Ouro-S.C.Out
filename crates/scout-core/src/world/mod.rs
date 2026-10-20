@@ -127,7 +127,7 @@ impl Game {
     }
 
     /// Replace a tile and set the box's skip flag (CODE 9 0x2046).
-    fn set(&mut self, x: i32, y: i32, tile: u16, skip: bool) {
+    pub(crate) fn set(&mut self, x: i32, y: i32, tile: u16, skip: bool) {
         if let Some(i) = index(x, y) {
             self.level.set_tile(x as usize, y as usize, tile);
             self.world.skip[i] = skip;

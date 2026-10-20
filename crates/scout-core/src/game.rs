@@ -12,6 +12,12 @@ pub const BOX: i32 = 32;
 /// Pixels per frame the player moves (the original resets its speed
 /// variable to 4 when the accelerator runs out).
 pub const NORMAL_SPEED: i32 = 4;
+/// Frames of the animation on the start box when a level begins
+/// (CODE 5 ≈ 0x2ee0): tiles 0xab … 0xb2, eight frames each.
+pub const INTRO_FRAMES: usize = 64;
+const INTRO_FIRST_TILE: u16 = 0xAB;
+/// The closed hatch the start box shows after the animation.
+pub const START_HATCH: u16 = 0x10B;
 
 /// A direction, numbered like in the original.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -97,6 +103,8 @@ pub struct Game {
     pub world: World,
     /// Events of the last frames for the frontend; it drains them.
     pub events: Vec<Event>,
+    /// Next step of the start animation while it runs.
+    intro: Option<usize>,
 }
 
 impl Game {
@@ -117,7 +125,30 @@ impl Game {
             scroll: None,
             world: World::default(),
             events: Vec::new(),
+            intro: None,
         }
+    }
+
+    /// Begin the level like the original: the start box (0x108 after
+    /// loading) shows the opening animation for [`INTRO_FRAMES`] frames,
+    /// then the closed hatch. Nothing else runs meanwhile.
+    pub fn start_intro(&mut self) {
+        let (x, y) = (self.player.x as i32, self.player.y as i32);
+        self.set(x, y, INTRO_FIRST_TILE, false);
+        self.world.player_visible = false;
+        self.intro = Some(1);
+    }
+
+    /// The state right after the start animation.
+    pub fn skip_intro(&mut self) {
+        let (x, y) = (self.player.x as i32, self.player.y as i32);
+        self.set(x, y, START_HATCH, false);
+        self.world.player_visible = true;
+        self.intro = None;
+    }
+
+    pub fn in_intro(&self) -> bool {
+        self.intro.is_some()
     }
 
     pub fn is_scrolling(&self) -> bool {
@@ -126,6 +157,16 @@ impl Game {
 
     /// Advance one frame.
     pub fn tick(&mut self, command: Command) {
+        if let Some(step) = self.intro {
+            if step < INTRO_FRAMES {
+                let (x, y) = (self.player.x as i32, self.player.y as i32);
+                self.set(x, y, INTRO_FIRST_TILE + (step / 8) as u16, false);
+                self.intro = Some(step + 1);
+            } else {
+                self.skip_intro();
+            }
+            return;
+        }
         // The original scrolls one box per frame and runs no player update
         // meanwhile (CODE 9, 0x5b2 and friends).
         if let Some((dir, left)) = self.scroll {
@@ -222,6 +263,25 @@ impl Game {
 mod tests {
     use super::*;
     use crate::level::test_level;
+
+    #[test]
+    fn the_start_box_opens_and_closes() {
+        let mut game = Game::new(test_level(&[], (5, 5)));
+        assert_eq!(game.level.tile(5, 5), Level::START_TILE);
+        game.start_intro();
+        let mut shown = vec![game.level.tile(5, 5)];
+        while game.in_intro() {
+            assert!(!game.world.player_visible);
+            game.tick(Command::Move(Dir::Right));
+            shown.push(game.level.tile(5, 5));
+        }
+        assert_eq!(shown.len(), INTRO_FRAMES + 1);
+        assert_eq!(shown[..8], [0xAB; 8]);
+        assert_eq!(shown[63], 0xB2);
+        assert_eq!(shown[64], START_HATCH);
+        assert!(game.world.player_visible);
+        assert_eq!((game.player.x, game.player.y), (5, 5));
+    }
 
     /// A wall tile in the translated numbering (index 48: wall).
     const WALL: u16 = 48;
