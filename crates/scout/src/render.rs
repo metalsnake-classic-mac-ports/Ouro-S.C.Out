@@ -4,6 +4,7 @@
 //! floor tile.
 
 use scout_core::{Game, Level};
+use scout_data::graphics::ObjectSet;
 use scout_data::graphics::TILE_SIZE;
 use scout_data::{Bitmap, Frame, GameData, Palette};
 
@@ -122,7 +123,11 @@ impl Canvas {
 
     /// Draw a masked object at pixel position (x, y), clipped to the canvas.
     fn draw_object(&mut self, data: &GameData, object: usize, x: i32, y: i32) {
-        if object >= data.objects.len() {
+        self.draw_masked(&data.objects, object, x, y);
+    }
+
+    fn draw_masked(&mut self, set: &ObjectSet, object: usize, x: i32, y: i32) {
+        if object >= set.len() {
             return;
         }
         for row in 0..TILE_SIZE {
@@ -131,7 +136,7 @@ impl Canvas {
                 if px < 0 || py < 0 || px as usize >= self.width || py as usize >= self.height {
                     continue;
                 }
-                if let Some(p) = data.objects.pixel(object, col, row) {
+                if let Some(p) = set.pixel(object, col, row) {
                     self.pixels[py as usize * self.width + px as usize] = p;
                 }
             }
@@ -202,6 +207,99 @@ pub fn game_screen(data: &GameData, game: &Game) -> Canvas {
     }
     canvas.draw_projectiles(game, (vx, vy));
     canvas
+}
+
+/// The screens between the levels (CODE 8 0x176c, 0x1b3a …).
+pub enum Message<'a> {
+    /// Level number (from 1), its code (none for the first level), lives.
+    Level(usize, Option<&'a str>, i16),
+    TryAgain,
+    Aborted,
+    GameOver,
+    Perfect,
+}
+
+/// A box of marble tiles: x, y (relative to the view), columns, rows.
+type BoxPlace = (i32, i32, usize, usize);
+/// A line of block letters: x, y (relative to the view), text.
+type Text = (i32, i32, String);
+
+/// A screen between the levels: a box of marble tiles with block letters
+/// on black, at the places the original uses (relative to the view).
+pub fn message_screen(data: &GameData, message: &Message) -> Canvas {
+    let mut canvas = Canvas::new(SCREEN_WIDTH, SCREEN_HEIGHT, BLACK);
+    let (frame, texts): (BoxPlace, Vec<Text>) = match *message {
+        Message::Level(number, code, lives) => {
+            let n = number - 1;
+            let level = format!("LEVEL {:03}", n);
+            let lives = format!("{} : {}", if lives == 1 { "LIFE " } else { "LIVES" }, lives);
+            match code {
+                // The first level shows no code, in a smaller box.
+                None => (
+                    (0x20, 0x36, 12, 6),
+                    vec![(0x50, 0x66, level), (0x50, 0xA6, lives)],
+                ),
+                Some(code) => (
+                    (0x20, -10, 12, 10),
+                    vec![
+                        (0x50, 0x26, level),
+                        (0x50, 0x66, "PASSWORD:".into()),
+                        (0x70, 0x96, code.into()),
+                        (0x50, 0xE6, lives),
+                    ],
+                ),
+            }
+        }
+        Message::TryAgain => ((0x30, 0x66, 11, 3), vec![(0x50, 0x86, "TRY AGAIN".into())]),
+        Message::Aborted => ((0x30, 0x66, 11, 3), vec![(0x50, 0x86, " ABORTED ".into())]),
+        Message::GameOver => ((0x30, 0x66, 11, 3), vec![(0x50, 0x86, "GAME OVER".into())]),
+        Message::Perfect => ((0x50, 0x66, 9, 3), vec![(0x70, 0x86, "PERFECT".into())]),
+    };
+    let (ox, oy) = (VIEW_X as i32, VIEW_Y as i32);
+    let (x, y, cols, rows) = frame;
+    for col in 0..cols {
+        for row in 0..rows {
+            let class = |i: usize, n: usize| {
+                if i == 0 {
+                    0
+                } else if i == n - 1 {
+                    2
+                } else {
+                    1
+                }
+            };
+            let tile = 3 * class(row, rows) + class(col, cols);
+            let (px, py) = (ox + x + 32 * col as i32, oy + y + 32 * row as i32);
+            if let Some(pixels) = data.box_tiles.tile(tile) {
+                for r in 0..TILE_SIZE {
+                    let at = (py as usize + r) * canvas.width + px as usize;
+                    canvas.pixels[at..at + TILE_SIZE]
+                        .copy_from_slice(&pixels[r * TILE_SIZE..(r + 1) * TILE_SIZE]);
+                }
+            }
+        }
+    }
+    for (x, y, text) in texts {
+        for (i, c) in text.chars().enumerate() {
+            if let Some(glyph) = glyph(c) {
+                canvas.draw_masked(&data.font, glyph, ox + x + 32 * i as i32, oy + y);
+            }
+        }
+    }
+    canvas
+}
+
+/// The glyph of a character in the block font (CODE 8 0x19c2).
+fn glyph(c: char) -> Option<usize> {
+    match c {
+        'A'..='Z' => Some(c as usize - 'A' as usize),
+        '1'..='9' => Some(c as usize - '1' as usize + 26),
+        '0' => Some(35),
+        '.' => Some(38),
+        ':' => Some(40),
+        '-' => Some(44),
+        _ => None,
+    }
 }
 
 /// Write an RGB24 image (rows of `width * 3` bytes) as an uncompressed BMP.

@@ -266,9 +266,34 @@ after a lost life, starts again from the saved state like CODE 7.
   codes)
 - Lives `-0x6dac`: 5 at the start of a game (CODE 2), −1 per death in the
   main loop; 0 ends the game (`-0x6d0c` = 0xff)
-- The level screen shows the level number from 0 (level 17: "LEVEL 016"),
-  the password and the lives; the level code dialog is Game → Enter
-  Password (⌘E)
+- The level code dialog is Game → Enter Password (⌘E)
+
+## Screens between the levels (CODE 8)
+
+Boxes of marble tiles (SHAP 5108: 9 tiles of 32 × 32, corners, edges and
+inside row by row; CODE 8 0x15ce) with block letters (SHAP 5106: 45
+masked glyphs of 32 × 32, 32 pixels apart: A–Z, 1–9, 0, `.` = 38, `:` =
+40, `-` = 44, others are blank; CODE 8 0x19c2), on black. Positions are
+relative to the view's top left corner (screen 96, 100), boxes given as
+x, y, columns, rows:
+
+- level (CODE 8 0x176c, before every life): box 0x20, −10, 12 × 10;
+  "LEVEL nnn" at 0x50, 0x26 (number from 0: level 17 shows 016),
+  "PASSWORD:" at 0x50, 0x66, the code at 0x70, 0x96, "LIVES : n" at 0x50,
+  0xe6 ("LIFE  : 1" with one life). The first level has no code: box 0x20,
+  0x36, 12 × 6, the level line 0x40 lower and the lives 0x40 higher.
+- died (0x1d2e) "TRY AGAIN", self destruct (0x1bb0) " ABORTED ", game over
+  (0x1b3a) "GAME OVER": box 0x30, 0x66, 11 × 3, text at 0x50, 0x86
+- target destroyed (0x1c26) "PERFECT": box 0x50, 0x66, 9 × 3, text at
+  0x70, 0x86
+- French texts exist for all of them (`-0x6dc8` = 1000: ETAPE, VIES, CODE,
+  JEU TERMINE, INTERROMPU, PARFAIT, RECOMMENCE), plus unused LEVEL UP,
+  LEVEL DOWN and PAUSE
+
+The level screen waits until a key or the mouse button is pressed and
+released (CODE 7 0x10be); the others wait for the end of their sound.
+Between screens the original dissolves the picture (CODE 8 0x1354), which
+uses the Toolbox `Random` and so changes the random numbers of the game.
 
 ## Player (continued)
 

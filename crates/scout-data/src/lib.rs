@@ -31,6 +31,8 @@ const TILES_ID: i16 = 5101;
 const FRAME_TOP_ID: i16 = 5102;
 const FRAME_BOTTOM_ID: i16 = 5103;
 const FRAME_SIDES_ID: i16 = 5104;
+const FONT_ID: i16 = 5106;
+const BOX_ID: i16 = 5108;
 const CODES_ID: i16 = 5300;
 const LEVELS_ID: i16 = 6642;
 const GAME_PALETTE_ID: i16 = 128;
@@ -43,6 +45,12 @@ pub struct GameData {
     pub tiles: TileSet,
     pub objects: ObjectSet,
     pub frame: Frame,
+    /// The block letters of the screens between levels (CODE 8 0x19c2):
+    /// A–Z, 1–9, 0, then `.` at 38, `:` at 40, `-` at 44.
+    pub font: ObjectSet,
+    /// The 3 × 3 tiles of the boxes these screens are drawn in (CODE 8
+    /// 0x15ce): corners, edges and the inside, row by row.
+    pub box_tiles: TileSet,
     /// The colors of the game screen: palette index → color for the tiles
     /// and objects (see [`Palette::from_palette_manager`]).
     pub game_palette: Palette,
@@ -128,6 +136,8 @@ impl GameData {
                 shap(FRAME_BOTTOM_ID)?,
                 shap(FRAME_SIDES_ID)?,
             )?,
+            font: ObjectSet::new(shap(FONT_ID)?)?,
+            box_tiles: TileSet::new(shap(BOX_ID)?)?,
             game_palette,
             level_codes: parse_codes(&shap(CODES_ID)?),
             palettes,
