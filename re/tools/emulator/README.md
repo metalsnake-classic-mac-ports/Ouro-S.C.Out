@@ -22,6 +22,12 @@ at 60 frames per second when the Mac is fast enough. Basilisk II does:
 per second to the terminal (60/60 in level 1). `run.sh` sets `frameskip 1`;
 Basilisk's default 6 shows only every 6th frame (10 images per second).
 
+Sound: Basilisk II only plays sound through a Sound Manager 3.x component
+(see `TECH` 6.8 in its source). System 7.0 has an older Sound Manager, so
+the emulator is silent, and the game hangs after PERFECT / TRY AGAIN /
+GAME OVER, where it waits for the end of a sound. Needs System 7.5 or the
+Sound Manager 3.x extension on the boot disk.
+
 For automated tests: `osascript` (System Events) sends key presses to the
 process `BasiliskII`, `cliclick` sends mouse clicks (`brew install cliclick`),
 `screencapture -R x,y,w,h` takes screenshots of the window.

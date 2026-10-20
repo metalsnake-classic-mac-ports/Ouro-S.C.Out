@@ -148,6 +148,14 @@ is played if the cannon is "in view", tested as `view ≤ x ≤ view + 14`
 and `view ≤ y ≤ view + 10`; the view is 14 × 10 boxes, so the column
 right of it and the row below count as well.
 
+## Waiting for a sound that never ends (kept, harmless on real Macs)
+
+CODE 7, after PERFECT, TRY AGAIN, ABORTED and GAME OVER: the game waits
+in a loop until the sound channel is quiet (CODE 8 0x20e8), with no time
+limit. If the sound never finishes, e.g. in Basilisk II under System 7.0
+(no Sound Manager 3), the game hangs there. The rewrite waits the same
+way; its own audio output always finishes.
+
 ## Unused sounds
 
 'snd ' 115 and 119 are loaded at start (CODE 5 0x1218) but never played.
