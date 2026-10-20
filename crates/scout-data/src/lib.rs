@@ -13,6 +13,7 @@ pub mod lzrw1a;
 pub mod palette;
 pub mod pict;
 pub mod resource;
+pub mod sound;
 
 use std::path::Path;
 
@@ -23,6 +24,7 @@ pub use graphics::{Bitmap, Frame, ObjectSet, TileSet};
 pub use palette::{Palette, Rgb};
 pub use pict::IndexedImage;
 use resource::ResourceFork;
+pub use sound::Sound;
 
 const APPLICATION: &str = "S.C.OUT";
 const SHAP: &[u8; 4] = b"SHAP";
@@ -35,6 +37,8 @@ const ICONS_ID: i16 = 5105;
 const FONT_ID: i16 = 5106;
 const BOX_ID: i16 = 5108;
 const CODES_ID: i16 = 5300;
+/// Sound effects 'snd ' 100–124 (see re/NOTES.md, Sound).
+const SOUND_IDS: std::ops::RangeInclusive<i16> = 100..=124;
 const LEVELS_ID: i16 = 6642;
 const GAME_PALETTE_ID: i16 = 128;
 const LEVEL_BYTES: usize = 2880;
@@ -51,6 +55,8 @@ pub struct GameData {
     /// The carried object in the side panels (CODE 9 0x5416): 28 × 19
     /// pixels, icon = object − 16, 23 = nothing.
     pub icons: Vec<Bitmap>,
+    /// Sound effects by resource ID (100–124).
+    pub sounds: Vec<Sound>,
     /// The block letters of the screens between levels (CODE 8 0x19c2):
     /// A–Z, 1–9, 0, then `.` at 38, `:` at 40, `-` at 44.
     pub font: ObjectSet,
@@ -147,6 +153,9 @@ impl GameData {
                 .0
                 .iter()
                 .map(|c| Bitmap::new(ICON_WIDTH, ICON_HEIGHT, c.to_vec()))
+                .collect::<Result<_>>()?,
+            sounds: SOUND_IDS
+                .map(|id| Sound::from_snd(id, &res.get(b"snd ", id)?.data))
                 .collect::<Result<_>>()?,
             font: ObjectSet::new(shap(FONT_ID)?)?,
             box_tiles: TileSet::new(shap(BOX_ID)?)?,

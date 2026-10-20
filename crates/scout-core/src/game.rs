@@ -7,7 +7,8 @@
 //! while it scrolls or teleports.
 
 use crate::Level;
-use crate::world::{Event, World};
+use crate::sound::{Sounds, id as sound};
+use crate::world::World;
 
 /// Size of a box in pixels.
 pub const BOX: i32 = 32;
@@ -167,8 +168,8 @@ pub struct Game {
     /// Top left box of the 14 × 10 view (`-0x57c6`, `-0x57c2`).
     pub view: (usize, usize),
     pub world: World,
-    /// Events of the last frames for the frontend; it drains them.
-    pub events: Vec<Event>,
+    /// Sound effects to play and the state of the channel.
+    pub sounds: Sounds,
     /// How the level ended; no more frames run then.
     pub exit: Option<Exit>,
     /// All projectiles stop at the end of the frame (`-0x6d00`).
@@ -232,7 +233,7 @@ impl Game {
             },
             view,
             world: World::default(),
-            events: Vec::new(),
+            sounds: Sounds::default(),
             exit: None,
             clear_shots: false,
             intro: None,
@@ -451,11 +452,13 @@ impl Game {
             self.player.magnifier -= 1;
             if self.player.magnifier == 0 {
                 self.teleport(None);
+                self.request_sound(sound::MAGNIFIER);
                 self.player.command = -1;
             } else {
                 self.magnifier_frame();
             }
         }
+        self.sound_frame();
         if self.world.level_end > 1 {
             self.world.level_end -= 1;
         }
@@ -479,6 +482,7 @@ impl Game {
         if self.player.command == 8 && !self.player.self_destructed && self.player.magnifier == 0 {
             self.player.self_destructed = true;
             if self.world.dying == 0 {
+                self.play_sound(sound::BIG_EXPLOSION);
                 self.world.dying = DEATH_FRAMES;
                 self.world.player_visible = false;
                 let (x, y) = (self.player.x as i32, self.player.y as i32);

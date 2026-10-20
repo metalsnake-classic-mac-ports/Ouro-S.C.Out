@@ -33,6 +33,12 @@ fn counts_match_the_original() {
     assert_eq!(game.objects.len(), 39);
     assert_eq!(game.font.len(), 45);
     assert_eq!(game.icons.len(), 24);
+    assert_eq!(game.sounds.len(), 25);
+    assert!(
+        game.sounds
+            .iter()
+            .all(|s| s.rate == 11127 || s.rate == 5564)
+    );
     assert_eq!(game.box_tiles.len(), 9);
     assert_eq!(game.level_codes.len(), 100);
     assert_eq!(game.pictures.len(), 5);

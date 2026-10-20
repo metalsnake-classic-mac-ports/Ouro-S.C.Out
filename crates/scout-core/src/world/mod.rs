@@ -30,17 +30,6 @@ pub const PULSE_PERIOD: u16 = 30;
 /// Floor the original puts under things that vanish.
 const PLAIN_FLOOR: u16 = 13;
 
-/// Something the game reports to the frontend (sounds and the like).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Event {
-    /// The player got picked up by a rail or conveyor pulse.
-    PickedUp,
-    /// A computer terminal was hit.
-    Computer,
-    /// A cannon fired.
-    Cannon,
-}
-
 /// State of the world automaton.
 #[derive(Clone, Debug)]
 pub struct World {
@@ -255,8 +244,8 @@ impl Game {
     fn pulse(&mut self, x: i32, y: i32, tile: u16, pulse: Pulse) {
         self.set(x, y, tile - 1, false);
         if self.player_at(x, y) {
-            if !self.world.picked_up {
-                self.events.push(Event::PickedUp);
+            if self.sounds.on && !self.world.picked_up {
+                self.request_sound(crate::sound::id::RAIL);
             }
             self.world.picked_up = true;
             return;

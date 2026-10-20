@@ -468,7 +468,7 @@ impl Game {
             .collect();
         let count = |v: u16| around.iter().filter(|&&t| t == v).count();
         let (a, b, c) = (count(0x110), count(0x111), count(0x112));
-        self.events.push(super::Event::Computer);
+        self.request_sound(crate::sound::id::COMPUTER);
         if a == 0 && b == 0 && c == 0 {
             return;
         }
@@ -547,8 +547,15 @@ impl Game {
                     225 => (30, 16, 2, 0),
                     _ => (16, 30, 0, 2),
                 };
-                if self.spawn(x * BOX + ox, y * BOX + oy, vx, vy).is_some() {
-                    self.events.push(super::Event::Cannon);
+                // The original's view test reaches one box beyond the view
+                // (re/BUGS.md).
+                let (vx0, vy0) = (self.view.0 as i32, self.view.1 as i32);
+                if self.spawn(x * BOX + ox, y * BOX + oy, vx, vy).is_some()
+                    && self.sounds.on
+                    && (vx0..=vx0 + 14).contains(&x)
+                    && (vy0..=vy0 + 10).contains(&y)
+                {
+                    self.request_sound(crate::sound::id::CANNON);
                 }
             }
             _ => return false,

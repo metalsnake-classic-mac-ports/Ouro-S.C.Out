@@ -262,14 +262,53 @@ after a lost life, starts again from the saved state like CODE 7.
 
 ## Settings, lives, level screen
 
-- Settings (Game → Setting, copied into globals by CODE 5 0x24c): the
-  music and sound effect flags `-0x6dc0` / `-0x6dc4` (which is which not
-  checked yet; `-0x6dc0` guards the sound calls of the main loop),
+- Settings (Game → Setting, copied into globals by CODE 5 0x24c): sound
+  effects `-0x6dc0` (guards all sound calls), music `-0x6dc4` (starts the
+  music player in CODE 7),
   system/custom display `-0x6dbc`, keys `-0x6d5a` … `-0x6d46` (virtual key
   codes)
 - Lives `-0x6dac`: 5 at the start of a game (CODE 2), −1 per death in the
   main loop; 0 ends the game (`-0x6d0c` = 0xff)
 - The level code dialog is Game → Enter Password (⌘E)
+
+## Sound
+
+25 sampled sounds, 'snd ' 100–124 (format 1, one bufferCmd, standard
+header, 8-bit unsigned): 11127 Hz, the four after a level 5564 Hz. CODE 5
+0x1218 loads 'snd ' n into `-0x1284 + 4·(n − 100)`. One channel: CODE 8
+0x1ff8 (jump table A5+0x12ea) starts a sound and stops the one playing,
+CODE 8 0x20e8 (A5+0x12f2) tells whether the channel still plays.
+
+The game sets a request `-0x539c`; at the end of each pass (CODE 9 ≈
+0x140, only with sound effects on, `-0x6dc0`) the main loop forgets the
+playing sound `-0x1afc` once the channel is quiet, adds the sounds of what
+is in view (CODE 9 0x546a, not during the magnifier, the last box with a
+sound wins, each only if not already playing) and starts the request.
+
+| Sound | When |
+|---|---|
+| 100 | accelerator (tile 0x10d) |
+| 101 / 108 | a move starts (on conveyor 0xef–0xf2: 108), only if the channel is quiet and nothing else is requested |
+| 102 | the player fires a missile |
+| 103 | the key (object 30) into the lock 0x100 |
+| 104 | a cannon fires: under the player, or hit by a projectile within the view |
+| 105 | in view: explosion 350 |
+| 106 | in view: tiles 96, 99 |
+| 107 | self destruct (started directly); in view: big explosion 0x150 |
+| 109 | teleporter, started directly; 111 after arriving |
+| 110 | in view: doors 62, 67, 72, 77, 82, 87 |
+| 112 | taking, swapping, dropping |
+| 113 | in view: tile 213 |
+| 114 | magnifier on and off |
+| 116 | in view: tiles 105, 114, 123, 132 |
+| 117 | a projectile hits a computer (166) |
+| 118 | standing on tile 0x10e |
+| 120 | a rail pulse picks the player up |
+| 121 / 122 / 123 / 124 | PERFECT / GAME OVER / ABORTED / TRY AGAIN (CODE 7) |
+| 115, 119 | loaded, never played |
+
+Music (`-0x6dc4`) is a separate player (A5+0x1322 / 0x132a); not analysed
+yet.
 
 ## Screens between the levels (CODE 8)
 
@@ -293,8 +332,9 @@ x, y, columns, rows:
   JEU TERMINE, INTERROMPU, PARFAIT, RECOMMENCE), plus unused LEVEL UP,
   LEVEL DOWN and PAUSE
 
-The level screen waits until a key or the mouse button is pressed and
-released (CODE 7 0x10be); the others wait for the end of their sound.
+Every screen waits until a key or the mouse button is pressed and released
+(CODE 7 0x10be); after the messages the original also waits for the end of
+their sound before the level screen.
 Between screens the original dissolves the picture (CODE 8 0x1354), which
 uses the Toolbox `Random` and so changes the random numbers of the game.
 

@@ -6,9 +6,11 @@
 pub mod game;
 pub mod level;
 mod player;
+pub mod sound;
 pub mod translate;
 pub mod world;
 
 pub use game::{Dir, Exit, Game, Key};
 pub use level::Level;
-pub use world::{Event, World};
+pub use sound::Sounds;
+pub use world::World;

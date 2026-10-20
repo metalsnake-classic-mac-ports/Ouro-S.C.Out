@@ -5,6 +5,7 @@
 
 use crate::Level;
 use crate::game::{BOX, Dir, Game, NORMAL_SPEED};
+use crate::sound::id as sound;
 
 /// Frames of the accelerator (tile 0x10d) at double speed.
 const ACCELERATOR_FRAMES: u16 = 600;
@@ -125,7 +126,7 @@ impl Game {
                 let fired = self.spawn(vx + rx * BOX + ox, vy + ry * BOX + oy, vx_, vy_);
                 self.player.cannon_fired = true;
                 if fired.is_some() {
-                    self.events.push(crate::Event::Cannon);
+                    self.request_sound(sound::CANNON);
                 }
             }
             // A hatch: closes and saves the state to restart from.
@@ -136,6 +137,7 @@ impl Game {
             // Accelerator.
             269 => {
                 self.player.accelerator = ACCELERATOR_FRAMES;
+                self.request_sound(sound::ACCELERATOR);
                 self.player.speed = 2 * NORMAL_SPEED;
                 self.set(x, y, 0, true);
                 self.set_floor(x, y, PLAIN_FLOOR, true);
@@ -147,9 +149,11 @@ impl Game {
                 self.set_floor(x, y, PLAIN_FLOOR, true);
                 self.projectiles_frame();
                 self.world.player_visible = false;
+                self.request_sound(sound::MAGNIFIER);
                 self.stall.frames += 1;
                 return false;
             }
+            270 if self.sounds.playing != Some(sound::SAFE) => self.request_sound(sound::SAFE),
             276 => self.clear_shots = true,
             _ => {
                 if self.world.picked_up
@@ -164,7 +168,7 @@ impl Game {
             self.world.forced_command = -1;
         }
         match self.player.command {
-            0..=3 => self.try_start_move(Dir::from_index(self.player.command).unwrap()),
+            0..=3 => self.try_start_move(Dir::from_index(self.player.command).unwrap(), tile),
             7 => self.use_key(tile),
             4 => self.fire(),
             _ => {}
@@ -206,7 +210,7 @@ impl Game {
     /// A move key (CODE 9 0x1016 …): the box must be passable and not a
     /// one-way door against the direction; enemies there explode
     /// together with the player's box.
-    fn try_start_move(&mut self, dir: Dir) {
+    fn try_start_move(&mut self, dir: Dir, here: i32) {
         let (rx, ry) = self.rel();
         let (dx, dy) = dir.delta();
         if !self.passable(rx + dx, ry + dy) {
@@ -229,6 +233,14 @@ impl Game {
         }
         self.start_move(dir);
         self.player.cannon_fired = false;
+        if self.sounds.on && !self.sounds.busy && self.sounds.request.is_none() {
+            let conveyor = (0xEF..=0xF2).contains(&here);
+            self.request_sound(if conveyor {
+                sound::CONVEYOR
+            } else {
+                sound::MOVE
+            });
+        }
     }
 
     fn start_move(&mut self, dir: Dir) {
@@ -246,12 +258,13 @@ impl Game {
         let (x, y) = self.here();
         if self.world.carried == 0 {
             if (0x101..=0x104).contains(&tile) {
-                self.teleport(Some(tile - 0x101));
+                self.use_teleporter(tile);
             }
             if tile >= 0x110 {
                 // Program chips (0x110 … 0x112) leave their socket 0xff.
                 self.world.carried = (tile - 0xEC) as u16;
                 self.set(x, y, 0xFF, false);
+                self.request_sound(sound::TAKE);
             }
             if tile != 0 && (tile <= 0x27 || self.world.picked_up) {
                 if self.world.picked_up {
@@ -265,6 +278,7 @@ impl Game {
                         self.load_missile(tile);
                     }
                 }
+                self.request_sound(sound::TAKE);
             }
             return;
         }
@@ -279,8 +293,9 @@ impl Game {
                     self.player.turret_locked = false;
                     self.player.turret = self.player.dir;
                 }
+                self.request_sound(sound::TAKE);
             } else {
-                self.teleport(Some(tile - 0x101));
+                self.use_teleporter(tile);
             }
             return;
         }
@@ -288,10 +303,12 @@ impl Game {
         let put = |game: &mut Game, tile: u16| {
             game.set(x, y, tile, false);
             game.world.carried = 0;
+            game.request_sound(sound::TAKE);
         };
         match carried {
             // The key of door 61.
             30 if tile == 0x100 => {
+                self.request_sound(sound::KEY);
                 self.world.switches[4] = false;
                 self.world.carried = 0;
             }
@@ -314,6 +331,16 @@ impl Game {
             }
             _ => {}
         }
+    }
+
+    /// Teleporter 0x101 … 0x104 under the player (CODE 9 0x134a).
+    fn use_teleporter(&mut self, tile: i32) {
+        if self.sounds.on {
+            self.play_sound(sound::TELEPORT);
+            self.sounds.request = None;
+        }
+        self.teleport(Some(tile - 0x101));
+        self.request_sound(sound::ARRIVAL);
     }
 
     /// Missiles (16 … 19) load the turret, which then points their way.
@@ -339,6 +366,7 @@ impl Game {
             self.player.turret_locked = false;
             self.player.turret = self.player.dir;
             self.world.carried = 0;
+            self.request_sound(sound::FIRE);
         }
     }
 

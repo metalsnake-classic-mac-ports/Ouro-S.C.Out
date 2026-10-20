@@ -133,6 +133,25 @@ cleared when a level is loaded or started. A reinforced wall on the same
 box in a later level, or after losing a life, starts with the hits of
 before.
 
+## The big explosion sound restarts every frame (kept)
+
+CODE 9 0x5550, sounds of things in view: for the big explosion 0x150 the
+code checks whether sound 105 is playing but requests 107. While a big
+explosion is in view, 107 is requested in every frame and the main loop
+starts it again each time. The rewrite requests the same (the frontend
+restarts the sound like the Mac does).
+
+## Cannon sounds one box beyond the view (kept)
+
+CODE 4 0x4374 …, a projectile fires a cannon (tiles 223–226): the sound
+is played if the cannon is "in view", tested as `view ≤ x ≤ view + 14`
+and `view ≤ y ≤ view + 10`; the view is 14 × 10 boxes, so the column
+right of it and the row below count as well.
+
+## Unused sounds
+
+'snd ' 115 and 119 are loaded at start (CODE 5 0x1218) but never played.
+
 ## A condition that is always true (harmless)
 
 CODE 9 0x1c68, scrolling down on arrival at view row 8: the code skips

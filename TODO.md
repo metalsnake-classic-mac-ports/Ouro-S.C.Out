@@ -62,7 +62,9 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         perfect) like the original (CODE 8 0x176c …); waiting for a key on the level screen
   - [ ] Title screen and menu, level codes dialog, pictures 0x3e9 (game over) and 0x3ea (end)
   - [ ] Dissolve between screens (CODE 8 0x1354), including the random numbers it uses
-  - [ ] Wait for the sounds after a level like the original (now 2 seconds)
+  - [x] Sound effects ('snd ' 100–124) requested like the original, one channel; the messages
+        after a level wait for a key and the end of their sound
+  - [ ] Music (player at A5+0x1322)
   - [x] World automaton (CODE 9 0x23fa): 96 boxes per frame, skip flags, 254 tick handlers
         (198 animation steps generated, the rest ported by hand). Matches the original
         exactly in all 101 levels over 3000 frames and in 500 random scenarios

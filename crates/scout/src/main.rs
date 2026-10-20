@@ -11,12 +11,14 @@
 //! Backspace blows yourself up, N/P next/previous level, R restart the
 //! level, Tab game screen / level map, F1 palette, Esc quit.
 
+mod audio;
 mod render;
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
+use scout_core::sound::id as sound;
 use scout_core::{Dir, Exit, Game, Key};
 use scout_data::GameData;
 use sdl3::event::Event;
@@ -129,23 +131,20 @@ fn export_level(
         .with_context(|| format!("writing {}", out.display()))
 }
 
-/// Frames a message shows after the end of a level. The original waits
-/// for the end of its sound there; until there is sound, two seconds.
-const MESSAGE_FRAMES: u32 = 2 * FRAMES_PER_SECOND;
-
 /// Where the game is between levels (the outer loop of the original, CODE 7).
 enum Phase {
-    /// A screen; `wait` frames left, or 0: until a key is pressed and
-    /// released (CODE 7 0x10be).
+    /// A screen until a key or the mouse button is pressed and released
+    /// (CODE 7 0x10be).
     Screen {
         message: Shown,
-        wait: u32,
         key_down: bool,
     },
+    /// After a message: until its sound has ended, then the level screen.
+    Quiet(Shown),
     Playing,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum Shown {
     Level,
     TryAgain,
@@ -157,15 +156,17 @@ enum Shown {
 fn level_screen() -> Phase {
     Phase::Screen {
         message: Shown::Level,
-        wait: 0,
         key_down: false,
     }
 }
 
-fn message(message: Shown) -> Phase {
+/// A message after a level with its sound (CODE 7 ≈ 0x940 …).
+fn message(audio: &audio::Audio, data: &GameData, message: Shown, sound: u8) -> Phase {
+    if let Some(s) = data.sounds.iter().find(|s| s.id == sound as i16) {
+        audio.play(s);
+    }
     Phase::Screen {
         message,
-        wait: MESSAGE_FRAMES,
         key_down: false,
     }
 }
@@ -205,6 +206,7 @@ fn key(keys: &KeyboardState) -> Key {
 
 fn run(data: &GameData) -> Result<()> {
     let sdl = sdl3::init()?;
+    let audio = audio::Audio::open(&sdl);
     let video = sdl.video()?;
     let window = video
         .window(
@@ -245,7 +247,7 @@ fn run(data: &GameData) -> Result<()> {
                         Keycode::N => level = (level + 1) % n,
                         Keycode::P => level = (level + n - 1) % n,
                         Keycode::R => {}
-                        _ if matches!(phase, Phase::Screen { wait: 0, .. }) => {
+                        _ if matches!(phase, Phase::Screen { .. }) => {
                             if let Phase::Screen { key_down, .. } = &mut phase {
                                 *key_down = true;
                             }
@@ -269,21 +271,21 @@ fn run(data: &GameData) -> Result<()> {
                 }
                 Event::KeyUp { .. } | Event::MouseButtonUp { .. } => {
                     if let Phase::Screen {
-                        wait: 0,
+                        message,
                         key_down: true,
-                        ..
                     } = phase
                     {
-                        // a key was pressed and released: start playing
-                        game.start_intro();
-                        phase = Phase::Playing;
+                        // a key was pressed and released
+                        if message == Shown::Level {
+                            game.start_intro();
+                            phase = Phase::Playing;
+                        } else {
+                            phase = Phase::Quiet(message);
+                        }
                     }
                 }
                 Event::MouseButtonDown { .. } => {
-                    if let Phase::Screen {
-                        wait: 0, key_down, ..
-                    } = &mut phase
-                    {
+                    if let Phase::Screen { key_down, .. } = &mut phase {
                         *key_down = true;
                     }
                 }
@@ -295,36 +297,42 @@ fn run(data: &GameData) -> Result<()> {
         while next_frame <= now {
             next_frame += frame_time;
             match &mut phase {
-                Phase::Screen { wait: 0, .. } => {}
-                Phase::Screen { wait, .. } => {
-                    *wait -= 1;
-                    if *wait == 0 {
+                Phase::Screen { .. } => {}
+                Phase::Quiet(_) => {
+                    if !audio.busy() {
                         phase = level_screen();
                     }
                 }
                 Phase::Playing => {
+                    game.sounds.on = audio.is_on();
+                    game.sounds.busy = audio.busy();
                     game.tick(key(&events.keyboard_state()));
+                    for id in game.sounds.start.drain(..) {
+                        if let Some(s) = data.sounds.iter().find(|s| s.id == id as i16) {
+                            audio.play(s);
+                        }
+                    }
                     match game.exit {
                         Some(Exit::Won) => {
                             // after the last level the original goes on with the first
                             level = (level + 1) % data.levels.len();
                             game.next_level(data.levels[level].clone());
-                            phase = message(Shown::Perfect);
+                            phase = message(&audio, data, Shown::Perfect, sound::PERFECT);
                         }
                         Some(exit @ (Exit::Died | Exit::SelfDestructed)) => {
                             game.restart();
-                            phase = message(if exit == Exit::Died {
-                                Shown::TryAgain
+                            phase = if exit == Exit::Died {
+                                message(&audio, data, Shown::TryAgain, sound::TRY_AGAIN)
                             } else {
-                                Shown::Aborted
-                            });
+                                message(&audio, data, Shown::Aborted, sound::ABORTED)
+                            };
                         }
                         Some(Exit::GameOver) => {
                             // the original shows a picture and goes back to its
                             // title; we start again with the first level
                             level = 0;
                             game = Game::new(data.levels[level].clone());
-                            phase = message(Shown::GameOver);
+                            phase = message(&audio, data, Shown::GameOver, sound::GAME_OVER);
                         }
                         None => {}
                     }
@@ -333,7 +341,9 @@ fn run(data: &GameData) -> Result<()> {
         }
 
         let image = match phase {
-            Phase::Screen { message, .. } => message_canvas(data, &game, level, message),
+            Phase::Screen { message, .. } | Phase::Quiet(message) => {
+                message_canvas(data, &game, level, message)
+            }
             Phase::Playing => draw(data, &game, view),
         };
         let p = &data.palettes[palette];
