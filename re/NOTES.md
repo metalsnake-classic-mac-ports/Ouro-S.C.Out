@@ -40,7 +40,13 @@ Single-threaded; one pass is one frame:
 Only the first pressed key (GetKeys + KCHR) counts. Command `-0x5790`:
 0–3 configured direction keys (left, up, right, down), 7 and 4 actions
 (edge-triggered), 8 = key `5` (self destruct after 300 frames),
-9 / 6 = Caps Lock + Q / P, −1 nothing.
+9 / 6 = Caps Lock + Q / P, −1 nothing. The direction keys are set in
+Game → Setting; version 1.4 as shipped uses the keypad 4 / 8 / 6 / 2. The
+rewrite uses the arrow keys instead.
+
+Speed checked against a screen recording of the original in Basilisk II:
+the start animation steps every 8 frames, the player moves 4 pixels per
+frame, both at 60 frames per second.
 
 ## Level map and tile values
 
