@@ -113,6 +113,12 @@ impl Level {
     /// player is at least two boxes away from the edge of the view.
     pub fn start_view(&self) -> (usize, usize) {
         let (x, y) = self.start.unwrap_or((0, 0));
+        Self::view_around(x, y)
+    }
+
+    /// The view for a player starting at box (x, y): used for the start box
+    /// (CODE 5 0x48c) and for checkpoints (CODE 5 0x301e).
+    pub fn view_around(x: usize, y: usize) -> (usize, usize) {
         let (x, y) = (x as i32, y as i32);
         let mut vx = x / 14 * 14;
         if x == vx {

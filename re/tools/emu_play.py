@@ -24,6 +24,7 @@ import struct
 import sys
 
 from unicorn import UC_HOOK_CODE
+from unicorn.m68k_const import UC_M68K_REG_PC
 
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
 from emu_world import (  # noqa: E402
@@ -87,6 +88,7 @@ class Player(Original):
         uc.mem_write(wait, b"\x4e\x71")
         uc.hook_add(UC_HOOK_CODE, self._loop_top, begin=LOOP_BODY, end=LOOP_BODY)
         self.key = "none"
+        self.skip_traps = False
         self.fire_held = self.use_held = False
         self.stop_at_top = False
 
@@ -113,36 +115,70 @@ class Player(Original):
             uc.emu_stop()
         self.stop_at_top = True
 
-    def start(self, tiles, floor, start, carried=0, switches=(0,) * 5):
-        """Put the level in place like the level start (CODE 5 ≈ 0x2c00) and
-        enter the main loop; the start animation is over."""
+    def _on_trap(self, uc, number, _):
+        """Toolbox calls (A-line, exception 10) only draw in the code run
+        here outside the main loop (level start): skip them."""
+        pc = uc.reg_read(UC_M68K_REG_PC)
+        if number == 10 and self.skip_traps:
+            uc.reg_write(UC_M68K_REG_PC, pc + 2)
+            return
+        super()._on_trap(uc, number, _)
+
+    def restart_level(self):
+        """After losing a life: CODE 5 0x2b7e (restore the saved state, start
+        animation), then enter the main loop again like CODE 7 does."""
+        self.skip_traps = True
+        self.call(5, 0x2B7E)
+        self.skip_traps = False
+        self.stop_at_top = True
+        self.running = True
+        self.call(9, 0x0)
+
+    def start(self, tiles, floor, start, carried=0, switches=(0, 0, 0, 0, 1)):
+        """Set up the state the level loader (CODE 5 0x1a0a) leaves, then
+        start the level with the original start routine (CODE 5 0x2b7e,
+        including the start animation) and enter the main loop."""
         self.load_level(tiles, floor, start)
-        self.uc.mem_write(A5 - 0x53B8, bytes(switches))
         x, y = start
         vx, vy = start_view(x, y)
-        for off, v in [(-0x57C6, vx), (-0x57C2, vy), (-0x57A2, x - vx), (-0x579E, y - vy),
-                       (-0x57BE, 32 * (x - vx)), (-0x57BA, 32 * (y - vy)),
-                       (-0x57B6, 32 * (x - vx)), (-0x57B2, 32 * (y - vy)),
-                       (-0x57AE, 4), (-0x57AA, 3), (-0x57A6, 0), (-0x578C, 0), (-0x5786, 3),
-                       (-0x53A2, -1), (-0x5790, -1), (-0x6DC0, 0), (-0x6DBC, 1), (-0x6D0C, 0)]:
+        # saved state to start from (-0x3e5e …, -0x3a54 …, map -0x481a)
+        for off, v in [(-0x3E5E, vx), (-0x3E5A, vy), (-0x3E56, 32 * (x - vx)),
+                       (-0x3E52, 32 * (y - vy)), (-0x3E3A, x - vx), (-0x3E36, y - vy),
+                       (-0x3E32, x), (-0x3E2E, y), (-0x3E46, 4), (-0x3E42, 3), (-0x3E3E, 0),
+                       (-0x3E28, 0), (-0x3E22, 3),
+                       (-0x3A4E, -1), (-0x3E62, 0)]:
             self.g32(off, v)
-        for off in (-0x5792, -0x5788, -0x539E, -0x5398, -0x5782):
+        self.uc.mem_write(A5 - 0x3E2A, b"\x00")
+        self.uc.mem_write(A5 - 0x3E24, b"\x00")
+        self.uc.mem_write(A5 - 0x3A54, bytes([0, 0, 0, 0, 1]))
+        self.uc.mem_write(A5 - 0x3A4A, b"\x00")
+        saved = list(tiles)
+        saved[y * W + x] = 0x108 if saved[y * W + x] == 0x10B else saved[y * W + x]
+        self.uc.mem_write(A5 - 0x481A, b"".join(struct.pack(">H", t) for t in saved))
+        # saved view buffer (the loader fills it from the saved map)
+        self.uc.mem_write(A5 - 0x409A, b"".join(struct.pack(">H", saved[(vy + r) * W + vx + c])
+                                                for r in range(10) for c in range(14)))
+        self.uc.mem_write(A5 - 0x4BDA, bytes(floor))
+        self.uc.mem_write(A5 - 0x3E1C, bytes(W * H))
+        # live state the start routine does not set
+        for off, v in [(-0x5790, -1), (-0x6DC0, 0), (-0x6DBC, 1), (-0x6D0C, 0), (-0x578C, 0)]:
+            self.g32(off, v)
+        for off in (-0x539E, -0x5398):
             self.uc.mem_write(A5 + off, b"\x00")
-        self.g32(-0x578C, carried)
-        if 16 <= carried <= 19:
-            self.uc.mem_write(A5 - 0x5788, b"\x01")
-            self.g32(-0x5786, carried - 16)
         for off in (-0x538E, -0x538C, -0x6CFC, -0x6D00, -0x6CFE, -0x1154, -0x1156):
             self.g16(off, 0)
         self.g16(-0x6DAC, LIVES)
         self.g32(-0x1B00, STUB)
-        # view buffers (CODE 5 ≈ 0x2c40)
-        view = b"".join(struct.pack(">h", tiles[(vy + r) * W + vx + c])
-                        for r in range(10) for c in range(14))
-        self.uc.mem_write(A5 - 0x5A06, view)
-        self.uc.mem_write(A5 - 0x58EE, view)
-        self.g32(-0x57D6, A5 - 0x5A06)
-        self.g32(-0x57D2, A5 - 0x58EE)
+        self.skip_traps = True
+        self.call(5, 0x2B7E)
+        self.skip_traps = False
+        # random scenarios: carried object and switches only in the live
+        # state (the saved one keeps what the loader sets)
+        self.uc.mem_write(A5 - 0x53B8, bytes(switches))
+        self.g32(-0x578C, carried)
+        if 16 <= carried <= 19:
+            self.uc.mem_write(A5 - 0x5788, b"\x01")
+            self.g32(-0x5786, carried - 16)
         self.stop_at_top = True
         self.running = True
         self.call(9, 0x0)  # runs up to the top of the loop body
@@ -178,8 +214,8 @@ def random_keys(rnd, frames):
 def record(orig, tiles, floor, start, keys, head, **state):
     """Play the keys; return the lines."""
     orig.start(tiles, floor, start, **state)
-    lines = [head] + [f"0 {i} {t} {f} 0" for i, (t, f) in enumerate(zip(tiles, floor))]
     state = (orig.tiles(), orig.floor(), orig.skips())
+    lines = [head] + [f"0 {i} {t} {f} {k}" for i, (t, f, k) in enumerate(zip(*state))]
     flags = orig.flags()
     lines.append("g 0 " + " ".join(map(str, flags)))
     shots = orig.projectiles()
@@ -204,8 +240,21 @@ def record(orig, tiles, floor, start, keys, head, **state):
             player = orig.player_state()
             lines.append(f"s {n} " + " ".join(map(str, player)))
         if not alive:
-            lines.append(f"e {n}")
-            break
+            code = orig.g32(-0x6D0C)
+            lines.append(f"e {n} {code}")
+            if code not in (2, 0xFE):
+                break
+            # lost a life: start again from the last checkpoint
+            orig.restart_level()
+            state = (orig.tiles(), orig.floor(), orig.skips())
+            lines.append(f"r {n}")
+            lines += [f"{n} {i} {state[0][i]} {state[1][i]} {state[2][i]}" for i in range(W * H)]
+            flags = orig.flags()
+            lines.append(f"g {n} " + " ".join(map(str, flags)))
+            shots = orig.projectiles()
+            lines += [f"p {n} {i} " + " ".join(map(str, p)) for i, p in enumerate(shots)]
+            player = orig.player_state()
+            lines.append(f"s {n} " + " ".join(map(str, player)))
     return lines
 
 

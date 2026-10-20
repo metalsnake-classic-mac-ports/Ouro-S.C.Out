@@ -103,6 +103,36 @@ recomputed when the magnifier ends (CODE 4 0x2048), so nothing is visible.
 The rewrite derives the position from the view; the comparison test
 ignores it during the magnifier.
 
+## A checkpoint saves a loaded turret but not the missile (kept)
+
+CODE 5 0x301e saves the carried object as 0 but the turret lock
+`-0x5788` and direction as they are. When the player dies after a
+checkpoint taken while carrying a missile, the next life starts with a
+loaded turret and empty hands: firing shoots a missile that is not there.
+Taking an object meanwhile keeps the lock, and firing then loses that
+object.
+
+## A checkpoint can make double speed permanent (kept)
+
+The checkpoint saves the current speed `-0x57ae`, which is 8 while the
+accelerator (tile 0x10d) runs. The accelerator countdown `-0x538e` is not
+saved and not reset. If it has run out when the player dies, the next life
+starts with speed 8 and keeps it (nothing sets it back to 4).
+
+## Dead code after the main loop (harmless)
+
+CODE 7 handles the main loop results 4 (previous level) and 5 (next level)
+with their own screens, but the main loop never returns them (debug keys
+removed?). The 41 projectile slots the checkpoint saves at `-0x538a` are
+never read either.
+
+## Hits on reinforced walls are never reset (kept)
+
+The hit counters of tile 218 (`-0x1ae8`, 20 hits break the wall) are not
+cleared when a level is loaded or started. A reinforced wall on the same
+box in a later level, or after losing a life, starts with the hits of
+before.
+
 ## A condition that is always true (harmless)
 
 CODE 9 0x1c68, scrolling down on arrival at view row 8: the code skips

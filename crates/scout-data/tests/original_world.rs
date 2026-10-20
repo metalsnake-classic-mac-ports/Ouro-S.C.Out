@@ -30,6 +30,7 @@ fn read_reference(text: &str) -> Reference {
     let mut wall_hits = Vec::new();
     let mut keys = Vec::new();
     let mut player = Vec::new();
+    let mut restarts = Vec::new();
     for line in text.lines() {
         if let Some(rest) = line.strip_prefix("k ") {
             let (n, key) = rest.split_once(' ').unwrap();
@@ -53,6 +54,10 @@ fn read_reference(text: &str) -> Reference {
             continue;
         }
         if line.starts_with("e ") {
+            continue;
+        }
+        if let Some(rest) = line.strip_prefix("r ") {
+            restarts.push(rest.parse::<usize>().unwrap());
             continue;
         }
         if line.starts_with('#') {
@@ -117,6 +122,7 @@ fn read_reference(text: &str) -> Reference {
         wall_hits,
         keys,
         player,
+        restarts,
     }
 }
 
@@ -136,6 +142,8 @@ struct Reference {
     keys: Vec<(usize, Key)>,
     /// Player state (frame, values of `PLAYER_STATE` in emu_play.py).
     player: Vec<(usize, Vec<i64>)>,
+    /// Frames after which the player lost a life and starts again.
+    restarts: Vec<usize>,
 }
 
 /// The player state in the order of `PLAYER_STATE` in emu_play.py.
@@ -291,6 +299,10 @@ fn compare(mut game: Game, reference: &Reference, label: &str) -> Option<String>
                 .find(|(at, _)| *at == frame)
                 .map(|k| k.1);
             game.frame(key.unwrap_or_default());
+            if reference.restarts.contains(&frame) {
+                game.restart();
+                game.skip_intro();
+            }
         }
         if let Some((_, expected)) = reference.player.iter().rev().find(|(at, _)| *at <= frame) {
             let mut actual = player_of(&game);
@@ -399,6 +411,7 @@ fn playing_matches_the_original_in_random_scenarios() {
         }
         let start = (num(4) as usize, num(5) as usize);
         let mut game = Game::new(Level::from_translated(tiles, floor, Some(start)));
+        game.skip_intro();
         let carried = num(7) as u16;
         game.world.carried = carried;
         if (16..=19).contains(&carried) {

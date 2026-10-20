@@ -201,6 +201,7 @@ def record(work, level, frames, out_dir):
     orig = Original(work)
     tiles, floor, start = level_from_disk(work, level)
     orig.load_level(tiles, floor, start)
+    orig.uc.mem_write(A5 - 0x53B4, b"\x01")  # switch 4 starts set (CODE 5 0x1a0a)
     lines = [header(orig, start)] + [f"0 {i} {t} {f} 0" for i, (t, f) in enumerate(zip(tiles, floor))]
     lines += run_frames(orig, frames, (tiles, floor, [0] * (W * H)))
     open(f"{out_dir}/world_{level:03d}.txt", "w").write("\n".join(lines) + "\n")

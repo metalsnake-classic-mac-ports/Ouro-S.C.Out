@@ -203,6 +203,60 @@ the vertical blank (`-0xf72`, set by the VBL task of CODE 6):
 5. the carried object in the side panel when `-0x16e` is set (CODE 9
    0x5416 prepares it; object − 16, 0x17 = empty)
 
+## Game flow (CODE 7, CODE 5)
+
+The outer loop (CODE 7 ≈ 0x780) runs the main loop (CODE 9 0x0, jump
+table A5+0x882) depending on the state `-0x6db2` and evaluates its result
+(the low word of `-0x6d0c`); the level number (from 0) is `-0x6dae`:
+
+- state 1, new level: level screen (CODE 8 0x176c), load the level (CODE 5
+  0x1a0a), start it (CODE 5 0x2b7e), main loop
+- state 3, after losing a life: the same without loading
+- state 2, resume after a pause (Game → Resume)
+- result 3 (target destroyed): screen CODE 8 0x1c26 and a sound, next
+  level; after the last level (101) the picture 0x3ea, then level 1 again
+- result 2 (died) / 0xfe (self destruct): screen CODE 8 0x1d2e / 0x1bb0, a
+  sound, state 3
+- result 0xff (no lives left): game over screen CODE 8 0x1b3a, picture
+  0x3e9, back to the title (state 0)
+- result 1 (Caps Lock + P) back to the title, 0xfd (Caps Lock + Q) quit;
+  4 / 5 would go one level back / forward, but nothing returns them
+
+Loading (CODE 5 0x1a0a) fills the state to start from (`-0x3e5e` …:
+view, position, speed 4, direction down, turret down, nothing carried,
+rail direction −1; switches `-0x3a54` … 0, 0, 0, 0, 1 (switch 4 = door 61
+starts set); no protection; saved map `-0x481a` with 0x108 on the start
+box, floor `-0x4bda`, skip flags `-0x3e1c` all clear, view buffer
+`-0x409a`) and clears in the live state: protection, cannon flag, death
+and level end countdowns, magnifier, forced command, player hit.
+
+Starting (CODE 5 0x2b7e) clears death, level end, forced command, player
+hit and all projectiles (count 0), copies the saved state into the live
+one (view, position, speed, direction, remaining move, carried object,
+turret and its lock, rail direction, switches, protection, map, floor,
+skip flags, view buffers), draws the screen and plays the start animation
+on the player's box. Entering the main loop clears the self destruct flag
+`-0x6cfc`.
+
+A checkpoint (tile 0x10a, CODE 5 0x301e) saves the live state as the one
+to start from: the view is computed from the player's box like for the
+start box; the carried object is saved as 0; the 41 projectile slots are
+copied to `-0x538a` but never restored.
+
+Never reset by loading or starting (they carry over to the next life and
+the next level): lives, the world's frame counters `-0x6d08`/`-0x5390`,
+hits on reinforced walls `-0x1ae8`, the accelerator countdown `-0x538e`,
+the rail flag `-0x539e`, the delay timer `-0x6cfe`, the random seed.
+
+New game (Game → Play, CODE 2 0x7e6): level 0, 5 lives. A level code
+(Game → Enter Password, CODE 2 ≈ 0x4b4) starts that level with 5 lives;
+the code `NOWALL` instead sets `-0x6d19`, which makes every box passable
+(CODE 9 0x1f12).
+
+The rewrite: `Game::new` / `load_level` / `restart` / `next_level`, checked
+with `re/tools/emu_play.py`, which runs the original start routine and,
+after a lost life, starts again from the saved state like CODE 7.
+
 ## Settings, lives, level screen
 
 - Settings (Game → Setting, copied into globals by CODE 5 0x24c): the

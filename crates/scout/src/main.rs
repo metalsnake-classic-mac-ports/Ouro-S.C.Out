@@ -214,10 +214,19 @@ fn run(data: &GameData) -> Result<()> {
             next_frame += frame_time;
             match game.exit {
                 Some(Exit::Won) => {
+                    // after the last level the original goes on with the first
                     level = (level + 1) % data.levels.len();
+                    game.next_level(data.levels[level].clone());
+                    game.start_intro();
+                }
+                Some(Exit::Died | Exit::SelfDestructed) => {
+                    game.restart();
+                    game.start_intro();
+                }
+                Some(Exit::GameOver) => {
+                    level = 0;
                     game = begin(data, level);
                 }
-                Some(_) => game = begin(data, level),
                 None => {}
             }
         }

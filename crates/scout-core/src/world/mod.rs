@@ -48,7 +48,7 @@ pub struct World {
     pub frame: usize,
     /// Pass counter for batteries (`-0x5390`).
     pub pulse: u16,
-    skip: [bool; Level::CELLS],
+    pub(crate) skip: [bool; Level::CELLS],
     /// Switch flags (`-0x53b8` … `-0x53b4`) that open colored doors.
     pub switches: [bool; 5],
     /// The object the player carries (`-0x578c`), 0 = none.

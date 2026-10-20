@@ -476,11 +476,4 @@ impl Game {
         }
         self.stall.scroll = None;
     }
-
-    /// A closed hatch saves the state to restart from (CODE 5 0x301e).
-    /// The original also sets the projectile count to the one saved at
-    /// the level start, i.e. 0.
-    fn checkpoint(&mut self) {
-        self.world.projectile_count = 0;
-    }
 }

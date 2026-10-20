@@ -140,6 +140,26 @@ impl Player {
     }
 }
 
+/// The state a life starts from: set when a level is loaded (CODE 5
+/// 0x1a0a), replaced at checkpoints (CODE 5 0x301e), restored after a death
+/// (CODE 5 0x2b7e). Globals `-0x3e5e` …, `-0x3a54` …, map `-0x481a`.
+#[derive(Clone, Debug)]
+pub(crate) struct RestartState {
+    pub level: Level,
+    pub skip: [bool; Level::CELLS],
+    pub view: (usize, usize),
+    pub x: usize,
+    pub y: usize,
+    pub speed: i32,
+    pub dir: Dir,
+    pub remaining: i32,
+    pub carried: u16,
+    pub turret_locked: bool,
+    pub turret: Dir,
+    pub switches: [bool; 5],
+    pub no_death: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct Game {
     pub level: Level,
@@ -158,6 +178,7 @@ pub struct Game {
     /// Frames the original spends drawing after the last frame (scrolling
     /// one box per frame, teleporting); [`Game::tick`] waits them out.
     pub(crate) stall: Stall,
+    pub(crate) restart: Box<RestartState>,
 }
 
 /// The view moving to its new position for the frontend: the logic has
@@ -170,10 +191,27 @@ pub(crate) struct Stall {
 }
 
 impl Game {
+    /// A new game on this level, with [`LIVES`] lives (the start
+    /// animation is not running yet, see [`Game::start_intro`]).
     pub fn new(level: Level) -> Self {
         let (x, y) = level.start().unwrap_or((1, 1));
         let view = level.start_view();
-        Self {
+        let mut game = Self {
+            restart: Box::new(RestartState {
+                level: level.clone(),
+                skip: [false; Level::CELLS],
+                view,
+                x,
+                y,
+                speed: NORMAL_SPEED,
+                dir: Dir::Down,
+                remaining: 0,
+                carried: 0,
+                turret_locked: false,
+                turret: Dir::Down,
+                switches: [false; 5],
+                no_death: false,
+            }),
             level,
             player: Player {
                 x,
@@ -199,7 +237,107 @@ impl Game {
             clear_shots: false,
             intro: None,
             stall: Stall::default(),
+        };
+        game.load_level(game.level.clone());
+        game.restart();
+        game
+    }
+
+    /// Load a level (CODE 5 0x1a0a): the state to start from is the level
+    /// with the player on its start box; switch 4 (door 61) starts set.
+    /// What the original does not reset here stays as it is: lives, the
+    /// world's frame counters, hits on reinforced walls, the accelerator
+    /// countdown, the rail flag and the random numbers.
+    pub fn load_level(&mut self, level: Level) {
+        let (x, y) = level.start().unwrap_or((1, 1));
+        *self.restart = RestartState {
+            view: level.start_view(),
+            level,
+            skip: [false; Level::CELLS],
+            x,
+            y,
+            speed: NORMAL_SPEED,
+            dir: Dir::Down,
+            remaining: 0,
+            carried: 0,
+            turret_locked: false,
+            turret: Dir::Down,
+            switches: [false, false, false, false, true],
+            no_death: false,
+        };
+        self.world.no_death = false;
+        self.player.cannon_fired = false;
+        self.world.dying = 0;
+        self.world.level_end = 0;
+        self.player.magnifier = 0;
+        self.world.forced_command = -1;
+        self.world.player_hit = false;
+    }
+
+    /// Start (again) from the saved state (CODE 5 0x2b7e): after loading a
+    /// level, and after losing a life (from the last checkpoint). The
+    /// projectiles are gone; the original then plays the start animation
+    /// on the player's box ([`Game::start_intro`]).
+    pub fn restart(&mut self) {
+        self.world.dying = 0;
+        self.world.level_end = 0;
+        self.world.forced_command = -1;
+        self.world.player_hit = false;
+        for p in self.world.projectiles.iter_mut() {
+            p.active = false;
+            p.draw = 0;
         }
+        self.world.projectile_count = 0;
+        let r = &*self.restart;
+        self.level = r.level.clone();
+        self.world.skip = r.skip;
+        self.view = r.view;
+        self.player.x = r.x;
+        self.player.y = r.y;
+        self.player.speed = r.speed;
+        self.player.dir = r.dir;
+        self.player.remaining = r.remaining;
+        self.world.carried = r.carried;
+        self.player.turret_locked = r.turret_locked;
+        self.player.turret = r.turret;
+        self.world.switches = r.switches;
+        self.world.no_death = r.no_death;
+        self.world.player_visible = true;
+        // entering the main loop (CODE 9 0x0)
+        self.player.self_destructed = false;
+        self.exit = None;
+        self.stall = Stall::default();
+    }
+
+    /// Go on with the next level, keeping lives and what the original
+    /// keeps (see [`Game::load_level`]).
+    pub fn next_level(&mut self, level: Level) {
+        self.load_level(level);
+        self.restart();
+    }
+
+    /// A closed hatch saves the state to restart from (CODE 5 0x301e). The
+    /// carried object is not saved (but a loaded turret is), and the
+    /// original also sets the projectile count to the one saved at the
+    /// level start, i.e. 0 (see re/BUGS.md).
+    pub(crate) fn checkpoint(&mut self) {
+        let (x, y) = (self.player.x, self.player.y);
+        *self.restart = RestartState {
+            level: self.level.clone(),
+            skip: self.world.skip,
+            view: Level::view_around(x, y),
+            x,
+            y,
+            speed: self.player.speed,
+            dir: self.player.dir,
+            remaining: self.player.remaining,
+            carried: 0,
+            turret_locked: self.player.turret_locked,
+            turret: self.player.turret,
+            switches: self.world.switches,
+            no_death: self.world.no_death,
+        };
+        self.world.projectile_count = 0;
     }
 
     /// Begin the level like the original: the start box (0x108 after
