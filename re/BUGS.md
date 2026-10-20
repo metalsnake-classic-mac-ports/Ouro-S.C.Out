@@ -31,10 +31,30 @@ one, except the projectile count: `-0x57ca = -0x3e62` copies the saved
 count (always 0, set at level start) into the live counter instead of the
 other way round.
 
-Effect: after a checkpoint the counter of projectiles on screen is too
-low. It is only used for bookkeeping (it goes down when an erased
-projectile frees its slot), so it can become negative without visible
-consequences.
+What the counter is for: the number of the 40 projectile slots in use
+(active plus waiting to be erased); +1 when a projectile is spawned
+(CODE 9 0x2132), −1 when an ended projectile has been erased and its slot
+becomes free (CODE 4 0x2392, CODE 9 0x232c). It is read in one place only:
+tile 222 (projectile enter handler CODE 4 0x4374) ends an incoming
+projectile and fires a new one downwards, but only if the counter is not
+40, so that the shot is not lost when no slot is free; otherwise the
+projectile flies through.
+
+Effect: after a checkpoint the counter is too low (it can even go
+negative). With all slots really in use, tile 222 then ends the incoming
+projectile and the spawn fails: the shot vanishes. Needs many projectiles
+at once, so it is rare.
+
+## Teleporting leaks projectile slots in the counter (kept)
+
+CODE 4 0x2054 (teleporters, end of the magnifier) first marks visible
+projectiles for erasing, draws, then sets the draw state of all 40 slots
+to 0. Slots of ended projectiles that were waiting to be erased (draw
+state 1) become free that way without the counter `-0x57ca` going down.
+
+Effect: the counter is too high afterwards. If it happens to be exactly
+40, tile 222 lets projectiles through although slots are free (see
+above). Rare as well.
 
 ## Ricochets check a different box in one direction (kept)
 
