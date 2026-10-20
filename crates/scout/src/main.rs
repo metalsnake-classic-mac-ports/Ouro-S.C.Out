@@ -26,9 +26,10 @@ use sdl3::sys::render::SDL_LOGICAL_PRESENTATION_LETTERBOX;
 
 /// Palette shown first: the colors of the game screen.
 const DEFAULT_PALETTE: &str = "game";
-/// Frames per second of the simulation. Provisional: the frame rate of the
-/// original has not been measured yet (see TODO.md).
-const FRAMES_PER_SECOND: u32 = 30;
+/// Frames per second of the simulation. The original waits for the vertical
+/// blank after every frame and runs at 60 frames per second on a Mac that is
+/// fast enough (measured in Basilisk II, see re/tools/emulator/README.md).
+const FRAMES_PER_SECOND: u32 = 60;
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();

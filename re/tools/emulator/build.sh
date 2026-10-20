@@ -5,6 +5,11 @@ set -e
 EMU="$(cd "$(dirname "$0")/../.." && pwd)/work/emu"
 mkdir -p "$EMU"
 [ -d "$EMU/src" ] || git clone --depth 1 https://github.com/kanjitalk755/macemu.git "$EMU/src"
+# S.C.Out speed measurement (SCOUT_FPS=1, see run.sh)
+PATCH="$(cd "$(dirname "$0")" && pwd)/scout-fps.patch"
+if git -C "$EMU/src" apply --check "$PATCH" 2>/dev/null; then
+    git -C "$EMU/src" apply "$PATCH"
+fi
 cd "$EMU/src/BasiliskII/src/Unix"
 NO_CONFIGURE=1 ./autogen.sh
 # slirp (networking) is K&R C: compile C with gnu89.

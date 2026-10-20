@@ -1,0 +1,68 @@
+diff --git a/BasiliskII/src/Unix/main_unix.cpp b/BasiliskII/src/Unix/main_unix.cpp
+index 08a700a..704a32d 100755
+--- a/BasiliskII/src/Unix/main_unix.cpp
++++ b/BasiliskII/src/Unix/main_unix.cpp
+@@ -219,6 +219,7 @@ static const char *gui_connection_path = NULL;	// GUI connection identifier
+ static void *xpram_func(void *arg);
+ static void *tick_func(void *arg);
+ static void one_tick(...);
++static void *scout_fps_func(void *arg);
+ #if !EMULATED_68K
+ static void sigirq_handler(int sig, int code, struct sigcontext *scp);
+ static void sigill_handler(int sig, int code, struct sigcontext *scp);
+@@ -883,6 +884,12 @@ int main(int argc, char **argv)
+ 	sigaction(SIGINT, &sigint_sa, NULL);
+ #endif
+ 
++	// S.C.Out speed measurement (env SCOUT_FPS)
++	if (getenv("SCOUT_FPS")) {
++		pthread_t scout_thread;
++		pthread_create(&scout_thread, NULL, scout_fps_func, NULL);
++	}
++
+ #ifndef USE_CPU_EMUL_SERVICES
+ #if defined(HAVE_PTHREADS)
+ 
+@@ -1306,6 +1313,42 @@ static void one_second(void)
+ #endif
+ }
+ 
++/*
++ *  S.C.Out speed measurement: samples the game's frame counter (A5-0x6d08,
++ *  changes every game frame) and the Mac Ticks every millisecond and prints
++ *  game frames and delivered 60 Hz ticks per second to stderr.
++ */
++
++static void *scout_fps_func(void *arg)
++{
++	uint32 last_counter = 0xffffffff, frames = 0;
++	uint32 ticks_start = 0;
++	uint64 start = GetTicks_usec();
++	for (;;) {
++		Delay_usec(1000);
++		if (!HasMacStarted())
++			continue;
++		uint32 a5 = ReadMacInt32(0x904);
++		if (a5 > 0x7000 && a5 < RAMSize) {
++			uint32 counter = ReadMacInt32(a5 - 0x6d08);
++			if (counter != last_counter) {
++				frames++;
++				last_counter = counter;
++			}
++		}
++		uint64 now = GetTicks_usec();
++		if (now - start >= 1000000) {
++			uint32 ticks = ReadMacInt32(0x16a);
++			fprintf(stderr, "scout: %u game frames, %u Mac ticks in %.3f s\n",
++				frames, ticks_start ? ticks - ticks_start : 0, (now - start) / 1e6);
++			frames = 0;
++			ticks_start = ticks;
++			start = now;
++		}
++	}
++	return NULL;
++}
++
+ static void one_tick(...)
+ {
+ 	static int tick_counter = 0;
