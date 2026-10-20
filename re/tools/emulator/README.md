@@ -24,9 +24,16 @@ Basilisk's default 6 shows only every 6th frame (10 images per second).
 
 Sound: Basilisk II only plays sound through a Sound Manager 3.x component
 (see `TECH` 6.8 in its source). System 7.0 has an older Sound Manager, so
-the emulator is silent, and the game hangs after PERFECT / TRY AGAIN /
-GAME OVER, where it waits for the end of a sound. Needs System 7.5 or the
-Sound Manager 3.x extension on the boot disk.
+with the plain boot floppy the emulator is silent, and the game hangs after
+PERFECT / TRY AGAIN / GAME OVER, where it waits for the end of a sound.
+
+    re/tools/emulator/make-sound-disk.sh Sound_Manager_3.1.sea_.hqx
+
+builds `re/work/emu/system70-sound.dsk` (needs `brew install unar
+hfsutils`): the System Folder of `system70.dsk` on a 20 MB volume plus the
+Sound Manager 3.1 extension and Sound control panel (Apple's free
+download, 1995), with the boot blocks of the floppy. `run.sh` boots from
+it when it exists.
 
 For automated tests: `osascript` (System Events) sends key presses to the
 process `BasiliskII`, `cliclick` sends mouse clicks (`brew install cliclick`),
