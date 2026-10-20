@@ -30,4 +30,7 @@ The tests that need the original disk look for it in `SCOUT_DISK` or at
 - `legacy-port/`: the C++/SDL 1.2 port by Paul Mercat (2008), translated from
   French to English. It is kept as a reference. Its source was published at
   http://mercat.jean.free.fr/S.C.Out/
+- `re/NOTES.md`: how the original works, from the analysis of its 68k code
+- `re/BUGS.md`: bugs and oddities of the original and how the rewrite
+  treats them
 - `re/tools/`: tools to read and unpack the resources of the original game

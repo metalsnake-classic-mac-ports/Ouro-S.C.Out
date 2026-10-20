@@ -2,7 +2,8 @@
 
 Findings from the 68k code. Offsets like `CODE 9 0xb70` are offsets in the
 segment without its 4-byte header (`re/work/code/segNN.bin`). Globals are
-offsets from A5 (application globals).
+offsets from A5 (application globals). Bugs and oddities of the original
+are collected in BUGS.md.
 
 ## Tools
 
@@ -176,19 +177,49 @@ step redraws (one VBL) and updates the drawing state of the projectiles
 (CODE 9 0x232c). Teleporting likewise. The rewrite does the logic at once
 and lets the frontend show the extra frames (`Game::tick`, `shown_view`).
 
-Drawing projectiles (CODE 8 0x364, after the player): a 4 × 4 pattern with
-the top left corner at the projectile position, middle rows 0x64 0x65 0x65
-0x65 (orange, yellow), top and bottom row two pixels from the bytes at the
-addresses 0x64 and 0x65 (`move.b $64.w` instead of `#$64`): the level-1
-interrupt vector. Basilisk II has 0x01009b60 there (grey top, white
-bottom); on a real Mac it points into ROM (0x408…, grey). Saved
-background under each projectile is restored first (slot +0x20).
+See BUGS.md for the checkpoint and its projectile count, the magnifier
+and the player's position, and the scroll condition that is always true.
 
-Bugs of the original: the checkpoint copies the saved projectile count
-(always 0) into the live one instead of the other way round. During the
-magnifier the player's pixel position keeps referring to the old view.
-- view scrolls one box per frame when the player arrives one box from the
-  edge (up to 6 sideways, 4 up/down)
+## Drawing (CODE 8)
+
+The main loop draws through the pointer `-0x1b00`: CODE 8 0x0 ("custom
+display", `-0x6dbc` ≠ 0: own copy routines) or 0x440 ("system display":
+QuickDraw), chosen in Game → Setting. One call per frame, after waiting for
+the vertical blank (`-0xf72`, set by the VBL task of CODE 6):
+
+1. erase projectiles in reverse slot order (draw state 1 or 2): restore
+   the 4 × 4 background saved at slot +0x20, at the old screen address
+   (slot +0x18)
+2. boxes of the draw list `-0xb6e` (entries of 0x12 bytes, built by CODE 9
+   0x25a from the differences between the two view buffers, and by the
+   scroll functions): type 1 copy a tile, type 2 floor plus masked object
+3. the player (`-0x184` visible) with its background handling
+   (`-0x5792`, `-0x5791`: set_tile hit the player's box or its target)
+4. projectiles with draw state 2 or 3 (slot +0x1c = new screen address,
+   computed by CODE 9 0x232c): save the background, then a 4 × 4 pattern
+   with the top left corner at the projectile position: rows `. a a .`,
+   `64 65 65 65`, `64 65 65 65`, `. b b .` (palette 0x64 orange, 0x65
+   yellow); a and b come from a bug, see BUGS.md
+5. the carried object in the side panel when `-0x16e` is set (CODE 9
+   0x5416 prepares it; object − 16, 0x17 = empty)
+
+## Settings, lives, level screen
+
+- Settings (Game → Setting, copied into globals by CODE 5 0x24c): the
+  music and sound effect flags `-0x6dc0` / `-0x6dc4` (which is which not
+  checked yet; `-0x6dc0` guards the sound calls of the main loop),
+  system/custom display `-0x6dbc`, keys `-0x6d5a` … `-0x6d46` (virtual key
+  codes)
+- Lives `-0x6dac`: 5 at the start of a game (CODE 2), −1 per death in the
+  main loop; 0 ends the game (`-0x6d0c` = 0xff)
+- The level screen shows the level number from 0 (level 17: "LEVEL 016"),
+  the password and the lives; the level code dialog is Game → Enter
+  Password (⌘E)
+
+## Player (continued)
+
+- view scrolls on arrival one box from the edge (up to 6 sideways, 4
+  up/down), within the same frame of the logic
 - switch on the tile under the player: rails 0x8c–0xa9 and conveyors
   0xf7–0xfd force the next direction (`-0x53a2`) when `-0x539e` is set by
   the rail/conveyor tick handlers; steering is ignored on 0x8c–0xaa;

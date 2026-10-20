@@ -21,14 +21,15 @@ const VIEW_X: usize = FRAME_X + Frame::VIEW_X;
 const VIEW_Y: usize = FRAME_Y + Frame::VIEW_Y;
 
 /// A projectile as the original draws it (CODE 8 0x364): 4 × 4 pixels with
-/// the top left corner at its position. The original takes the colors of
-/// the top and bottom row from the bytes at addresses 0x64 and 0x65 (a bug:
-/// `move.b $64.w` instead of `#$64`), part of an interrupt vector that
-/// depends on the Mac; Basilisk II has 0x01 (grey) and 0x00 (white) there.
-/// `None` is transparent.
+/// the top left corner at its position. `None` is transparent.
+///
+/// The original takes the colors of the top and bottom row from the bytes
+/// at the addresses 0x64 and 0x65 (`move.b $64.w` instead of `#$64`), part
+/// of an interrupt vector, so they depend on the Mac (Basilisk II: grey and
+/// white). We use the intended values 0x64 and 0x65, see `re/BUGS.md`.
 const PROJECTILE: [[Option<u8>; 4]; 4] = {
-    const TOP: Option<u8> = Some(0x01);
-    const BOTTOM: Option<u8> = Some(0x00);
+    const TOP: Option<u8> = Some(0x64);
+    const BOTTOM: Option<u8> = Some(0x65);
     const ORANGE: Option<u8> = Some(0x64);
     const YELLOW: Option<u8> = Some(0x65);
     [
