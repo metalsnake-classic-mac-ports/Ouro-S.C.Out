@@ -206,8 +206,20 @@ pub fn game_screen(data: &GameData, game: &Game) -> Canvas {
         canvas.draw_object(data, p.sprite(), x, y);
     }
     canvas.draw_projectiles(game, (vx, vy));
+    // The carried object in both side panels (CODE 9 0x5416, CODE 8).
+    let icon = match game.world.carried {
+        0 => EMPTY_ICON,
+        c => (c as usize).saturating_sub(16),
+    };
+    if let Some(icon) = data.icons.get(icon) {
+        canvas.blit(icon, VIEW_X - 28, VIEW_Y + 260);
+        canvas.blit(icon, VIEW_X + 450, VIEW_Y + 260);
+    }
     canvas
 }
+
+/// The side panel icon for empty hands.
+const EMPTY_ICON: usize = 23;
 
 /// The screens between the levels (CODE 8 0x176c, 0x1b3a …).
 pub enum Message<'a> {

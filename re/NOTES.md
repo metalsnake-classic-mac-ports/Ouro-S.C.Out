@@ -200,8 +200,11 @@ the vertical blank (`-0xf72`, set by the VBL task of CODE 6):
    with the top left corner at the projectile position: rows `. a a .`,
    `64 65 65 65`, `64 65 65 65`, `. b b .` (palette 0x64 orange, 0x65
    yellow); a and b come from a bug, see BUGS.md
-5. the carried object in the side panel when `-0x16e` is set (CODE 9
-   0x5416 prepares it; object − 16, 0x17 = empty)
+5. the carried object in both side panels when `-0x16e` is set (CODE 9
+   0x5416 prepares it): icons of 28 × 19 pixels from SHAP 5105 (24 icons,
+   icon = object − 16, 23 = empty hands), copied to view-relative (−28,
+   260) and (450, 260), i.e. screen (68, 360) and (546, 360). Objects
+   below 16 would read before the table; no level has any.
 
 ## Game flow (CODE 7, CODE 5)
 

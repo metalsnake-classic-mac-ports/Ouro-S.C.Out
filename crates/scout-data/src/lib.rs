@@ -31,12 +31,15 @@ const TILES_ID: i16 = 5101;
 const FRAME_TOP_ID: i16 = 5102;
 const FRAME_BOTTOM_ID: i16 = 5103;
 const FRAME_SIDES_ID: i16 = 5104;
+const ICONS_ID: i16 = 5105;
 const FONT_ID: i16 = 5106;
 const BOX_ID: i16 = 5108;
 const CODES_ID: i16 = 5300;
 const LEVELS_ID: i16 = 6642;
 const GAME_PALETTE_ID: i16 = 128;
 const LEVEL_BYTES: usize = 2880;
+const ICON_WIDTH: usize = 28;
+const ICON_HEIGHT: usize = 19;
 
 /// All game data needed by the game, loaded from the original disk.
 #[derive(Debug, Clone)]
@@ -45,6 +48,9 @@ pub struct GameData {
     pub tiles: TileSet,
     pub objects: ObjectSet,
     pub frame: Frame,
+    /// The carried object in the side panels (CODE 9 0x5416): 28 × 19
+    /// pixels, icon = object − 16, 23 = nothing.
+    pub icons: Vec<Bitmap>,
     /// The block letters of the screens between levels (CODE 8 0x19c2):
     /// A–Z, 1–9, 0, then `.` at 38, `:` at 40, `-` at 44.
     pub font: ObjectSet,
@@ -136,6 +142,10 @@ impl GameData {
                 shap(FRAME_BOTTOM_ID)?,
                 shap(FRAME_SIDES_ID)?,
             )?,
+            icons: shap(ICONS_ID)?
+                .chunks_exact(ICON_WIDTH * ICON_HEIGHT)
+                .map(|c| Bitmap::new(ICON_WIDTH, ICON_HEIGHT, c.to_vec()))
+                .collect::<Result<_>>()?,
             font: ObjectSet::new(shap(FONT_ID)?)?,
             box_tiles: TileSet::new(shap(BOX_ID)?)?,
             game_palette,
