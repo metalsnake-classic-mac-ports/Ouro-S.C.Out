@@ -87,6 +87,15 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [ ] Choice of the projectile colors: intended (default) or as on a real Mac / in
       Basilisk II (see re/BUGS.md)
 
+### Data packs (later)
+
+- [ ] Choose a folder (or archive) with extracted data instead of the disk image: the layout
+      `scout-extract` writes (PNG, WAV, level text) as the open format
+- [ ] Packs that replace parts: sound packs, level packs, graphics packs, … on top of the
+      original data
+- [ ] High-resolution graphics and sounds (larger tiles / higher sample rates than the original)
+- [ ] Levels larger than the original's 40 × 24 boxes (needs a level format with its size)
+
 ### Requirements
 
 - Sound starts without delay: the rewrite must not add latency. Measured 2026-10-21 in
