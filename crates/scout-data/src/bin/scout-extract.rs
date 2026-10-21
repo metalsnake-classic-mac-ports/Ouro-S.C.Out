@@ -1,17 +1,20 @@
-//! Export everything the game reads from the original disk into ordinary
-//! files, for tests and for looking at:
+//! Export what the game reads from the original disk into ordinary files,
+//! for tests and for looking at:
 //!
 //! - `graphics/`: tiles, objects, block letters, box tiles and side panel
-//!   icons (one PNG each plus a sheet), the frame around the view and the
+//!   icons (one PNG each and/or a sheet), the frame around the view and the
 //!   pictures, in the colors of the game (objects and letters with
 //!   transparency where their mask is clear)
 //! - `sounds/`: the sound effects as WAV (8-bit mono, original rate)
-//! - `levels/`: each level as text, the translated tile and floor values
-//!   the game uses and the values of the level file
+//! - `levels/`: each level as text (translated values the game uses and the
+//!   values of the level file) and/or as a picture of the whole level
 //! - `codes.txt`, `palette.txt`
 //!
-//! Usage: scout-extract [DISK] OUT_DIR
-//! DISK defaults to `re/work/SCOUT_1_4.dsk`.
+//! Usage: scout-extract [DISK] OUT_DIR [--only LIST] [--graphics single|sheets|both]
+//!
+//! LIST (comma separated, default all): graphics, sounds, levels,
+//! level-images, codes, palette. `--graphics` (default both): one PNG per
+//! item, sheets, or both. DISK defaults to `re/work/SCOUT_1_4.dsk`.
 
 use std::fs;
 use std::io::BufWriter;
@@ -26,90 +29,232 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 const TILE: usize = 32;
 const PER_ROW: usize = 16;
 const GAP: usize = 2;
+const USAGE: &str = "usage: scout-extract [DISK] OUT_DIR [--only graphics,sounds,levels,level-images,codes,palette] [--graphics single|sheets|both]";
+const PARTS: [&str; 6] = [
+    "graphics",
+    "sounds",
+    "levels",
+    "level-images",
+    "codes",
+    "palette",
+];
+
+struct Options {
+    disk: PathBuf,
+    out: PathBuf,
+    parts: Vec<String>,
+    single: bool,
+    sheets: bool,
+}
+
+impl Options {
+    fn parse() -> Result<Self> {
+        let mut paths = Vec::new();
+        let mut parts: Vec<String> = PARTS.iter().map(|p| p.to_string()).collect();
+        let (mut single, mut sheets) = (true, true);
+        let mut args = std::env::args().skip(1);
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
+                "--only" => {
+                    let list = args.next().ok_or(USAGE)?;
+                    parts = list.split(',').map(|p| p.trim().to_string()).collect();
+                    if let Some(bad) = parts.iter().find(|p| !PARTS.contains(&p.as_str())) {
+                        return Err(format!("unknown part {bad:?}; {USAGE}").into());
+                    }
+                }
+                "--graphics" => match args.next().as_deref() {
+                    Some("single") => (single, sheets) = (true, false),
+                    Some("sheets") => (single, sheets) = (false, true),
+                    Some("both") => (single, sheets) = (true, true),
+                    _ => return Err(USAGE.into()),
+                },
+                "-h" | "--help" => return Err(USAGE.into()),
+                _ => paths.push(PathBuf::from(arg)),
+            }
+        }
+        let (disk, out) = match paths.as_slice() {
+            [out] => (PathBuf::from("re/work/SCOUT_1_4.dsk"), out.clone()),
+            [disk, out] => (disk.clone(), out.clone()),
+            _ => return Err(USAGE.into()),
+        };
+        Ok(Self {
+            disk,
+            out,
+            parts,
+            single,
+            sheets,
+        })
+    }
+
+    fn wants(&self, part: &str) -> bool {
+        self.parts.iter().any(|p| p == part)
+    }
+}
 
 fn main() -> Result<()> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    let (disk, out) = match args.as_slice() {
-        [out] => (PathBuf::from("re/work/SCOUT_1_4.dsk"), PathBuf::from(out)),
-        [disk, out] => (PathBuf::from(disk), PathBuf::from(out)),
-        _ => return Err("usage: scout-extract [DISK] OUT_DIR".into()),
-    };
-    let data = GameData::load(&disk)?;
+    let opt = Options::parse()?;
+    let data = GameData::load(&opt.disk)?;
     let pal = &data.game_palette;
+    let out = &opt.out;
+    let mut done = Vec::new();
 
-    let gfx = out.join("graphics");
-    tiles(&gfx.join("tiles"), &data.tiles, pal)?;
-    tiles(&gfx.join("box"), &data.box_tiles, pal)?;
-    objects(&gfx.join("objects"), &data.objects, pal)?;
-    objects(&gfx.join("font"), &data.font, pal)?;
-    let icons = gfx.join("icons");
-    fs::create_dir_all(&icons)?;
-    for (i, icon) in data.icons.iter().enumerate() {
-        bitmap(&icons.join(format!("{i:02}.png")), icon, pal)?;
-    }
-    let frame = gfx.join("frame");
-    fs::create_dir_all(&frame)?;
-    for (name, part) in [
-        ("top", &data.frame.top),
-        ("bottom", &data.frame.bottom),
-        ("left", &data.frame.left),
-        ("right", &data.frame.right),
-    ] {
-        bitmap(&frame.join(format!("{name}.png")), part, pal)?;
-    }
-    let pictures = gfx.join("pictures");
-    fs::create_dir_all(&pictures)?;
-    for p in &data.pictures {
-        let rgba = indexed(&p.image.pixels, &p.image.palette, None);
-        png(
-            &pictures.join(format!("{}_{}.png", p.id, safe(&p.name))),
-            p.image.width,
-            p.image.height,
-            &rgba,
-        )?;
+    if opt.wants("graphics") {
+        let gfx = out.join("graphics");
+        let tile_cells = |set: &TileSet| -> Vec<Vec<u8>> {
+            (0..set.len())
+                .map(|i| indexed(set.tile(i).unwrap(), pal, None))
+                .collect()
+        };
+        let sets = [
+            ("tiles", tile_cells(&data.tiles), TILE, TILE),
+            ("box", tile_cells(&data.box_tiles), TILE, TILE),
+            ("objects", object_cells(&data.objects, pal), TILE, TILE),
+            ("font", object_cells(&data.font, pal), TILE, TILE),
+            (
+                "icons",
+                data.icons
+                    .iter()
+                    .map(|b| indexed(&b.pixels, pal, None))
+                    .collect(),
+                data.icons[0].width,
+                data.icons[0].height,
+            ),
+        ];
+        for (name, cells, w, h) in &sets {
+            write_set(&gfx.join(name), cells, *w, *h, &opt)?;
+        }
+        let frame = gfx.join("frame");
+        fs::create_dir_all(&frame)?;
+        for (name, part) in [
+            ("top", &data.frame.top),
+            ("bottom", &data.frame.bottom),
+            ("left", &data.frame.left),
+            ("right", &data.frame.right),
+        ] {
+            bitmap(&frame.join(format!("{name}.png")), part, pal)?;
+        }
+        let pictures = gfx.join("pictures");
+        fs::create_dir_all(&pictures)?;
+        for p in &data.pictures {
+            let rgba = indexed(&p.image.pixels, &p.image.palette, None);
+            png(
+                &pictures.join(format!("{}_{}.png", p.id, safe(&p.name))),
+                p.image.width,
+                p.image.height,
+                &rgba,
+            )?;
+        }
+        done.push(format!(
+            "graphics ({} tiles, {} objects, {} letters, {} icons, {} pictures)",
+            data.tiles.len(),
+            data.objects.len(),
+            data.font.len(),
+            data.icons.len(),
+            data.pictures.len()
+        ));
     }
 
-    let sounds = out.join("sounds");
-    fs::create_dir_all(&sounds)?;
-    for s in &data.sounds {
-        wav(&sounds.join(format!("snd_{}.wav", s.id)), s)?;
+    if opt.wants("sounds") {
+        let sounds = out.join("sounds");
+        fs::create_dir_all(&sounds)?;
+        for s in &data.sounds {
+            wav(&sounds.join(format!("snd_{}.wav", s.id)), s)?;
+        }
+        done.push(format!("{} sounds", data.sounds.len()));
     }
 
     let levels = out.join("levels");
-    fs::create_dir_all(&levels)?;
-    for (i, level) in data.levels.iter().enumerate() {
-        let code = i.checked_sub(1).map(|c| data.level_codes[c].as_str());
-        fs::write(
-            levels.join(format!("level_{:03}.txt", i + 1)),
-            level_text(i + 1, code, level),
-        )?;
+    if opt.wants("levels") || opt.wants("level-images") {
+        fs::create_dir_all(&levels)?;
     }
-    let codes: String = data
-        .level_codes
-        .iter()
-        .enumerate()
-        .map(|(i, c)| format!("{} {c}\n", i + 2))
-        .collect();
-    fs::write(out.join("codes.txt"), codes)?;
-    let palette: String = pal
-        .colors
-        .iter()
-        .enumerate()
-        .map(|(i, c)| format!("{i} {} {} {}\n", c.r, c.g, c.b))
-        .collect();
-    fs::write(out.join("palette.txt"), palette)?;
-    println!(
-        "{}: {} tiles, {} objects, {} letters, {} icons, {} pictures, {} sounds, {} levels",
-        out.display(),
-        data.tiles.len(),
-        data.objects.len(),
-        data.font.len(),
-        data.icons.len(),
-        data.pictures.len(),
-        data.sounds.len(),
-        data.levels.len()
-    );
+    for (i, level) in data.levels.iter().enumerate() {
+        let name = format!("level_{:03}", i + 1);
+        if opt.wants("levels") {
+            let code = i.checked_sub(1).map(|c| data.level_codes[c].as_str());
+            fs::write(
+                levels.join(format!("{name}.txt")),
+                level_text(i + 1, code, level),
+            )?;
+        }
+        if opt.wants("level-images") {
+            let (w, h) = (Level::WIDTH * TILE, Level::HEIGHT * TILE);
+            png(
+                &levels.join(format!("{name}.png")),
+                w,
+                h,
+                &level_image(&data, level),
+            )?;
+        }
+    }
+    if opt.wants("levels") {
+        done.push(format!("{} levels as text", data.levels.len()));
+    }
+    if opt.wants("level-images") {
+        done.push(format!("{} levels as pictures", data.levels.len()));
+    }
+
+    if opt.wants("codes") {
+        let codes: String = data
+            .level_codes
+            .iter()
+            .enumerate()
+            .map(|(i, c)| format!("{} {c}\n", i + 2))
+            .collect();
+        fs::write(out.join("codes.txt"), codes)?;
+        done.push("codes".into());
+    }
+    if opt.wants("palette") {
+        let palette: String = pal
+            .colors
+            .iter()
+            .enumerate()
+            .map(|(i, c)| format!("{i} {} {} {}\n", c.r, c.g, c.b))
+            .collect();
+        fs::write(out.join("palette.txt"), palette)?;
+        done.push("palette".into());
+    }
+    println!("{}: {}", out.display(), done.join(", "));
     Ok(())
+}
+
+/// The whole level as the game draws it: tiles from 40 up, otherwise the
+/// floor with the object on top (the start box as loaded: 0x108).
+fn level_image(data: &GameData, level: &Level) -> Vec<u8> {
+    let w = Level::WIDTH * TILE;
+    let mut rgba = vec![0u8; w * Level::HEIGHT * TILE * 4];
+    let mut put = |x: usize, y: usize, c: [u8; 4]| {
+        let at = (y * w + x) * 4;
+        rgba[at..at + 4].copy_from_slice(&c);
+    };
+    let color = |i: u8| {
+        let c = data.game_palette.colors[i as usize];
+        [c.r, c.g, c.b, 255]
+    };
+    const MISSING: [u8; 4] = [255, 0, 255, 255];
+    for by in 0..Level::HEIGHT {
+        for bx in 0..Level::WIDTH {
+            let value = level.tile(bx, by) as usize;
+            let base = if value >= Level::FIRST_SOLID_TILE as usize {
+                value
+            } else {
+                level.floor(bx, by) as usize
+            };
+            let tile = data.tiles.tile(base);
+            for y in 0..TILE {
+                for x in 0..TILE {
+                    let c = tile.map_or(MISSING, |t| color(t[y * TILE + x]));
+                    put(bx * TILE + x, by * TILE + y, c);
+                    if value != 0
+                        && value < Level::FIRST_SOLID_TILE as usize
+                        && let Some(p) = data.objects.pixel(value, x, y)
+                    {
+                        put(bx * TILE + x, by * TILE + y, color(p));
+                    }
+                }
+            }
+        }
+    }
+    rgba
 }
 
 fn safe(name: &str) -> String {
@@ -144,18 +289,8 @@ fn bitmap(path: &Path, b: &Bitmap, pal: &Palette) -> Result<()> {
     png(path, b.width, b.height, &indexed(&b.pixels, pal, None))
 }
 
-/// One PNG per tile and a sheet with 16 tiles per row.
-fn tiles(dir: &Path, set: &TileSet, pal: &Palette) -> Result<()> {
-    fs::create_dir_all(dir)?;
-    let cells: Vec<Vec<u8>> = (0..set.len())
-        .map(|i| indexed(set.tile(i).unwrap(), pal, None))
-        .collect();
-    write_set(dir, &cells)
-}
-
-fn objects(dir: &Path, set: &ObjectSet, pal: &Palette) -> Result<()> {
-    fs::create_dir_all(dir)?;
-    let cells: Vec<Vec<u8>> = (0..set.len())
+fn object_cells(set: &ObjectSet, pal: &Palette) -> Vec<Vec<u8>> {
+    (0..set.len())
         .map(|i| {
             let mut pixels = vec![0; TILE * TILE];
             let mut mask = vec![false; TILE * TILE];
@@ -169,23 +304,32 @@ fn objects(dir: &Path, set: &ObjectSet, pal: &Palette) -> Result<()> {
             }
             indexed(&pixels, pal, Some(&mask))
         })
-        .collect();
-    write_set(dir, &cells)
+        .collect()
 }
 
-fn write_set(dir: &Path, cells: &[Vec<u8>]) -> Result<()> {
-    for (i, rgba) in cells.iter().enumerate() {
-        png(&dir.join(format!("{i:03}.png")), TILE, TILE, rgba)?;
+/// One PNG per item in `dir` and/or a sheet `dir.png` with 16 per row.
+fn write_set(dir: &Path, cells: &[Vec<u8>], cw: usize, ch: usize, opt: &Options) -> Result<()> {
+    if opt.single {
+        fs::create_dir_all(dir)?;
+        for (i, rgba) in cells.iter().enumerate() {
+            png(&dir.join(format!("{i:03}.png")), cw, ch, rgba)?;
+        }
+    }
+    if !opt.sheets {
+        return Ok(());
+    }
+    if let Some(parent) = dir.parent() {
+        fs::create_dir_all(parent)?;
     }
     let rows = cells.len().div_ceil(PER_ROW);
-    let (w, h) = (PER_ROW * (TILE + GAP), rows * (TILE + GAP));
+    let (w, h) = (PER_ROW * (cw + GAP), rows * (ch + GAP));
     let mut sheet = vec![0u8; w * h * 4];
     for (i, rgba) in cells.iter().enumerate() {
-        let (ox, oy) = ((i % PER_ROW) * (TILE + GAP), (i / PER_ROW) * (TILE + GAP));
-        for y in 0..TILE {
-            let src = &rgba[y * TILE * 4..(y + 1) * TILE * 4];
+        let (ox, oy) = ((i % PER_ROW) * (cw + GAP), (i / PER_ROW) * (ch + GAP));
+        for y in 0..ch {
+            let src = &rgba[y * cw * 4..(y + 1) * cw * 4];
             let at = ((oy + y) * w + ox) * 4;
-            sheet[at..at + TILE * 4].copy_from_slice(src);
+            sheet[at..at + cw * 4].copy_from_slice(src);
         }
     }
     png(&dir.with_extension("png"), w, h, &sheet)
