@@ -295,10 +295,11 @@ fn message_canvas(data: &GameData, game: &Game, level: usize, shown: Shown) -> r
     render::message_screen(data, &message)
 }
 
-/// The key of this frame. Like the original, only one key counts; Esc
-/// blows the player up (CODE 9, virtual key code 0x35).
+/// The key of this frame. Like the original, only one key counts. Self
+/// destruct is Esc in the original (CODE 9, virtual key code 0x35); here
+/// it can be changed like the others.
 fn key(keys: &KeyboardState, settings: &Settings) -> Key {
-    let [right, left, up, down, get, fire] = settings.keys;
+    let [right, left, up, down, get, fire, destruct] = settings.keys;
     for (code, key) in [
         (left, Key::Move(Dir::Left)),
         (right, Key::Move(Dir::Right)),
@@ -306,7 +307,7 @@ fn key(keys: &KeyboardState, settings: &Settings) -> Key {
         (up, Key::Move(Dir::Up)),
         (get, Key::Use),
         (fire, Key::Fire),
-        (Scancode::Escape, Key::SelfDestruct),
+        (destruct, Key::SelfDestruct),
     ] {
         if keys.is_scancode_pressed(code) {
             return key;

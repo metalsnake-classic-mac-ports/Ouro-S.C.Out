@@ -96,7 +96,9 @@ pub struct Menu {
 }
 
 /// Rows of the settings page: three switches, the six keys, back.
-const SETTING_ROWS: usize = 3 + 6 + 1;
+const SETTING_ROWS: usize = 3 + KEY_NAMES.len() + 1;
+/// The rows of the keys.
+const KEY_ROWS: std::ops::Range<usize> = 3..3 + KEY_NAMES.len();
 
 impl Menu {
     pub fn new(background: Background, resumable: bool) -> Self {
@@ -151,10 +153,9 @@ impl Menu {
                 Action::None
             }
             Page::Settings { waiting: true } => {
-                if code != Scancode::Escape {
-                    settings.set_key(self.selected - 3, code);
-                    settings.save();
-                }
+                // any key, Esc included (it is the default for self destruct)
+                settings.set_key(self.selected - KEY_ROWS.start, code);
+                settings.save();
                 self.page = Page::Settings { waiting: false };
                 Action::None
             }
@@ -178,7 +179,7 @@ impl Menu {
                         0 => settings.music = !settings.music,
                         1 => settings.sounds = !settings.sounds,
                         2 => settings.fixed_music = !settings.fixed_music,
-                        3..=8 => {
+                        r if KEY_ROWS.contains(&r) => {
                             if matches!(
                                 code,
                                 Scancode::Return | Scancode::KpEnter | Scancode::Space
@@ -356,12 +357,12 @@ impl Menu {
                 let small = &data.small_font;
                 let value_x = bx + 304;
                 for row in 0..SETTING_ROWS {
-                    let y = by + 72 + 24 * row as i32;
+                    let y = by + 72 + 22 * row as i32;
                     let label = match row {
                         0 => "MUSIC",
                         1 => "SOUND EFFECTS",
                         2 => "MUSIC PLAYER",
-                        3..=8 => KEY_NAMES[row - 3],
+                        r if KEY_ROWS.contains(&r) => KEY_NAMES[row - KEY_ROWS.start],
                         _ => "BACK",
                     };
                     canvas.block_text(small, bx + 64, y, label);
@@ -378,11 +379,11 @@ impl Menu {
                                 "ORIGINAL"
                             },
                         ),
-                        3..=8 => {
+                        r if KEY_ROWS.contains(&r) => {
                             let text = if *waiting && row == self.selected {
                                 "PRESS A KEY".to_string()
                             } else {
-                                key_label(settings.keys[row - 3])
+                                key_label(settings.keys[row - KEY_ROWS.start])
                             };
                             if text.chars().count() <= 11 && render::in_block_font(&text) {
                                 canvas.block_text(small, value_x, y, &text);
@@ -392,7 +393,7 @@ impl Menu {
                                     Line::new(
                                         value_x as f32,
                                         y as f32 - 1.0,
-                                        settings.keys[row - 3].name(),
+                                        settings.keys[row - KEY_ROWS.start].name(),
                                     )
                                     .color([0xFF, 0xFF, 0xFF]),
                                 );
@@ -406,35 +407,26 @@ impl Menu {
                 }
                 screen.overlay(&canvas, game_palette, (bx, by, cols * 32, rows * 32));
                 let hint = if *waiting {
-                    "Press the new key    Esc keep the old one"
+                    "Press the new key"
                 } else {
                     "↑ ↓ choose    Return change    Esc back"
                 };
                 lines.push(Line::new(320.0, HINT_Y, hint).centered().color(DIM));
-                lines.push(
-                    Line::new(
-                        320.0,
-                        18.0,
-                        "Esc blows yourself up during the game (as in the original)",
-                    )
-                    .centered()
-                    .color(DIM),
-                );
             }
             Page::Password { text, wrong } => {
-                let (cols, rows) = (12, 5);
+                let (cols, rows) = (12, 6);
                 let (bx, by) = (
                     ax + (aw as i32 - cols as i32 * 32) / 2,
                     ay + (ah as i32 - rows as i32 * 32) / 2,
                 );
                 canvas.marble_box(data, bx, by, cols, rows);
-                canvas.block_text(&data.font, bx + 48, by + 24, "PASSWORD:");
+                canvas.block_text(&data.font, bx + 48, by + 40, "PASSWORD:");
                 let entry = if *wrong {
                     "WRONG!".to_string()
                 } else {
                     format!("{:.<6}", text)
                 };
-                canvas.block_text(&data.font, bx + 96, by + 96, &entry);
+                canvas.block_text(&data.font, bx + 96, by + 112, &entry);
                 screen.overlay(&canvas, game_palette, (bx, by, cols * 32, rows * 32));
                 let hint = if *wrong {
                     "Wrong password    any key: try again"

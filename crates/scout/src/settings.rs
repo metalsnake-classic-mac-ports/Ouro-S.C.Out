@@ -8,8 +8,17 @@ use std::path::PathBuf;
 
 use sdl3::keyboard::Scancode;
 
-/// The game keys in the order of the original dialog.
-pub const KEY_NAMES: [&str; 6] = ["RIGHT", "LEFT", "UP", "DOWN", "GET-DROP", "FIRE"];
+/// The game keys in the order of the original dialog, then self destruct
+/// (fixed to Esc in the original).
+pub const KEY_NAMES: [&str; 7] = [
+    "RIGHT",
+    "LEFT",
+    "UP",
+    "DOWN",
+    "GET-DROP",
+    "FIRE",
+    "SELF DESTRUCT",
+];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Settings {
@@ -17,13 +26,14 @@ pub struct Settings {
     pub sounds: bool,
     /// Play the music with the bugs of the original player corrected.
     pub fixed_music: bool,
-    /// Right, left, up, down, get / drop, fire.
-    pub keys: [Scancode; 6],
+    /// Right, left, up, down, get / drop, fire, self destruct.
+    pub keys: [Scancode; 7],
 }
 
 impl Default for Settings {
     /// The original (1.4) has music and sound on and the keypad (6, 4, 8,
-    /// 2, Enter, 5); we start with the arrow keys, Return and Space.
+    /// 2, Enter, 5) and Esc; we start with the arrow keys, Return, Space and
+    /// Esc.
     fn default() -> Self {
         Self {
             music: true,
@@ -36,6 +46,7 @@ impl Default for Settings {
                 Scancode::Down,
                 Scancode::Return,
                 Scancode::Space,
+                Scancode::Escape,
             ],
         }
     }

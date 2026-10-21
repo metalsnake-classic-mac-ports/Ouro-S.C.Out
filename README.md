@@ -18,7 +18,8 @@ You need Rust (via [rustup](https://rustup.rs)) and SDL3
 
 `scout` plays the game: logo, title and menu (Play, Password, Settings,
 About, Quit), levels, music and sound. Default keys: arrows move, Return
-takes / drops, Space fires, Esc blows yourself up; Command (or Ctrl) + P
+takes / drops, Space fires, Esc blows yourself up (as in the original);
+Command (or Ctrl) + P
 pauses, + Q quits. The keys can be changed in the settings, which are saved
 in SDL's preference folder (macOS: `~/Library/Application Support/S.C.Out`).
 `scout DISK --export LEVEL out.bmp [screen|map|level] [PALETTE]` writes a
