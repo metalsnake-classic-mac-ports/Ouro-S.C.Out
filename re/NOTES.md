@@ -78,7 +78,8 @@ Only the first pressed key counts: GetKeys, raw key codes translated to
 virtual key codes with the `KMAP` resource (CODE 6 0x222, table at
 `-0x1152`). Command `-0x5790`: 0–3 configured direction keys (left, up,
 right, down), 7 and 4 actions (edge-triggered), 8 = Esc (virtual code
-0x35: self destruct, 300 frames), 9 / 6 = Caps Lock + Q / P, −1 nothing.
+0x35: self destruct, 300 frames), 9 / 6 = Command + Q / P (CODE 6 0x222 sets `-0x1052` from the bit of key code
+55, Command; it masks out key code 57, Caps Lock), −1 nothing.
 The keys are set in Game → Setting (as virtual key codes): right 6, left
 4, up 8, down 2 on the keypad, get/drop Enter, fire keypad 5. The rewrite
 uses the arrow keys, Return, Space and Backspace instead.
@@ -247,7 +248,7 @@ table A5+0x882) depending on the state `-0x6db2` and evaluates its result
   sound, state 3
 - result 0xff (no lives left): game over screen CODE 8 0x1b3a, picture
   0x3e9, back to the title (state 0)
-- result 1 (Caps Lock + P) back to the title, 0xfd (Caps Lock + Q) quit;
+- result 1 (Command + P) back to the title, 0xfd (Command + Q) quit;
   4 / 5 would go one level back / forward, but nothing returns them
 
 Loading (CODE 5 0x1a0a) fills the state to start from (`-0x3e5e` …:
@@ -284,6 +285,9 @@ the code `NOWALL` instead sets `-0x6d19`, which makes every box passable
 The rewrite: `Game::new` / `load_level` / `restart` / `next_level`, checked
 with `re/tools/emu_play.py`, which runs the original start routine and,
 after a lost life, starts again from the saved state like CODE 7.
+
+The red arrows, small displays and lights in the side panels are part of
+the frame graphics (`SHAP 5104`); the game never changes them.
 
 ## Settings, lives, level screen
 

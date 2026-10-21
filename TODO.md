@@ -29,15 +29,14 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 ### Next
 
 - [x] Screen frame; level 1 start screen matches the original screenshot (99.15 %)
-- [ ] Player sprite and the start animation (striped frame around object 15 in the original)
-- [ ] Side panel displays (`SHAP 5105`, `5108`), fonts (`5106`, `5107`)
-- [ ] Remaining graphics: `SHAP 5102`–`5108` (screen frame? sprites?)
-- [ ] Sounds (`snd ` resources) and music (`SHAP 5200`)
-- [ ] Game logic in `scout-core`, using the original code as reference
+- [x] Player sprite and the start animation
+- [x] Graphics: frame `SHAP 5102`–`5104`, side panel icons `5105`, block letters `5106`, box
+      tiles `5108`; `5107` is still unknown (see "To check")
+- [x] Game logic in `scout-core`, using the original code as reference
   - [x] Main loop (CODE 9, 0x0): single-threaded, one pass = one frame
   - [x] Input (CODE 6, 0x7a8): only the first pressed key counts; commands 0–3 move,
         7 and 4 are actions (once per key press), Esc starts a 300-frame self destruct,
-        Caps Lock + Q / P quit / pause
+        Command + Q / P quit / pause (CODE 6 0x222: bit of key code 55; Caps Lock is masked out)
   - [x] Movement (CODE 9, 0xb70 and 0x1f12): a move is one box, 4 px per frame (8 frames);
         passable: values < 40, 184–188, ≥ 219; one-way tiles 243–246 block one direction;
         the view scrolls up to 6 sideways / 4 up or down, within one frame of the logic
@@ -60,11 +59,16 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         recordings of `emu_play.py`
   - [x] Screens between the levels (level / password / lives, try again, aborted, game over,
         perfect) like the original (CODE 8 0x176c …); waiting for a key on the level screen
-  - [ ] Title screen and menu, level codes dialog, pictures 0x3e9 (game over) and 0x3ea (end)
-  - [ ] Dissolve between screens (CODE 8 0x1354), including the random numbers it uses
+  - [ ] Music (player at A5+0x1322 / 0x132a, CODE 7; data probably `SHAP 5200`, also
+        unassigned: `SHAP 0`, `SHAP 200`)
+  - [ ] Title screen and menu (Play, Resume, Setting, Enter Password), level codes dialog,
+        pictures 0x3e9 (game over) and 0x3ea (end)
+  - [ ] Pause and quit like the original: Command + P back to the menu (Resume goes on),
+        Command + Q quit
+  - [ ] Dissolve between screens (CODE 8 0x1354); the random numbers it uses only with
+        the lowest priority (see below)
   - [x] Sound effects ('snd ' 100–124) requested like the original, one channel; the messages
         after a level wait for a key and the end of their sound
-  - [ ] Music (player at A5+0x1322)
   - [x] World automaton (CODE 9 0x23fa): 96 boxes per frame, skip flags, 254 tick handlers
         (198 animation steps generated, the rest ported by hand). Matches the original
         exactly in all 101 levels over 3000 frames and in 500 random scenarios
@@ -75,7 +79,6 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   - [x] Projectiles (tables `-0x3270` / `-0x2aa0`), cannons, mirrors, homing projectiles
         with the Toolbox `Random`: all 40 slots match the original frame by frame in 500
         random scenarios (projectiles of all types, aimed shots, computers, wall hits)
-  - [ ] Check `Random` number for number against a real Mac (Basilisk II)
   - [x] Rails/conveyors carrying the player (`-0x539e` → forced direction)
   - [x] Switch flags `-0x53b8`…`-0x53b5`: set by exploding colored circles 162–165
   - [x] Who sets `-0x53b4` (switch of tile 61) and the carried object `-0x578c`: the player;
@@ -108,6 +111,12 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 
 - [ ] Objects 26–31 have pink frames in the extracted graphics (mask?): compare with the
       original in the emulator (26/27 are mirrors)
+- [ ] `SHAP 5107`: what is it (second font? music?)
+
+### Lowest priority
+
+- [ ] Random numbers number for number like a real Mac (Basilisk II); not required, the
+      game does not need to match the original's random numbers
 
 The sections below were written for the old port and stay as a reference.
 The old port now lives in `legacy-port/`, so `build/` below means `legacy-port/build/`.
