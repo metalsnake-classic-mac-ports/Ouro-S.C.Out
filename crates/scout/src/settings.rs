@@ -1,8 +1,8 @@
 //! The settings (Game → Setting in the original, CODE 2 0x1108): music,
 //! sound effects and the six game keys, plus our own options. The original
-//! keeps them in its resource `SHAP 1` and writes them back when it quits
-//! (CODE 5 0x321a); we keep them in a text file in the user's settings
-//! folder.
+//! keeps them in its own resource `SHAP 1` (`SHAP 0` if it is missing) and
+//! writes that back into the application when it quits (CODE 5 0x16ce); we
+//! keep them in a text file in the user's settings folder.
 
 use std::path::PathBuf;
 

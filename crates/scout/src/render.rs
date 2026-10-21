@@ -369,6 +369,11 @@ fn glyph(c: char) -> Option<usize> {
     }
 }
 
+/// Whether the block letters can show this text (spaces included).
+pub fn in_block_font(text: &str) -> bool {
+    text.chars().all(|c| c == ' ' || glyph(c).is_some())
+}
+
 /// Where the original shows its pictures: the 512 × 364 area of the frame
 /// (CODE 8 0x12d8 draws them at its top left corner, clipped).
 pub const PICTURE_AREA: (usize, usize, usize, usize) = (FRAME_X, FRAME_Y, 512, 364);

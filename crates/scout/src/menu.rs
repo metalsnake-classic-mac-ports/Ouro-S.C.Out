@@ -351,12 +351,12 @@ impl Menu {
             Page::Settings { waiting } => {
                 let (bx, by, cols, rows) = (ax, ay + 6, 16, 11);
                 canvas.marble_box(data, bx, by, cols, rows);
-                canvas.block_text(&data.font, bx + 128, by + 18, "SETTINGS");
+                canvas.block_text(&data.font, bx + 128, by + 28, "SETTINGS");
                 let on = |b: bool| if b { "ON" } else { "OFF" };
                 let small = &data.small_font;
                 let value_x = bx + 304;
                 for row in 0..SETTING_ROWS {
-                    let y = by + 68 + 25 * row as i32;
+                    let y = by + 72 + 24 * row as i32;
                     let label = match row {
                         0 => "MUSIC",
                         1 => "SOUND EFFECTS",
@@ -380,14 +380,23 @@ impl Menu {
                         ),
                         3..=8 => {
                             let text = if *waiting && row == self.selected {
-                                "press a key …".to_string()
+                                "PRESS A KEY".to_string()
                             } else {
-                                settings.keys[row - 3].name().to_string()
+                                key_label(settings.keys[row - 3])
                             };
-                            lines.push(
-                                Line::new(value_x as f32, y as f32 - 1.0, text)
+                            if text.chars().count() <= 11 && render::in_block_font(&text) {
+                                canvas.block_text(small, value_x, y, &text);
+                            } else {
+                                // a key whose name the block letters cannot show
+                                lines.push(
+                                    Line::new(
+                                        value_x as f32,
+                                        y as f32 - 1.0,
+                                        settings.keys[row - 3].name(),
+                                    )
                                     .color([0xFF, 0xFF, 0xFF]),
-                            );
+                                );
+                            }
                         }
                         _ => {}
                     }
@@ -448,6 +457,11 @@ impl Menu {
         }
         (screen, lines)
     }
+}
+
+/// The name of a key for the block letters: upper case, "Keypad" as "KP".
+fn key_label(code: Scancode) -> String {
+    code.name().to_uppercase().replace("KEYPAD", "KP")
 }
 
 /// The player facing right, as the menu cursor.

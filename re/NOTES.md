@@ -12,7 +12,7 @@ The rewrite reads version 1.4 US (`SCOUT_1_4.dsk`, application dated
 1992-12-17, comment "EkriirkE") differs in 6 of 118 resources:
 
 - `vers` 1: "S.C.Out 1.3.1" / "1.4US", "S.C.OUT 1.4 US"
-- `SHAP` 1, the default settings (21 longs copied by CODE 5 0x24c): 1.3.1
+- `SHAP` 1, the saved settings as shipped (21 longs, see Settings below): 1.3.1
   has music off (`-0x6dc4`), get/drop Return (0x24) and fire Space (0x31),
   system display; 1.4 music on, Enter (0x4c), keypad 5 (0x57), custom
   display. The direction keys (keypad 6/4/8/2) are the same.
@@ -299,6 +299,15 @@ the frame graphics (`SHAP 5104`); the game never changes them.
   music player in CODE 7),
   system/custom display `-0x6dbc`, keys `-0x6d5a` … `-0x6d46` (virtual key
   codes)
+- Where they are kept: in the application itself. At the start CODE 5
+  0x24c reads `SHAP` 1 (21 longs: sound, music, two arrays of six longs
+  the game does not use otherwise, the six keys, display) and, if there is
+  none, `SHAP` 0, the factory settings (music and sound off, system
+  display). When the program quits, CODE 5 0x16ce removes `SHAP` 1 from
+  the current resource file (the application), adds a new one with the
+  current values and writes it (`AddResource`, `WriteResource`; a
+  `SysBeep` on an error, e.g. a locked disk). So every copy of the program
+  carries its own settings, and the shipped 1.3.1 and 1.4 differ in them.
 - Lives `-0x6dac`: 5 at the start of a game (CODE 2), −1 per death in the
   main loop; 0 ends the game (`-0x6d0c` = 0xff)
 - The level code dialog is Game → Enter Password (⌘E)
@@ -344,7 +353,7 @@ sound wins, each only if not already playing) and starts the request.
 `SHAP 200` is the music: an uncompressed ProTracker module ("M.K.", 4
 channels, 31 sample slots of which 11 are used, 24 positions, 17
 patterns; sample names "composed by frederic motte"; title "s.c.out").
-`SHAP 0` is an alternative set of default settings, not music.
+`SHAP 0` holds the factory settings (see Settings), not music.
 
 `SHAP 5200`, packed like the graphics (LZRW1-A), is an earlier version of
 the music the game never loads (in 1.3.1 and 1.4): a complete M.K. module
