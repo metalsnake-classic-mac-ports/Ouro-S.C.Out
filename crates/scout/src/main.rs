@@ -21,7 +21,7 @@ use anyhow::{Context, Result, bail};
 use scout_core::sound::id as sound;
 use scout_core::{Dir, Exit, Game, Key};
 use scout_data::GameData;
-use sdl3::event::Event;
+use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::{KeyboardState, Keycode, Scancode};
 use sdl3::pixels::PixelFormat;
 use sdl3::render::ScaleMode;
@@ -207,6 +207,8 @@ fn key(keys: &KeyboardState) -> Key {
 fn run(data: &GameData) -> Result<()> {
     let sdl = sdl3::init()?;
     let audio = audio::Audio::open(&sdl);
+    let mut music = audio::Music::open(&sdl);
+    music.start(data, 1);
     let video = sdl.video()?;
     let window = video
         .window(
@@ -232,6 +234,14 @@ fn run(data: &GameData) -> Result<()> {
     loop {
         for event in events.poll_iter() {
             match event {
+                Event::Window {
+                    win_event: WindowEvent::FocusLost,
+                    ..
+                } => music.suspend(),
+                Event::Window {
+                    win_event: WindowEvent::FocusGained,
+                    ..
+                } => music.resume(data),
                 Event::Quit { .. }
                 | Event::KeyDown {
                     keycode: Some(Keycode::Escape),
@@ -293,6 +303,7 @@ fn run(data: &GameData) -> Result<()> {
             }
         }
 
+        music.fill();
         let now = Instant::now();
         while next_frame <= now {
             next_frame += frame_time;

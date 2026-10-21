@@ -59,8 +59,9 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         recordings of `emu_play.py`
   - [x] Screens between the levels (level / password / lives, try again, aborted, game over,
         perfect) like the original (CODE 8 0x176c …); waiting for a key on the level screen
-  - [ ] Music (player at A5+0x1322 / 0x132a, CODE 7; data probably `SHAP 5200`, also
-        unassigned: `SHAP 0`, `SHAP 200`)
+  - [x] Music: `SHAP 200` with a port of the original player (CODE 10), byte for byte like
+        the original (`re/tools/emu_music.py`, test `music_matches_the_original`); from
+        position 1 at the start, stops in the background, from 0 when back
   - [ ] Title screen and menu (Play, Resume, Setting, Enter Password), level codes dialog,
         pictures 0x3e9 (game over) and 0x3ea (end)
   - [ ] Pause and quit like the original: Command + P back to the menu (Resume goes on),
@@ -111,7 +112,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 
 - [ ] Objects 26–31 have pink frames in the extracted graphics (mask?): compare with the
       original in the emulator (26/27 are mirrors)
-- [ ] `SHAP 5107`: what is it (second font? music?)
+- [ ] `SHAP 5107`: what is it (second font?)
 
 ### Lowest priority
 
@@ -177,7 +178,8 @@ Everything is in the resource fork of the application:
   - `SHAP 5107`: small font, the same 45 glyphs 16×16 masked
   - `SHAP 5108`: nine 32×32 pink panel pieces (side panel indicators?)
   - `SHAP 5105`: 19 small green displays of 28×24 (status monitor in the side panels?)
-  - `SHAP 5200`: music ("composed by frederic motte"). The port has no music.
+  - `SHAP 200`: the music (ProTracker module, "composed by frederic motte"); `SHAP 5200`
+    a packed variant the game does not load.
   - `PICT 1000`, `1001`, `1002`, `2000`, `256`: intro, illustrations, Kalisto logo, about box.
     They decode correctly with their own color tables.
 - [x] **Palette of the game screen** (solved, see Milestone 1). The tiles are drawn without color conversion

@@ -336,8 +336,51 @@ sound wins, each only if not already playing) and starts the request.
 | 121 / 122 / 123 / 124 | PERFECT / GAME OVER / ABORTED / TRY AGAIN (CODE 7) |
 | 115, 119 | loaded, never played |
 
-Music (`-0x6dc4`) is a separate player (A5+0x1322 / 0x132a); not analysed
-yet.
+## Music (CODE 10)
+
+`SHAP 200` is the music: an uncompressed ProTracker module ("M.K.", 4
+channels, 31 sample slots of which 11 are used, 24 positions, 17
+patterns; sample names "composed by frederic motte"). `SHAP 5200` is a
+packed variant the game never loads; `SHAP 0` is an alternative set of
+default settings, not music.
+
+CODE 10 is a NoiseTracker-style replay with its own software mixer, no
+Toolbox calls inside:
+
+- 0x5e86 (jump table A5+0x1322) opens a second sound channel
+  (`sampledSynth`, mono, no interpolation) and plays a double buffer of
+  837 frames, 8-bit mono at 14161.98 Hz (`0x3751fbba`, 7/11 of 22254.54);
+  each buffer is filled by three calls of CODE 10 0x0, one tick of 279
+  samples each. 0x5fdc (A5+0x132a) stops it. So a tick is 1/50.76 s and
+  speed 6 is about 8.5 rows per second.
+- 0x5740, start: picks M.K. (31 samples) or the old 15-sample format, finds
+  the highest pattern, reverses every sample in place and XORs it with
+  0x80 (signed to unsigned; the name gets the mark "ARE" so it happens
+  once), divides the volume table (0x1740, 64 rows of 256) by 4 once (mark
+  "CNX"), speed 6, position = the start parameter.
+- 0x587a, tick: a new row every `speed` ticks (0x58c8), the effects in
+  between (0x5a8e): 1 / 2 portamento (limits 0x71 / 0x358), 3 tone
+  portamento, 4 vibrato, 5 / 6 with volume slide, A volume slide, 0
+  arpeggio; per row B position jump, C volume, D pattern break, F speed
+  (1–31 only). At the end of the order list the song goes back to the start
+  parameter; this module ends with B00, so it always continues at 0.
+- 0x5d0a, mixer: per channel a step from the table at 0x9d8 (period × 4:
+  integer and 16-bit fraction), samples read backwards through the volume
+  table (row volume − 1), each channel into its own buffer, then the four
+  added with 8-bit wrap-around (the quarter volume table keeps the sum in
+  range).
+
+CODE 7 starts the music at position 1 when the program starts (0x72a, music
+on in the settings `-0x6dc4`, `-0x6db8` = playing) and at position 0 when
+it is switched on again or the program comes back to the front (0x7d8). It
+plays all the time, in the menu, the screens and the game; it stops when
+it is switched off or the program goes to the background (suspend event,
+CODE 7 0x105a, `-0x6db4`).
+
+The rewrite: `scout_core::music::MusicPlayer`, a port of CODE 10 that
+reads the tables from the original code; it matches the original byte for
+byte over 7 minutes from positions 0 and 1 (`re/tools/emu_music.py`, test
+`music_matches_the_original`). The frontend plays it on a second stream.
 
 ## Screens between the levels (CODE 8)
 

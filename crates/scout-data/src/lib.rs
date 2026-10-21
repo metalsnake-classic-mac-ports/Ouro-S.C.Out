@@ -38,6 +38,10 @@ const FRAME_TOP_ID: i16 = 5102;
 const FRAME_BOTTOM_ID: i16 = 5103;
 const FRAME_SIDES_ID: i16 = 5104;
 const ICONS_ID: i16 = 5105;
+/// The music, an uncompressed ProTracker module (CODE 5 0x1f6).
+const MUSIC_ID: i16 = 200;
+/// The music player (its tables are read from the code).
+const MUSIC_CODE_ID: i16 = 10;
 const FONT_ID: i16 = 5106;
 const BOX_ID: i16 = 5108;
 const CODES_ID: i16 = 5300;
@@ -61,6 +65,11 @@ pub struct GameData {
     pub icons: Vec<Bitmap>,
     /// Sound effects by resource ID (100–124).
     pub sounds: Vec<Sound>,
+    /// The music: 'SHAP' 200, a ProTracker module (not compressed).
+    pub music: Vec<u8>,
+    /// CODE 10 without its 4-byte header: the music player, whose tables
+    /// (volumes, steps, vibrato, periods) the rewrite's player uses.
+    pub music_code: Vec<u8>,
     /// The block letters of the screens between levels (CODE 8 0x19c2):
     /// A–Z, 1–9, 0, then `.` at 38, `:` at 40, `-` at 44.
     pub font: ObjectSet,
@@ -170,6 +179,13 @@ impl GameData {
             sounds: SOUND_IDS
                 .map(|id| Sound::from_snd(id, &res.get(b"snd ", id)?.data))
                 .collect::<Result<_>>()?,
+            music: res.get(SHAP, MUSIC_ID)?.data.clone(),
+            music_code: res
+                .get(b"CODE", MUSIC_CODE_ID)?
+                .data
+                .get(4..)
+                .ok_or_else(|| error::corrupt("CODE 10 too short"))?
+                .to_vec(),
             font: ObjectSet::new(shap(FONT_ID)?)?,
             box_tiles: TileSet::new(shap(BOX_ID)?)?,
             game_palette,

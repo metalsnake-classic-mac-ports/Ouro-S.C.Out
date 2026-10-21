@@ -180,6 +180,25 @@ CODE 9 0x174c, firing: for a turret direction outside 0–3 the result
 register `d7` is tested without being set. The turret direction is always
 0–3, so this cannot happen.
 
+## Music player: effects that do not work (kept)
+
+CODE 10, the music replay, compared with ProTracker:
+
+- E commands are ignored (0x5ca2 has no case for them). The module uses
+  E93 (retrigger every 3 ticks) 13 times; those notes play once.
+- C (set volume) changes only the volume of the mixer voice, not the
+  channel's volume, so a later volume slide starts again from the volume
+  of the sample.
+- The mixer uses volume − 1 as the row of its volume table: volume 1 is
+  as silent as 0, every volume a little quieter.
+- The loop start of a sample is ignored (an unconditional branch jumps
+  over that code); a loop plays the last `replen` bytes of the sample. All
+  loops of this module end at the sample end, so this is not audible.
+- The fraction of the sample position starts at 0 on every tick, a tiny
+  pitch error.
+
+The rewrite plays the module exactly like the original.
+
 ## Not bugs, but easy to get wrong
 
 - Self destruct is Esc (virtual key code 0x35), not the character `5`: the
