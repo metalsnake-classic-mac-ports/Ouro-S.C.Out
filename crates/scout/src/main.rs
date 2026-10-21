@@ -162,8 +162,8 @@ const DEVELOPER_KEYS: [Scancode; 5] = [
     Scancode::F1,
 ];
 
-const MENU_PAGES: [&str; 8] = [
-    "logo", "title", "menu", "pause", "settings", "password", "wrong", "about",
+const MENU_PAGES: [&str; 9] = [
+    "logo", "title", "menu", "pause", "settings", "keys", "password", "wrong", "about",
 ];
 
 /// A menu page as the window shows it at twice the size, with the system
@@ -187,7 +187,11 @@ fn export_menu(data: &GameData, page: &str, out: &Path) -> Result<()> {
                 m.open(menu::Page::Main);
             }
             "settings" => {
-                m.open(menu::Page::Settings { waiting: false });
+                m.open(menu::Page::Settings);
+                m.selected = 3;
+            }
+            "keys" => {
+                m.open(menu::Page::Keys { waiting: false });
                 m.selected = 4;
             }
             "password" => m.open(menu::Page::Password {

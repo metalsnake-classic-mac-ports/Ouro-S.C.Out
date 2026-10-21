@@ -38,7 +38,9 @@ pub enum Page {
     /// Only the background; any key opens the menu.
     Closed,
     Main,
-    Settings {
+    Settings,
+    /// The keys, a part of the settings; `waiting` for the new key.
+    Keys {
         waiting: bool,
     },
     Password {
@@ -95,10 +97,12 @@ pub struct Menu {
     pub resumable: bool,
 }
 
-/// Rows of the settings page: three switches, the six keys, back.
-const SETTING_ROWS: usize = 3 + KEY_NAMES.len() + 1;
-/// The rows of the keys.
-const KEY_ROWS: std::ops::Range<usize> = 3..3 + KEY_NAMES.len();
+/// Rows of the settings page: three switches, the keys, back.
+const SETTING_ROWS: usize = 5;
+/// The row of the keys on the settings page.
+const KEYS_ROW: usize = 3;
+/// Rows of the keys page: the keys, back.
+const KEY_ROWS: usize = KEY_NAMES.len() + 1;
 
 impl Menu {
     pub fn new(background: Background, resumable: bool) -> Self {
@@ -152,14 +156,7 @@ impl Menu {
                 }
                 Action::None
             }
-            Page::Settings { waiting: true } => {
-                // any key, Esc included (it is the default for self destruct)
-                settings.set_key(self.selected - KEY_ROWS.start, code);
-                settings.save();
-                self.page = Page::Settings { waiting: false };
-                Action::None
-            }
-            Page::Settings { waiting: false } => match code {
+            Page::Settings => match code {
                 Scancode::Up => {
                     self.selected = (self.selected + SETTING_ROWS - 1) % SETTING_ROWS;
                     Action::None
@@ -174,17 +171,13 @@ impl Menu {
                 | Scancode::Space
                 | Scancode::Left
                 | Scancode::Right => {
-                    let row = self.selected;
-                    match row {
+                    match self.selected {
                         0 => settings.music = !settings.music,
                         1 => settings.sounds = !settings.sounds,
                         2 => settings.fixed_music = !settings.fixed_music,
-                        r if KEY_ROWS.contains(&r) => {
-                            if matches!(
-                                code,
-                                Scancode::Return | Scancode::KpEnter | Scancode::Space
-                            ) {
-                                self.page = Page::Settings { waiting: true };
+                        KEYS_ROW => {
+                            if !matches!(code, Scancode::Left | Scancode::Right) {
+                                self.open(Page::Keys { waiting: false });
                             }
                             return Action::None;
                         }
@@ -195,6 +188,31 @@ impl Menu {
                 }
                 _ => Action::None,
             },
+            Page::Keys { waiting: true } => {
+                // any key, Esc included (it is the default for self destruct)
+                settings.set_key(self.selected, code);
+                settings.save();
+                self.page = Page::Keys { waiting: false };
+                Action::None
+            }
+            Page::Keys { waiting: false } => {
+                match code {
+                    Scancode::Up => self.selected = (self.selected + KEY_ROWS - 1) % KEY_ROWS,
+                    Scancode::Down | Scancode::Tab => {
+                        self.selected = (self.selected + 1) % KEY_ROWS
+                    }
+                    Scancode::Escape => self.back_to_settings(),
+                    Scancode::Return | Scancode::KpEnter | Scancode::Space => {
+                        if self.selected < KEY_NAMES.len() {
+                            self.page = Page::Keys { waiting: true };
+                        } else {
+                            self.back_to_settings();
+                        }
+                    }
+                    _ => {}
+                }
+                Action::None
+            }
             Page::Password { text, wrong } => {
                 if *wrong {
                     *wrong = false;
@@ -228,6 +246,12 @@ impl Menu {
         }
     }
 
+    /// From the keys back to the settings, with KEYS selected.
+    fn back_to_settings(&mut self) {
+        self.page = Page::Settings;
+        self.selected = KEYS_ROW;
+    }
+
     /// Back to the main menu with `item` selected.
     fn back(&mut self, item: Item) -> Action {
         self.page = Page::Main;
@@ -247,7 +271,7 @@ impl Menu {
                 Action::None
             }
             Item::Settings => {
-                self.open(Page::Settings { waiting: false });
+                self.open(Page::Settings);
                 Action::None
             }
             Item::About => {
@@ -301,7 +325,7 @@ impl Menu {
             .map_or(palette, |p| &p.palette);
         let mut screen = match (self.background, paused) {
             // the settings cover the whole picture area
-            _ if matches!(self.page, Page::Settings { .. }) => Screen::black(),
+            _ if matches!(self.page, Page::Settings | Page::Keys { .. }) => Screen::black(),
             (Background::Paused, Some(canvas)) => {
                 let mut canvas = canvas.clone();
                 render::pause_box(data, &mut canvas);
@@ -349,63 +373,66 @@ impl Menu {
                         .color(DIM),
                 );
             }
-            Page::Settings { waiting } => {
-                let (bx, by, cols, rows) = (ax, ay + 6, 16, 11);
-                canvas.marble_box(data, bx, by, cols, rows);
-                canvas.block_text(&data.font, bx + 128, by + 28, "SETTINGS");
+            Page::Settings => {
                 let on = |b: bool| if b { "ON" } else { "OFF" };
-                let small = &data.small_font;
-                let value_x = bx + 304;
-                for row in 0..SETTING_ROWS {
-                    let y = by + 72 + 22 * row as i32;
-                    let label = match row {
-                        0 => "MUSIC",
-                        1 => "SOUND EFFECTS",
-                        2 => "MUSIC PLAYER",
-                        r if KEY_ROWS.contains(&r) => KEY_NAMES[row - KEY_ROWS.start],
-                        _ => "BACK",
-                    };
-                    canvas.block_text(small, bx + 64, y, label);
-                    match row {
-                        0 => canvas.block_text(small, value_x, y, on(settings.music)),
-                        1 => canvas.block_text(small, value_x, y, on(settings.sounds)),
-                        2 => canvas.block_text(
-                            small,
-                            value_x,
-                            y,
+                let rows = [
+                    ("MUSIC", Value::Text(on(settings.music).into())),
+                    ("SOUND EFFECTS", Value::Text(on(settings.sounds).into())),
+                    (
+                        "MUSIC PLAYER",
+                        Value::Text(
                             if settings.fixed_music {
                                 "CORRECTED"
                             } else {
                                 "ORIGINAL"
-                            },
-                        ),
-                        r if KEY_ROWS.contains(&r) => {
-                            let text = if *waiting && row == self.selected {
-                                "PRESS A KEY".to_string()
-                            } else {
-                                key_label(settings.keys[row - KEY_ROWS.start])
-                            };
-                            if text.chars().count() <= 11 && render::in_block_font(&text) {
-                                canvas.block_text(small, value_x, y, &text);
-                            } else {
-                                // a key whose name the block letters cannot show
-                                lines.push(
-                                    Line::new(
-                                        value_x as f32,
-                                        y as f32 - 1.0,
-                                        settings.keys[row - KEY_ROWS.start].name(),
-                                    )
-                                    .color([0xFF, 0xFF, 0xFF]),
-                                );
                             }
-                        }
-                        _ => {}
-                    }
-                    if row == self.selected {
-                        canvas.draw_object_half(data, cursor(), bx + 40, y);
-                    }
-                }
-                screen.overlay(&canvas, game_palette, (bx, by, cols * 32, rows * 32));
+                            .into(),
+                        ),
+                    ),
+                    ("KEYS", Value::None),
+                    ("BACK", Value::None),
+                ];
+                list_page(
+                    data,
+                    &mut canvas,
+                    &mut lines,
+                    "SETTINGS",
+                    &rows,
+                    self.selected,
+                    36,
+                );
+                screen.overlay(&canvas, game_palette, LIST_BOX);
+                lines.push(
+                    Line::new(320.0, HINT_Y, "↑ ↓ choose    Return change    Esc back")
+                        .centered()
+                        .color(DIM),
+                );
+            }
+            Page::Keys { waiting } => {
+                let mut rows: Vec<(&str, Value)> = KEY_NAMES
+                    .iter()
+                    .zip(settings.keys)
+                    .enumerate()
+                    .map(|(i, (&name, key))| {
+                        let value = if *waiting && i == self.selected {
+                            Value::Text("PRESS A KEY".into())
+                        } else {
+                            Value::Key(key)
+                        };
+                        (name, value)
+                    })
+                    .collect();
+                rows.push(("BACK", Value::None));
+                list_page(
+                    data,
+                    &mut canvas,
+                    &mut lines,
+                    "KEYS",
+                    &rows,
+                    self.selected,
+                    26,
+                );
+                screen.overlay(&canvas, game_palette, LIST_BOX);
                 let hint = if *waiting {
                     "Press the new key"
                 } else {
@@ -448,6 +475,63 @@ impl Menu {
             }
         }
         (screen, lines)
+    }
+}
+
+/// The box of the settings and the keys: the whole picture area.
+const LIST_BOX: (i32, i32, usize, usize) = (
+    render::PICTURE_AREA.0 as i32,
+    render::PICTURE_AREA.1 as i32 + 6,
+    16 * 32,
+    11 * 32,
+);
+
+/// The value column of a row on a list page.
+enum Value {
+    None,
+    Text(String),
+    Key(Scancode),
+}
+
+/// A page of the settings: a title and rows of small block letters with a
+/// value column, the selected row marked by the small player.
+fn list_page(
+    data: &GameData,
+    canvas: &mut Canvas,
+    lines: &mut Vec<Line>,
+    title: &str,
+    rows: &[(&str, Value)],
+    selected: usize,
+    pitch: i32,
+) {
+    let (bx, by, w, h) = LIST_BOX;
+    canvas.marble_box(data, bx, by, w / 32, h / 32);
+    let title_x = bx + (w as i32 - 32 * title.len() as i32) / 2;
+    canvas.block_text(&data.font, title_x, by + 28, title);
+    let small = &data.small_font;
+    let value_x = bx + 304;
+    for (row, (label, value)) in rows.iter().enumerate() {
+        let y = by + 80 + pitch * row as i32;
+        canvas.block_text(small, bx + 64, y, label);
+        match value {
+            Value::None => {}
+            Value::Text(text) => canvas.block_text(small, value_x, y, text),
+            Value::Key(key) => {
+                let text = key_label(*key);
+                if text.chars().count() <= 11 && render::in_block_font(&text) {
+                    canvas.block_text(small, value_x, y, &text);
+                } else {
+                    // a key whose name the block letters cannot show
+                    lines.push(
+                        Line::new(value_x as f32, y as f32 - 1.0, key.name())
+                            .color([0xFF, 0xFF, 0xFF]),
+                    );
+                }
+            }
+        }
+        if row == selected {
+            canvas.draw_object_half(data, cursor(), bx + 40, y);
+        }
     }
 }
 
