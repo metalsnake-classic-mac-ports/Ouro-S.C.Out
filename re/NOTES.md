@@ -5,6 +5,29 @@ segment without its 4-byte header (`re/work/code/segNN.bin`). Globals are
 offsets from A5 (application globals). Bugs and oddities of the original
 are collected in BUGS.md.
 
+## Versions
+
+The rewrite reads version 1.4 US (`SCOUT_1_4.dsk`, application dated
+1993-01-25). Version 1.3.1 (a StuffIt archive with only the application,
+1992-12-17, comment "EkriirkE") differs in 6 of 118 resources:
+
+- `vers` 1: "S.C.Out 1.3.1" / "1.4US", "S.C.OUT 1.4 US"
+- `SHAP` 1, the default settings (21 longs copied by CODE 5 0x24c): 1.3.1
+  has music off (`-0x6dc4`), get/drop Return (0x24) and fire Space (0x31),
+  system display; 1.4 music on, Enter (0x4c), keypad 5 (0x57), custom
+  display. The direction keys (keypad 6/4/8/2) are the same.
+- `DITL` 257 (settings): "system displaying" / "quick displaying" became
+  "system display" / "custom display"; `DITL` 128 (the warning about it)
+  named the Macs it works on (LC, LC II, IIsi, IIci, Quadra with built-in
+  video) and in 1.4 says it may not work on some models.
+- `CODE` 7: 1.4 calls `SysBeep(10)` for every OS event (suspend / resume,
+  CODE 7 0x1048); everything else is the same code moved by 8 bytes.
+- `SHAP` 6642, the levels (file values): 6 levels changed, 68 (6 boxes),
+  71 (1), 80 (5), 94 (3), 95 (17), 99 (21, the target moved from (16, 11)
+  to (21, 12)).
+
+Graphics, sounds, codes and the other CODE segments are identical.
+
 ## Tools
 
 - `re/tools/macres.py`, `lzrw1a.py`: read resources, unpack `SHAP`
