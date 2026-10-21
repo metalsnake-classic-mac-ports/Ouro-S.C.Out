@@ -33,8 +33,10 @@ The tests that need the original disk look for it in `SCOUT_DISK` or at
 - `re/NOTES.md`: how the original works, from the analysis of its 68k code
 - `re/BUGS.md`: bugs and oddities of the original and how the rewrite
   treats them
-- `scout-extract [DISK] OUT_DIR [--only LIST] [--graphics single|sheets|both]` (crate
-  `scout-data`): exports graphics (PNG, single and/or sheets), sounds (WAV), levels
-  (text and/or pictures of the whole level), level codes and the palette as the game
-  reads them; LIST is any of `graphics,sounds,levels,level-images,codes,palette`
+- `scout-extract [OPTIONS] [DISK] OUT_DIR` (crate `scout-data`): exports graphics
+  (PNG, single and/or sheets), sounds (WAV), levels (text and/or pictures of the whole
+  level), level codes and the palette as the game reads them; `--help` lists the
+  options. Install it with `cargo install --path crates/scout-data`; with `SCOUT_DISK`
+  set to the disk image it works from any folder, e.g.
+  `scout-extract --only level-images ~/scout-levels`
 - `re/tools/`: tools to read and unpack the resources of the original game

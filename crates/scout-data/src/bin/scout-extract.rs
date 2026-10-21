@@ -10,11 +10,8 @@
 //!   values of the level file) and/or as a picture of the whole level
 //! - `codes.txt`, `palette.txt`
 //!
-//! Usage: scout-extract [DISK] OUT_DIR [--only LIST] [--graphics single|sheets|both]
-//!
-//! LIST (comma separated, default all): graphics, sounds, levels,
-//! level-images, codes, palette. `--graphics` (default both): one PNG per
-//! item, sheets, or both. DISK defaults to `re/work/SCOUT_1_4.dsk`.
+//! Usage: scout-extract [OPTIONS] [DISK] OUT_DIR, see `scout-extract --help`.
+//! Install with `cargo install --path crates/scout-data`.
 
 use std::fs;
 use std::io::BufWriter;
@@ -29,7 +26,21 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 const TILE: usize = 32;
 const PER_ROW: usize = 16;
 const GAP: usize = 2;
-const USAGE: &str = "usage: scout-extract [DISK] OUT_DIR [--only graphics,sounds,levels,level-images,codes,palette] [--graphics single|sheets|both]";
+const USAGE: &str = "usage: scout-extract [OPTIONS] [DISK] OUT_DIR (--help for more)";
+const HELP: &str = "\
+Export graphics, sounds and levels of the original S.C.Out disk.
+
+usage: scout-extract [OPTIONS] [DISK] OUT_DIR
+
+  --only LIST        what to export, comma separated (default: all):
+                     graphics, sounds, levels, level-images, codes, palette
+  --graphics MODE    single (one PNG per item), sheets, or both (default)
+  -h, --help         this text
+
+DISK is the original SCOUT_1_4.dsk. Without it: $SCOUT_DISK, then
+SCOUT_1_4.dsk in the current folder, then re/work/SCOUT_1_4.dsk.
+
+Example: scout-extract --only level-images ~/scout-levels";
 const PARTS: [&str; 6] = [
     "graphics",
     "sounds",
@@ -68,12 +79,18 @@ impl Options {
                     Some("both") => (single, sheets) = (true, true),
                     _ => return Err(USAGE.into()),
                 },
-                "-h" | "--help" => return Err(USAGE.into()),
+                "-h" | "--help" => {
+                    print!("{HELP}\n");
+                    std::process::exit(0);
+                }
+                other if other.starts_with('-') => {
+                    return Err(format!("unknown option {other}; {USAGE}").into());
+                }
                 _ => paths.push(PathBuf::from(arg)),
             }
         }
         let (disk, out) = match paths.as_slice() {
-            [out] => (PathBuf::from("re/work/SCOUT_1_4.dsk"), out.clone()),
+            [out] => (find_disk()?, out.clone()),
             [disk, out] => (disk.clone(), out.clone()),
             _ => return Err(USAGE.into()),
         };
@@ -89,6 +106,19 @@ impl Options {
     fn wants(&self, part: &str) -> bool {
         self.parts.iter().any(|p| p == part)
     }
+}
+
+/// The disk image like the game looks for it.
+fn find_disk() -> Result<PathBuf> {
+    std::env::var_os("SCOUT_DISK")
+        .map(PathBuf::from)
+        .into_iter()
+        .chain([
+            PathBuf::from("SCOUT_1_4.dsk"),
+            PathBuf::from("re/work/SCOUT_1_4.dsk"),
+        ])
+        .find(|p| p.exists())
+        .ok_or_else(|| "SCOUT_1_4.dsk not found: pass its path or set SCOUT_DISK".into())
 }
 
 fn main() -> Result<()> {
