@@ -242,7 +242,7 @@ fn run(data: &GameData) -> Result<()> {
                 Event::Window {
                     win_event: WindowEvent::FocusGained,
                     ..
-                } => music.resume(data),
+                } => music.resume(),
                 Event::Quit { .. }
                 | Event::KeyDown {
                     keycode: Some(Keycode::Escape),

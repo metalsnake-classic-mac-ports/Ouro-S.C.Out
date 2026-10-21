@@ -6,6 +6,9 @@
 //!   pictures, in the colors of the game (objects and letters with
 //!   transparency where their mask is clear)
 //! - `sounds/`: the sound effects as WAV (8-bit mono, original rate)
+//! - `music/`: the music (`SHAP` 200) and the unused earlier version
+//!   (`SHAP` 5200) as ProTracker modules, and each as WAV played by the
+//!   game's player (8-bit mono, 14162 Hz, once through)
 //! - `levels/`: each level as text (translated values the game uses and the
 //!   values of the level file) and/or as a picture of the whole level
 //! - `codes.txt`, `palette.txt`
@@ -18,8 +21,9 @@ use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
 use scout_core::Level;
+use scout_core::music::{self, MusicPlayer};
 use scout_data::graphics::{ObjectSet, TileSet};
-use scout_data::{Bitmap, GameData, Palette, Sound};
+use scout_data::{Bitmap, GameData, Palette};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -28,12 +32,13 @@ const PER_ROW: usize = 16;
 const GAP: usize = 2;
 const USAGE: &str = "usage: scout-extract [OPTIONS] [DISK] OUT_DIR (--help for more)";
 const HELP: &str = "\
-Export graphics, sounds and levels of the original S.C.Out disk.
+Export graphics, sounds, music and levels of the original S.C.Out disk.
 
 usage: scout-extract [OPTIONS] [DISK] OUT_DIR
 
   --only LIST        what to export, comma separated (default: all):
-                     graphics, sounds, levels, level-images, codes, palette
+                     graphics, sounds, music, levels, level-images, codes,
+                     palette
   --graphics MODE    single (one PNG per item), sheets, or both (default)
   --levels LIST      only these levels (numbers from 1, comma separated)
   -h, --help         this text
@@ -44,9 +49,10 @@ $SCOUT_DISK, then SCOUT_1_4.dsk in the current folder, then
 re/work/SCOUT_1_4.dsk.
 
 Example: scout-extract --only level-images ~/scout-levels";
-const PARTS: [&str; 6] = [
+const PARTS: [&str; 7] = [
     "graphics",
     "sounds",
+    "music",
     "levels",
     "level-images",
     "codes",
@@ -216,9 +222,30 @@ fn main() -> Result<()> {
         let sounds = out.join("sounds");
         fs::create_dir_all(&sounds)?;
         for s in &data.sounds {
-            wav(&sounds.join(format!("snd_{}.wav", s.id)), s)?;
+            wav(
+                &sounds.join(format!("snd_{}.wav", s.id)),
+                s.rate,
+                &s.samples,
+            )?;
         }
         done.push(format!("{} sounds", data.sounds.len()));
+    }
+
+    if opt.wants("music") {
+        let dir = out.join("music");
+        fs::create_dir_all(&dir)?;
+        let rate = music::RATE.round() as u32;
+        // ten minutes at most; the songs take about three
+        let max_ticks = (600.0 * music::RATE) as usize / music::TICK_SAMPLES;
+        for (name, module) in [
+            ("music_200", &data.music),
+            ("music_5200_unused", &data.unused_music),
+        ] {
+            fs::write(dir.join(format!("{name}.mod")), module)?;
+            let song = MusicPlayer::render_song(module, &data.music_code, false, max_ticks);
+            wav(&dir.join(format!("{name}.wav")), rate, &song)?;
+        }
+        done.push("music (2 modules)".into());
     }
 
     let levels = out.join("levels");
@@ -399,22 +426,22 @@ fn write_set(dir: &Path, cells: &[Vec<u8>], cw: usize, ch: usize, opt: &Options)
 }
 
 /// 8-bit unsigned mono PCM, as in the 'snd ' resource.
-fn wav(path: &Path, s: &Sound) -> Result<()> {
-    let n = s.samples.len() as u32;
-    let mut out = Vec::with_capacity(44 + s.samples.len());
+fn wav(path: &Path, rate: u32, samples: &[u8]) -> Result<()> {
+    let n = samples.len() as u32;
+    let mut out = Vec::with_capacity(44 + samples.len());
     out.extend(b"RIFF");
     out.extend((36 + n).to_le_bytes());
     out.extend(b"WAVEfmt ");
     out.extend(16u32.to_le_bytes());
     out.extend(1u16.to_le_bytes()); // PCM
     out.extend(1u16.to_le_bytes()); // mono
-    out.extend(s.rate.to_le_bytes());
-    out.extend(s.rate.to_le_bytes()); // bytes per second
+    out.extend(rate.to_le_bytes());
+    out.extend(rate.to_le_bytes()); // bytes per second
     out.extend(1u16.to_le_bytes()); // block align
     out.extend(8u16.to_le_bytes()); // bits
     out.extend(b"data");
     out.extend(n.to_le_bytes());
-    out.extend(&s.samples);
+    out.extend(samples);
     fs::write(path, out)?;
     Ok(())
 }

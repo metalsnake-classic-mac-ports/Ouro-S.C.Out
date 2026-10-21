@@ -340,9 +340,20 @@ sound wins, each only if not already playing) and starts the request.
 
 `SHAP 200` is the music: an uncompressed ProTracker module ("M.K.", 4
 channels, 31 sample slots of which 11 are used, 24 positions, 17
-patterns; sample names "composed by frederic motte"). `SHAP 5200` is a
-packed variant the game never loads; `SHAP 0` is an alternative set of
-default settings, not music.
+patterns; sample names "composed by frederic motte"; title "s.c.out").
+`SHAP 0` is an alternative set of default settings, not music.
+
+`SHAP 5200`, packed like the graphics (LZRW1-A), is an earlier version of
+the music the game never loads (in 1.3.1 and 1.4): a complete M.K. module
+titled "2ul", 76072 bytes, with the same order list (24 positions, 17
+patterns), but most rows of every pattern are different and samples 3 and 5
+are other sounds ("of acoustic dreams", "music (only!) at :"); the other
+nine samples are the same. Its sample names mention "ingame jingle : pos24"
+and "lost jingle : pos25", but the song ends at position 24 and those
+positions point at pattern 0: the jingles are not in the module. Played by
+the game's player it takes 3:13 (OpenMPT: 3:16 at 50 ticks per second
+instead of 50.76).
+
 
 CODE 10 is a NoiseTracker-style replay with its own software mixer, no
 Toolbox calls inside:
@@ -381,6 +392,10 @@ The rewrite: `scout_core::music::MusicPlayer`, a port of CODE 10 that
 reads the tables from the original code; it matches the original byte for
 byte over 7 minutes from positions 0 and 1 (`re/tools/emu_music.py`, test
 `music_matches_the_original`). The frontend plays it on a second stream.
+Unlike the original it does not start again from position 0 when the game
+comes back to the front: it pauses in the background and goes on where it
+stopped. `scout-extract --only music` writes both modules as `.mod` and
+as WAV played by the game's player.
 
 ## Screens between the levels (CODE 8)
 

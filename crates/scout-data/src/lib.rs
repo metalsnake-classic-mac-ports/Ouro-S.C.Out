@@ -42,6 +42,8 @@ const ICONS_ID: i16 = 5105;
 const MUSIC_ID: i16 = 200;
 /// The music player (its tables are read from the code).
 const MUSIC_CODE_ID: i16 = 10;
+/// An earlier version of the music ("2ul"), packed; the game never loads it.
+const UNUSED_MUSIC_ID: i16 = 5200;
 const FONT_ID: i16 = 5106;
 const BOX_ID: i16 = 5108;
 const CODES_ID: i16 = 5300;
@@ -70,6 +72,8 @@ pub struct GameData {
     /// CODE 10 without its 4-byte header: the music player, whose tables
     /// (volumes, steps, vibrato, periods) the rewrite's player uses.
     pub music_code: Vec<u8>,
+    /// 'SHAP' 5200 unpacked: an earlier version of the music, unused.
+    pub unused_music: Vec<u8>,
     /// The block letters of the screens between levels (CODE 8 0x19c2):
     /// A–Z, 1–9, 0, then `.` at 38, `:` at 40, `-` at 44.
     pub font: ObjectSet,
@@ -186,6 +190,7 @@ impl GameData {
                 .get(4..)
                 .ok_or_else(|| error::corrupt("CODE 10 too short"))?
                 .to_vec(),
+            unused_music: shap(UNUSED_MUSIC_ID)?,
             font: ObjectSet::new(shap(FONT_ID)?)?,
             box_tiles: TileSet::new(shap(BOX_ID)?)?,
             game_palette,

@@ -169,6 +169,28 @@ impl MusicPlayer {
         }
     }
 
+    /// The order position playing now.
+    pub fn position(&self) -> u8 {
+        self.position
+    }
+
+    /// The whole song once from position 0, as the player plays it: until
+    /// it jumps back (at most `max_ticks`).
+    pub fn render_song(module: &[u8], code: &[u8], fixed: bool, max_ticks: usize) -> Vec<u8> {
+        let mut player = Self::new(module, code, 0);
+        player.fixed = fixed;
+        let mut out = Vec::new();
+        let mut last = 0;
+        for _ in 0..max_ticks {
+            out.extend(player.tick());
+            if player.position() < last {
+                break;
+            }
+            last = player.position();
+        }
+        out
+    }
+
     /// One tick: play the row or the effects, then mix (CODE 10 0x5872).
     pub fn tick(&mut self) -> [u8; TICK_SAMPLES] {
         self.replay();

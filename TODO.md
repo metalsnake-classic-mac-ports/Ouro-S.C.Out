@@ -61,7 +61,8 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         perfect) like the original (CODE 8 0x176c …); waiting for a key on the level screen
   - [x] Music: `SHAP 200` with a port of the original player (CODE 10), byte for byte like
         the original (`re/tools/emu_music.py`, test `music_matches_the_original`); from
-        position 1 at the start, stops in the background, from 0 when back
+        position 1 at the start, pauses in the background and goes on where it stopped (the
+        original starts again from 0)
   - [ ] Title screen and menu (Play, Resume, Setting, Enter Password), level codes dialog,
         pictures 0x3e9 (game over) and 0x3ea (end)
   - [ ] Pause and quit like the original: Command + P back to the menu (Resume goes on),

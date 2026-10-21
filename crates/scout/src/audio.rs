@@ -127,18 +127,18 @@ impl Music {
 
     /// The game goes to the background: the music stops (CODE 7 0x105a).
     pub fn suspend(&mut self) {
-        if self.player.is_some() {
-            self.stop();
+        if let (Some(stream), Some(_)) = (&self.stream, &self.player) {
+            let _ = stream.pause();
             self.suspended = true;
         }
     }
 
-    /// Back in front: the main loop starts the song again, from position 0
-    /// (CODE 7 0x7d8).
-    pub fn resume(&mut self, data: &GameData) {
-        if self.suspended {
+    /// Back in front: the music goes on where it stopped. (The original
+    /// starts the song again from position 0, CODE 7 0x7d8.)
+    pub fn resume(&mut self) {
+        if let (Some(stream), true) = (&self.stream, self.suspended) {
+            let _ = stream.resume();
             self.suspended = false;
-            self.start(data, 0);
         }
     }
 
@@ -146,7 +146,11 @@ impl Music {
         self.player = None;
         if let Some(stream) = &self.stream {
             let _ = stream.clear();
+            if self.suspended {
+                let _ = stream.resume();
+            }
         }
+        self.suspended = false;
     }
 
     /// Switch between the original and the corrected player, in the
