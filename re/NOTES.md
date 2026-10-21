@@ -27,6 +27,8 @@ The rewrite reads version 1.4 US (`SCOUT_1_4.dsk`, application dated
   to (21, 12)).
 
 Graphics, sounds, codes and the other CODE segments are identical.
+`scout-extract` also reads the 1.3.1 application (its resource fork), e.g.
+`scout-extract --only level-images --levels 68,71,80,94,95,99 "S.C.OUT 1.3.1" OUT`.
 
 ## Tools
 

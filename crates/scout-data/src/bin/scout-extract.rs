@@ -35,10 +35,13 @@ usage: scout-extract [OPTIONS] [DISK] OUT_DIR
   --only LIST        what to export, comma separated (default: all):
                      graphics, sounds, levels, level-images, codes, palette
   --graphics MODE    single (one PNG per item), sheets, or both (default)
+  --levels LIST      only these levels (numbers from 1, comma separated)
   -h, --help         this text
 
-DISK is the original SCOUT_1_4.dsk. Without it: $SCOUT_DISK, then
-SCOUT_1_4.dsk in the current folder, then re/work/SCOUT_1_4.dsk.
+DISK is the original SCOUT_1_4.dsk, or the application itself (its
+resource fork, e.g. version 1.3.1 unpacked from its archive). Without it:
+$SCOUT_DISK, then SCOUT_1_4.dsk in the current folder, then
+re/work/SCOUT_1_4.dsk.
 
 Example: scout-extract --only level-images ~/scout-levels";
 const PARTS: [&str; 6] = [
@@ -54,6 +57,8 @@ struct Options {
     disk: PathBuf,
     out: PathBuf,
     parts: Vec<String>,
+    /// Level numbers from 1; empty = all.
+    levels: Vec<usize>,
     single: bool,
     sheets: bool,
 }
@@ -63,6 +68,7 @@ impl Options {
         let mut paths = Vec::new();
         let mut parts: Vec<String> = PARTS.iter().map(|p| p.to_string()).collect();
         let (mut single, mut sheets) = (true, true);
+        let mut levels = Vec::new();
         let mut args = std::env::args().skip(1);
         while let Some(arg) = args.next() {
             match arg.as_str() {
@@ -71,6 +77,12 @@ impl Options {
                     parts = list.split(',').map(|p| p.trim().to_string()).collect();
                     if let Some(bad) = parts.iter().find(|p| !PARTS.contains(&p.as_str())) {
                         return Err(format!("unknown part {bad:?}; {USAGE}").into());
+                    }
+                }
+                "--levels" => {
+                    let list = args.next().ok_or(USAGE)?;
+                    for n in list.split(',') {
+                        levels.push(n.trim().parse().map_err(|_| format!("bad level {n:?}"))?);
                     }
                 }
                 "--graphics" => match args.next().as_deref() {
@@ -98,6 +110,7 @@ impl Options {
             disk,
             out,
             parts,
+            levels,
             single,
             sheets,
         })
@@ -105,6 +118,21 @@ impl Options {
 
     fn wants(&self, part: &str) -> bool {
         self.parts.iter().any(|p| p == part)
+    }
+}
+
+/// A disk image, or an application file: its resource fork (on macOS
+/// `FILE/..namedfork/rsrc`) or the file as a raw resource fork.
+fn load(path: &Path) -> Result<GameData> {
+    match GameData::load(path) {
+        Err(scout_data::Error::NotHfs) => {
+            let fork = fs::read(path.join("..namedfork/rsrc"))
+                .ok()
+                .filter(|f| !f.is_empty())
+                .map_or_else(|| fs::read(path), Ok)?;
+            Ok(GameData::from_resource_fork(&fork)?)
+        }
+        other => Ok(other?),
     }
 }
 
@@ -123,7 +151,7 @@ fn find_disk() -> Result<PathBuf> {
 
 fn main() -> Result<()> {
     let opt = Options::parse()?;
-    let data = GameData::load(&opt.disk)?;
+    let data = load(&opt.disk)?;
     let pal = &data.game_palette;
     let out = &opt.out;
     let mut done = Vec::new();
@@ -197,7 +225,12 @@ fn main() -> Result<()> {
     if opt.wants("levels") || opt.wants("level-images") {
         fs::create_dir_all(&levels)?;
     }
+    let chosen = |i: usize| opt.levels.is_empty() || opt.levels.contains(&(i + 1));
+    let count = (0..data.levels.len()).filter(|&i| chosen(i)).count();
     for (i, level) in data.levels.iter().enumerate() {
+        if !chosen(i) {
+            continue;
+        }
         let name = format!("level_{:03}", i + 1);
         if opt.wants("levels") {
             let code = i.checked_sub(1).map(|c| data.level_codes[c].as_str());
@@ -217,10 +250,10 @@ fn main() -> Result<()> {
         }
     }
     if opt.wants("levels") {
-        done.push(format!("{} levels as text", data.levels.len()));
+        done.push(format!("{count} levels as text"));
     }
     if opt.wants("level-images") {
-        done.push(format!("{} levels as pictures", data.levels.len()));
+        done.push(format!("{count} levels as pictures"));
     }
 
     if opt.wants("codes") {
