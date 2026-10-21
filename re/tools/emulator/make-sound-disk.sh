@@ -1,13 +1,19 @@
 #!/bin/sh
-# Build re/work/emu/system70-sound.dsk: the System 7.0 boot disk on a 20 MB
-# volume with Sound Manager 3.1 added, so Basilisk II can play sound (it
-# needs a Sound Manager 3.x component). run.sh uses it when it exists.
+# Build re/work/emu/system75-sound.dsk: the System Folder of the System 7.5
+# "Disk Tools" floppy on a 20 MB volume with Sound Manager 3.1 added, so
+# Basilisk II can play sound (it needs a Sound Manager 3.x component; with
+# System 7.0 that does not work). run.sh uses it when it exists.
 #
-# Usage: make-sound-disk.sh Sound_Manager_3.1.sea_.hqx
+# Usage: make-sound-disk.sh MacOS75.ZIP Sound_Manager_3.1.sea_.hqx
+# (MacOS75.ZIP: the System 7.5.0 floppies, SSW750_DiskTools.dsk is used)
 # Needs: brew install unar hfsutils
 set -e
-HQX="$1"
-[ -f "$HQX" ] || { echo "usage: $0 Sound_Manager_3.1.sea_.hqx" >&2; exit 1; }
+ZIP="$1"
+HQX="$2"
+[ -f "$ZIP" ] && [ -f "$HQX" ] || {
+    echo "usage: $0 MacOS75.ZIP Sound_Manager_3.1.sea_.hqx" >&2
+    exit 1
+}
 EMU="$(cd "$(dirname "$0")/../.." && pwd)/work/emu"
 TMP="$(mktemp -d)"
 trap 'humount >/dev/null 2>&1 || true; rm -rf "$TMP"' EXIT
@@ -49,18 +55,19 @@ macbinary("Sound Manager", f"{tmp}/SoundManager.bin")
 macbinary("Sound", f"{tmp}/Sound.bin")
 EOF
 
-# the System Folder of the boot floppy (read from a copy)
-cp "$EMU/system70.dsk" "$TMP/sys70.dsk"
-hmount "$TMP/sys70.dsk" >/dev/null
+# the System Folder of the Disk Tools floppy
+unzip -q -o "$ZIP" SSW750_DiskTools.dsk -d "$TMP"
+FLOPPY="$TMP/SSW750_DiskTools.dsk"
+hmount "$FLOPPY" >/dev/null
 hcopy -m ":System Folder:System" "$TMP/System.bin"
 hcopy -m ":System Folder:Finder" "$TMP/Finder.bin"
 hcopy -m ":System Folder:Preferences:Finder Preferences" "$TMP/FinderPrefs.bin"
 humount
 
-OUT="$TMP/system70-sound.dsk"
+OUT="$TMP/system75-sound.dsk"
 dd if=/dev/zero of="$OUT" bs=1m count=20 2>/dev/null
-hformat -l "System 7.0" "$OUT" >/dev/null
-for d in "" Extensions "Control Panels" Preferences "Apple Menu Items" "Startup Items"; do
+hformat -l "System 7.5" "$OUT" >/dev/null
+for d in "" Extensions "Control Panels" Preferences "Apple Menu Items" "Startup Items" Fonts; do
     hmkdir ":System Folder${d:+:$d}"
 done
 hcopy -m "$TMP/System.bin" ":System Folder:"
@@ -76,6 +83,6 @@ import sys
 src = open(sys.argv[1], 'rb').read(1024)
 with open(sys.argv[2], 'r+b') as f:
     f.write(src)
-" "$EMU/system70.dsk" "$OUT"
-cp "$OUT" "$EMU/system70-sound.dsk"
-echo "built $EMU/system70-sound.dsk"
+" "$FLOPPY" "$OUT"
+cp "$OUT" "$EMU/system75-sound.dsk"
+echo "built $EMU/system75-sound.dsk"

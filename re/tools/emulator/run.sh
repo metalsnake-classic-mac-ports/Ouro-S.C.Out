@@ -8,9 +8,9 @@
 set -e
 EMU="$(cd "$(dirname "$0")/../.." && pwd)/work/emu"
 mkdir -p "$EMU/shared"
-# boot disk: System 7.0 with Sound Manager 3.1 if present (make-sound-disk.sh)
+# boot disk: the one with Sound Manager 3.1 if present (make-sound-disk.sh)
 BOOT="$EMU/system70.dsk"
-[ -f "$EMU/system70-sound.dsk" ] && BOOT="$EMU/system70-sound.dsk"
+[ -f "$EMU/system75-sound.dsk" ] && BOOT="$EMU/system75-sound.dsk"
 cat > "$EMU/basilisk.prefs" <<PREFS
 rom $EMU/rom/PERFORMA.ROM
 disk $BOOT
