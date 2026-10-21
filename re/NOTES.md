@@ -40,6 +40,9 @@ Graphics, sounds, codes and the other CODE segments are identical.
 - REA (MCP) works on the patched segments: `open_binary` with
   `format: raw-binary`, `architecture: m68k`, `entry_point: 0x0`
 - `re/tools/xref.py`: callers through the jump table
+- `re/tools/disasm.py`: disassembles a range of a segment with the Toolbox
+  traps by name and jump table calls as "CODE n 0xoffset" (the decompiler
+  shows every trap as `trap(0xf)`)
 - `re/tools/emulate_level_loader.py`: runs original code in Unicorn (68020)
 - `re/work/handler_tables.json`: tile value → handler (segment, offset) for
   the four tables below
@@ -397,12 +400,76 @@ comes back to the front: it pauses in the background and goes on where it
 stopped. `scout-extract --only music` writes both modules as `.mod` and
 as WAV played by the game's player.
 
+## Title, menus and dialogs (CODE 7, CODE 2)
+
+Start (CODE 7 0x622): Toolbox init, menus (CODE 2 0x8b4), palette and
+picture 2000 (the Kalisto logo), wait for a key (CODE 7 0x10be), black,
+picture 1000 (the title), load the data, start the music (position 1),
+settings and sounds, then the outer loop in state 0: nothing but the
+picture until a menu command.
+
+Pictures (CODE 8 0x12d8) are drawn with their own palette at the top left
+corner of the 512 × 364 area of the frame (screen 64, 68), clipped: the
+pictures are 512 × 380 (1000), 519 × 380 (1001, 1002, with a reddish
+column right of x 512) and 512 × 384 (2000). CODE 8 0x1416 shows the
+offscreen picture in 832 blocks of 16 × 14 in random order (Toolbox
+`Random`); 0x1354 clears the screen the same way.
+
+Menus (`MENU` 256–259, the menu bar of CODE 2 0x8b4, commands CODE 2
+0x84c):
+
+- Apple: About … (CODE 2 0x174: dialog 256 with picture 256, until a click)
+  and the desk accessories
+- File: only Quit (⌘Q) does something (state 0xff)
+- Edit: only for desk accessories
+- Game: Play (⌘G: level 0, 5 lives, state 1), Resume (⌘R: state 2, only
+  enabled after a pause), Setting (⌘I, CODE 2 0x1108), Enter Password (⌘E,
+  CODE 2 0x33a)
+
+The resources 1256–1259 (menus, dialogs, alerts) are French; the ID base
+`-0x6dc6` (low word of `-0x6dc8`) would select them, but it is always 0.
+
+In the game: Command + P ends the main loop with result 1: the PAUSE box,
+the screen is kept, Resume is enabled; Resume (state 2) puts the screen
+back (CODE 8 0x1048) and the main loop goes on. Command + Q: result 0xfd,
+quit. After GAME OVER the original disables Resume and shows picture 1001;
+that picture stays as the title until the next game. After the last level
+(101) picture 1002, then level 1.
+
+Settings (dialog 257, CODE 2 0x1108): check boxes music on, sound effects
+on, system / custom display (custom shows the warning `ALRT` 128 once per
+dialog), and six edit fields for the keys right, left, up, down, get /
+drop, fire. A key pressed in a field (its virtual key code, Tab and Esc
+excepted) is stored, its name shown (CODE 6 0x38a) and the next field
+selected. Music and sound switch at once; Cancel restores all values, OK
+checks that no two keys are the same and else shows "You have selected
+identical game keys" (`ALRT` 666 with `ParamText` strings from the
+globals). Return and Enter are the OK button (filter CODE 2 0x16a8).
+
+Password (dialog 259, CODE 2 0x33a): OK takes the first six characters,
+makes them upper case and compares them with the 100 codes (CODE 2 0x63e;
+code i starts level i + 1, with 5 lives); the code NOWALL (`-0xe72`) sets
+`-0x6d19` (every box passable, CODE 9 0x1f38). A code that is not a level
+code, NOWALL included, shows "Wrong password !" (`ALRT` 256). OK and
+Cancel both close the dialog.
+
+Other alerts (`ALRT` 666 via CODE 2 0x1780): problem during resource
+loading, memory exhausted, system error, 256 colors only.
+
+The rewrite does not copy the Mac interface: the title shows the pictures
+like the original, the menu and the dialogs are marble boxes with block
+letters (`crates/scout/src/menu.rs`), with hints and key names in the
+system font. The shortcuts work with Command or Ctrl. Settings are saved
+in a text file (SDL's preference folder) instead of the application.
+Assigning a key that is in use swaps the two keys. Esc blows the player up
+as in the original (the rewrite used Backspace before).
+
 ## Screens between the levels (CODE 8)
 
 Boxes of marble tiles (SHAP 5108: 9 tiles of 32 × 32, corners, edges and
 inside row by row; CODE 8 0x15ce) with block letters (SHAP 5106: 45
 masked glyphs of 32 × 32, 32 pixels apart: A–Z, 1–9, 0, `.` = 38, `:` =
-40, `-` = 44, others are blank; CODE 8 0x19c2), on black. Positions are
+40, `-` = 44, CODE 8 0x19c2), on black. Positions are
 relative to the view's top left corner (screen 96, 100), boxes given as
 x, y, columns, rows:
 
@@ -415,9 +482,17 @@ x, y, columns, rows:
   (0x1b3a) "GAME OVER": box 0x30, 0x66, 11 × 3, text at 0x50, 0x86
 - target destroyed (0x1c26) "PERFECT": box 0x50, 0x66, 9 × 3, text at
   0x70, 0x86
+- pause (0x1cf8, after Command + P) "PAUSE": box 0x70, 0x66, 7 × 3, text
+  at 0x90, 0x86, on the game screen
+- LEVEL UP (0x1cc2) and LEVEL DOWN (0x1c8c) belong to the results 4 and 5,
+  which nothing returns
 - French texts exist for all of them (`-0x6dc8` = 1000: ETAPE, VIES, CODE,
-  JEU TERMINE, INTERROMPU, PARFAIT, RECOMMENCE), plus unused LEVEL UP,
-  LEVEL DOWN and PAUSE
+  JEU TERMINE, INTERROMPU, PARFAIT, RECOMMENCE), but `-0x6dc8` is never
+  written, so it is always 0 (English)
+
+The font has 45 glyphs: A–Z, 1–9, 0, then `! ? . , : ; = + -` (36–44);
+the game only uses letters, digits, `.`, `:` and `-`. `SHAP 5107` has the
+same glyphs at 16 × 16; the game never uses it.
 
 Every screen waits until a key or the mouse button is pressed and released
 (CODE 7 0x10be); after the messages the original also waits for the end of

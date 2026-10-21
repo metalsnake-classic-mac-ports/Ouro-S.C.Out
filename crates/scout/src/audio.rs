@@ -153,13 +153,16 @@ impl Music {
         self.suspended = false;
     }
 
-    /// Switch between the original and the corrected player, in the
-    /// middle of the song.
-    pub fn toggle_fixed(&mut self) {
-        self.fixed = !self.fixed;
+    /// The original or the corrected player, also in the middle of the song.
+    pub fn set_fixed(&mut self, fixed: bool) {
+        self.fixed = fixed;
         if let Some(player) = &mut self.player {
-            player.fixed = self.fixed;
+            player.fixed = fixed;
         }
+    }
+
+    pub fn is_playing(&self) -> bool {
+        self.player.is_some()
     }
 
     /// Mix ticks until the queue holds [`MUSIC_AHEAD`] seconds.

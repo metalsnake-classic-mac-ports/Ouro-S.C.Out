@@ -63,10 +63,10 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         the original (`re/tools/emu_music.py`, test `music_matches_the_original`); from
         position 1 at the start, pauses in the background and goes on where it stopped (the
         original starts again from 0)
-  - [ ] Title screen and menu (Play, Resume, Setting, Enter Password), level codes dialog,
-        pictures 0x3e9 (game over) and 0x3ea (end)
-  - [ ] Pause and quit like the original: Command + P back to the menu (Resume goes on),
-        Command + Q quit
+  - [x] Logo, title, menu (Play, Resume, Password, Settings, About, Quit) in the style of the
+        game, settings saved in a file, level codes and NOWALL, pictures 1001 (game over) and
+        1002 (end); Command / Ctrl + P pause, + Q quit, + G / R / I / E like the menu shortcuts
+  - [ ] Mouse in the menus (now only keys; a click opens the menu and closes screens)
   - [ ] Dissolve between screens (CODE 8 0x1354); the random numbers it uses only with
         the lowest priority (see below)
   - [x] Sound effects ('snd ' 100–124) requested like the original, one channel; the messages
@@ -91,9 +91,8 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [ ] Turn off the sound that plays when the player starts moving (101 / 108)
 - [ ] Choice of the projectile colors: intended (default) or as on a real Mac / in
       Basilisk II (see re/BUGS.md)
-- [x] Music player with the bugs of the original corrected (`MusicPlayer::fixed`, re/BUGS.md),
-      for now switched with F2 during the game, to compare
-  - [ ] Make it a setting once there is a settings menu (default: like the original)
+- [x] Music player with the bugs of the original corrected (`MusicPlayer::fixed`, re/BUGS.md):
+      setting MUSIC PLAYER, default like the original
 
 ### Data packs (later)
 
@@ -116,7 +115,6 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 
 - [ ] Objects 26–31 have pink frames in the extracted graphics (mask?): compare with the
       original in the emulator (26/27 are mirrors)
-- [ ] `SHAP 5107`: what is it (second font?)
 
 ### Lowest priority
 
@@ -179,7 +177,8 @@ Everything is in the resource fork of the application:
     side panel (2 × 32×364). Together with the view a 512×364 frame at (64, 68) on the
     640×480 screen; the view is at (96, 100).
   - `SHAP 5106`: large font, 45 glyphs 32×32 masked (A–Z, 0–9, punctuation)
-  - `SHAP 5107`: small font, the same 45 glyphs 16×16 masked
+  - `SHAP 5107`: small font, the same 45 glyphs 16×16 masked (unused by the game; our
+    settings page uses it)
   - `SHAP 5108`: nine 32×32 pink panel pieces (side panel indicators?)
   - `SHAP 5105`: 19 small green displays of 28×24 (status monitor in the side panels?)
   - `SHAP 200`: the music (ProTracker module, "composed by frederic motte"); `SHAP 5200`

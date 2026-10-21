@@ -45,6 +45,7 @@ const MUSIC_CODE_ID: i16 = 10;
 /// An earlier version of the music ("2ul"), packed; the game never loads it.
 const UNUSED_MUSIC_ID: i16 = 5200;
 const FONT_ID: i16 = 5106;
+const SMALL_FONT_ID: i16 = 5107;
 const BOX_ID: i16 = 5108;
 const CODES_ID: i16 = 5300;
 /// Sound effects 'snd ' 100–124 (see re/NOTES.md, Sound).
@@ -77,6 +78,8 @@ pub struct GameData {
     /// The block letters of the screens between levels (CODE 8 0x19c2):
     /// A–Z, 1–9, 0, then `.` at 38, `:` at 40, `-` at 44.
     pub font: ObjectSet,
+    /// The same letters at 16 × 16 (`SHAP 5107`); the game does not use them.
+    pub small_font: ObjectSet,
     /// The 3 × 3 tiles of the boxes these screens are drawn in (CODE 8
     /// 0x15ce): corners, edges and the inside, row by row.
     pub box_tiles: TileSet,
@@ -192,6 +195,7 @@ impl GameData {
                 .to_vec(),
             unused_music: shap(UNUSED_MUSIC_ID)?,
             font: ObjectSet::new(shap(FONT_ID)?)?,
+            small_font: ObjectSet::with_size(shap(SMALL_FONT_ID)?, 16)?,
             box_tiles: TileSet::new(shap(BOX_ID)?)?,
             game_palette,
             level_codes: parse_codes(&shap(CODES_ID)?),

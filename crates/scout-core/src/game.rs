@@ -172,6 +172,9 @@ pub struct Game {
     pub sounds: Sounds,
     /// How the level ended; no more frames run then.
     pub exit: Option<Exit>,
+    /// The cheat code NOWALL (`-0x6d19`): every box in view can be entered.
+    /// The original never clears it while it runs.
+    pub no_walls: bool,
     /// All projectiles stop at the end of the frame (`-0x6d00`).
     pub(crate) clear_shots: bool,
     /// Next step of the start animation while it runs.
@@ -235,6 +238,7 @@ impl Game {
             world: World::default(),
             sounds: Sounds::default(),
             exit: None,
+            no_walls: false,
             clear_shots: false,
             intro: None,
             stall: Stall::default(),
@@ -592,6 +596,15 @@ mod tests {
         game.frame(Key::Move(Dir::Right));
         assert_eq!(game.player.remaining, 0);
         assert_eq!(game.player.dir, Dir::Down);
+    }
+
+    #[test]
+    fn with_nowall_walls_do_not_block() {
+        let mut game = Game::new(test_level(&[(6, 5, WALL)], (5, 5)));
+        game.no_walls = true;
+        game.frame(Key::Move(Dir::Right));
+        run(&mut game, Key::None, 7);
+        assert_eq!((game.player.x, game.player.y), (6, 5));
     }
 
     #[test]

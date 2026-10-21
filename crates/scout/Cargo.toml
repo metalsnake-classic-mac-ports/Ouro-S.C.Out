@@ -10,3 +10,5 @@ scout-core.workspace = true
 scout-data.workspace = true
 anyhow.workspace = true
 sdl3.workspace = true
+fontdb = "0.24.0"
+ab_glyph = "0.2.32"

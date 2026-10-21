@@ -202,10 +202,27 @@ CODE 10, the music replay, compared with ProTracker:
   is not applied to the pitch either.)
 
 The rewrite plays the module exactly like the original. With
-`MusicPlayer::fixed` (F2 in the game, to compare) it corrects all of the
+`MusicPlayer::fixed` (setting MUSIC PLAYER) it corrects all of the
 above. The E commands it handles are those that need no extra state: E1 / E2
 fine portamento, E9 retrigger, EA / EB fine volume slide and EC note cut.
 Finetune stays unapplied.
+
+## Settings: the fire key is not checked for duplicates (fixed)
+
+CODE 2 0x137e, OK in the settings: compares the keys 0–4 with each other
+(right, left, up, down, get / drop) but never the fire key (index 5), so
+the fire key can be the same as another key without a warning. The rewrite
+never lets two actions have the same key: assigning a key that is in use
+swaps them.
+
+## Password: NOWALL is a wrong password (kept)
+
+CODE 2 0x4a8: the cheat code NOWALL switches the cheat on and is then
+looked up like a level code; it is none, so the dialog says "Wrong
+password !". The rewrite does the same. The dialog also copies six
+characters whatever the length of the entry (CODE 2 0x48e), so a shorter
+entry is compared with leftover bytes after it; a real code is always six
+characters, so this only matters for wrong entries.
 
 ## Not bugs, but easy to get wrong
 

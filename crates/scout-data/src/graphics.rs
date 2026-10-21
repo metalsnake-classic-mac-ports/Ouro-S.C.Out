@@ -4,8 +4,6 @@ use crate::error::{Result, corrupt};
 
 pub const TILE_SIZE: usize = 32;
 const TILE_BYTES: usize = TILE_SIZE * TILE_SIZE;
-/// Objects store, per row, 8 × (4 mask bytes, 4 pixel bytes).
-const OBJECT_BYTES: usize = 2 * TILE_BYTES;
 
 /// A rectangular 8-bit image (palette indices, row by row).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,28 +95,41 @@ impl TileSet {
     }
 }
 
-/// Masked 32 × 32 objects (`SHAP 5100`), drawn on top of the floor.
+/// Masked 32 × 32 objects (`SHAP 5100`), drawn on top of the floor; also
+/// the block letters (32 × 32 and 16 × 16).
 ///
 /// The original blits them a long word at a time: `dst = (dst & mask) | data`.
 /// A mask byte of 0xFF therefore means "transparent".
 #[derive(Debug, Clone)]
 pub struct ObjectSet {
     data: Vec<u8>,
+    /// Width and height in pixels.
+    size: usize,
 }
 
 impl ObjectSet {
     pub fn new(data: Vec<u8>) -> Result<Self> {
-        if !data.len().is_multiple_of(OBJECT_BYTES) {
+        Self::with_size(data, TILE_SIZE)
+    }
+
+    /// Objects of `size` × `size` pixels (the small block letters: 16).
+    pub fn with_size(data: Vec<u8>, size: usize) -> Result<Self> {
+        let bytes = size * size * 2;
+        if !data.len().is_multiple_of(bytes) {
             return Err(corrupt(format!(
-                "object data is {} bytes, not a multiple of {OBJECT_BYTES}",
+                "object data is {} bytes, not a multiple of {bytes}",
                 data.len()
             )));
         }
-        Ok(Self { data })
+        Ok(Self { data, size })
     }
 
     pub fn len(&self) -> usize {
-        self.data.len() / OBJECT_BYTES
+        self.data.len() / (self.size * self.size * 2)
+    }
+
+    pub fn size(&self) -> usize {
+        self.size
     }
 
     pub fn is_empty(&self) -> bool {
@@ -127,8 +138,9 @@ impl ObjectSet {
 
     /// The palette index of a pixel, or `None` where the object is transparent.
     pub fn pixel(&self, index: usize, x: usize, y: usize) -> Option<u8> {
-        assert!(x < TILE_SIZE && y < TILE_SIZE);
-        let base = index * OBJECT_BYTES + y * 2 * TILE_SIZE + (x / 4) * 8 + x % 4;
+        let size = self.size;
+        assert!(x < size && y < size);
+        let base = index * size * size * 2 + y * 2 * size + (x / 4) * 8 + x % 4;
         let mask = *self.data.get(base)?;
         let value = *self.data.get(base + 4)?;
         // Partial masks do not occur in the game data; treat any set mask
@@ -154,7 +166,7 @@ mod tests {
 
     #[test]
     fn object_mask_and_pixels_are_interleaved() {
-        let mut data = vec![0xFF; OBJECT_BYTES];
+        let mut data = vec![0xFF; 2 * TILE_BYTES];
         // Row 1, pixels 4..8: second long-word pair of the row.
         let row = 2 * TILE_SIZE;
         data[row + 8..row + 12].copy_from_slice(&[0, 0xFF, 0xFF, 0xFF]);

@@ -42,6 +42,7 @@ const PROJECTILE: [[Option<u8>; 4]; 4] = {
 };
 
 /// An image of palette indices.
+#[derive(Clone)]
 pub struct Canvas {
     pub width: usize,
     pub height: usize,
@@ -122,7 +123,7 @@ impl Canvas {
     }
 
     /// Draw a masked object at pixel position (x, y), clipped to the canvas.
-    fn draw_object(&mut self, data: &GameData, object: usize, x: i32, y: i32) {
+    pub fn draw_object(&mut self, data: &GameData, object: usize, x: i32, y: i32) {
         self.draw_masked(&data.objects, object, x, y);
     }
 
@@ -130,13 +131,78 @@ impl Canvas {
         if object >= set.len() {
             return;
         }
-        for row in 0..TILE_SIZE {
-            for col in 0..TILE_SIZE {
+        for row in 0..set.size() {
+            for col in 0..set.size() {
                 let (px, py) = (x + col as i32, y + row as i32);
                 if px < 0 || py < 0 || px as usize >= self.width || py as usize >= self.height {
                     continue;
                 }
                 if let Some(p) = set.pixel(object, col, row) {
+                    self.pixels[py as usize * self.width + px as usize] = p;
+                }
+            }
+        }
+    }
+
+    /// A box of marble tiles (CODE 8 0x15ce) at a screen position.
+    pub fn marble_box(&mut self, data: &GameData, x: i32, y: i32, cols: usize, rows: usize) {
+        let class = |i: usize, n: usize| {
+            if i == 0 {
+                0
+            } else if i == n - 1 {
+                2
+            } else {
+                1
+            }
+        };
+        for col in 0..cols {
+            for row in 0..rows {
+                let tile = 3 * class(row, rows) + class(col, cols);
+                let (px, py) = (x + 32 * col as i32, y + 32 * row as i32);
+                let Some(pixels) = data.box_tiles.tile(tile) else {
+                    continue;
+                };
+                for r in 0..TILE_SIZE {
+                    let (ry, rx) = (py + r as i32, px);
+                    if ry < 0
+                        || ry as usize >= self.height
+                        || rx < 0
+                        || rx as usize + TILE_SIZE > self.width
+                    {
+                        continue;
+                    }
+                    let at = ry as usize * self.width + rx as usize;
+                    self.pixels[at..at + TILE_SIZE]
+                        .copy_from_slice(&pixels[r * TILE_SIZE..(r + 1) * TILE_SIZE]);
+                }
+            }
+        }
+    }
+
+    /// A line of block letters (32 × 32 or the small 16 × 16 ones).
+    pub fn block_text(&mut self, font: &ObjectSet, x: i32, y: i32, text: &str) {
+        let pitch = font.size() as i32;
+        for (i, c) in text.chars().enumerate() {
+            if let Some(glyph) = glyph(c) {
+                self.draw_masked(font, glyph, x + pitch * i as i32, y);
+            }
+        }
+    }
+
+    /// An object at half size (every second pixel), e.g. the player as a
+    /// small cursor.
+    pub fn draw_object_half(&mut self, data: &GameData, object: usize, x: i32, y: i32) {
+        let set = &data.objects;
+        if object >= set.len() {
+            return;
+        }
+        for row in 0..TILE_SIZE / 2 {
+            for col in 0..TILE_SIZE / 2 {
+                let (px, py) = (x + col as i32, y + row as i32);
+                if px < 0 || py < 0 || px as usize >= self.width || py as usize >= self.height {
+                    continue;
+                }
+                if let Some(p) = set.pixel(object, 2 * col, 2 * row) {
                     self.pixels[py as usize * self.width + px as usize] = p;
                 }
             }
@@ -269,48 +335,112 @@ pub fn message_screen(data: &GameData, message: &Message) -> Canvas {
     };
     let (ox, oy) = (VIEW_X as i32, VIEW_Y as i32);
     let (x, y, cols, rows) = frame;
-    for col in 0..cols {
-        for row in 0..rows {
-            let class = |i: usize, n: usize| {
-                if i == 0 {
-                    0
-                } else if i == n - 1 {
-                    2
-                } else {
-                    1
-                }
-            };
-            let tile = 3 * class(row, rows) + class(col, cols);
-            let (px, py) = (ox + x + 32 * col as i32, oy + y + 32 * row as i32);
-            if let Some(pixels) = data.box_tiles.tile(tile) {
-                for r in 0..TILE_SIZE {
-                    let at = (py as usize + r) * canvas.width + px as usize;
-                    canvas.pixels[at..at + TILE_SIZE]
-                        .copy_from_slice(&pixels[r * TILE_SIZE..(r + 1) * TILE_SIZE]);
-                }
-            }
-        }
-    }
+    canvas.marble_box(data, ox + x, oy + y, cols, rows);
     for (x, y, text) in texts {
-        for (i, c) in text.chars().enumerate() {
-            if let Some(glyph) = glyph(c) {
-                canvas.draw_masked(&data.font, glyph, ox + x + 32 * i as i32, oy + y);
-            }
-        }
+        canvas.block_text(&data.font, ox + x, oy + y, &text);
     }
     canvas
 }
 
-/// The glyph of a character in the block font (CODE 8 0x19c2).
+/// The box with PAUSE on the game screen after Command + P (CODE 8 0x1cf8).
+pub fn pause_box(data: &GameData, canvas: &mut Canvas) {
+    let (ox, oy) = (VIEW_X as i32, VIEW_Y as i32);
+    canvas.marble_box(data, ox + 0x70, oy + 0x66, 7, 3);
+    canvas.block_text(&data.font, ox + 0x90, oy + 0x86, "PAUSE");
+}
+
+/// The glyph of a character in the block font (CODE 8 0x19c2; the game
+/// uses only letters, digits, `.`, `:` and `-`).
 fn glyph(c: char) -> Option<usize> {
-    match c {
-        'A'..='Z' => Some(c as usize - 'A' as usize),
-        '1'..='9' => Some(c as usize - '1' as usize + 26),
+    match c.to_ascii_uppercase() {
+        c @ 'A'..='Z' => Some(c as usize - 'A' as usize),
+        c @ '1'..='9' => Some(c as usize - '1' as usize + 26),
         '0' => Some(35),
+        '!' => Some(36),
+        '?' => Some(37),
         '.' => Some(38),
+        ',' => Some(39),
         ':' => Some(40),
+        ';' => Some(41),
+        '=' => Some(42),
+        '+' => Some(43),
         '-' => Some(44),
         _ => None,
+    }
+}
+
+/// Where the original shows its pictures: the 512 × 364 area of the frame
+/// (CODE 8 0x12d8 draws them at its top left corner, clipped).
+pub const PICTURE_AREA: (usize, usize, usize, usize) = (FRAME_X, FRAME_Y, 512, 364);
+
+/// A 640 × 480 RGB image, for screens that mix pictures (each with its own
+/// colors) with things in the colors of the game.
+pub struct Screen {
+    pub rgb: Vec<u8>,
+}
+
+impl Screen {
+    pub fn black() -> Self {
+        Self {
+            rgb: vec![0; SCREEN_WIDTH * SCREEN_HEIGHT * 3],
+        }
+    }
+
+    pub fn from_canvas(canvas: &Canvas, palette: &Palette) -> Self {
+        let mut screen = Self::black();
+        canvas.to_rgb24(palette, &mut screen.rgb, SCREEN_WIDTH * 3);
+        screen
+    }
+
+    /// A picture by resource ID with its own colors, its top left corner
+    /// at (x, y), clipped to `w` × `h`.
+    pub fn picture(
+        &mut self,
+        data: &GameData,
+        id: i16,
+        (x, y, w, h): (usize, usize, usize, usize),
+    ) {
+        let Some(picture) = data.pictures.iter().find(|p| p.id == id) else {
+            return;
+        };
+        let image = &picture.image;
+        for row in 0..image.height.min(h) {
+            for col in 0..image.width.min(w) {
+                let c = image.palette.colors[image.pixels[row * image.width + col] as usize];
+                let at = ((y + row) * SCREEN_WIDTH + x + col) * 3;
+                if at + 3 <= self.rgb.len() && x + col < SCREEN_WIDTH {
+                    self.rgb[at..at + 3].copy_from_slice(&[c.r, c.g, c.b]);
+                }
+            }
+        }
+    }
+
+    /// The size of a picture.
+    pub fn picture_size(data: &GameData, id: i16) -> (usize, usize) {
+        data.pictures
+            .iter()
+            .find(|p| p.id == id)
+            .map_or((0, 0), |p| (p.image.width, p.image.height))
+    }
+
+    /// Copy a rectangle of a canvas (in the game's colors) on top.
+    pub fn overlay(
+        &mut self,
+        canvas: &Canvas,
+        palette: &Palette,
+        (x, y, w, h): (i32, i32, usize, usize),
+    ) {
+        for row in 0..h as i32 {
+            for col in 0..w as i32 {
+                let (px, py) = (x + col, y + row);
+                if px < 0 || py < 0 || px as usize >= SCREEN_WIDTH || py as usize >= SCREEN_HEIGHT {
+                    continue;
+                }
+                let at = py as usize * SCREEN_WIDTH + px as usize;
+                let c = palette.colors[canvas.pixels[at] as usize];
+                self.rgb[at * 3..at * 3 + 3].copy_from_slice(&[c.r, c.g, c.b]);
+            }
+        }
     }
 }
 

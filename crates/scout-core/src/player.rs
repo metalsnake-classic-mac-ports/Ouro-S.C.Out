@@ -58,12 +58,16 @@ impl Game {
 
     /// Whether a box in view-relative coordinates can be entered
     /// (CODE 9, 0x1f12): the view's edge blocks; floor and objects (below
-    /// 40), tiles 184–188 and tiles from 219 up are free, others block.
+    /// 40), tiles 184–188 and tiles from 219 up are free, others block;
+    /// with the cheat NOWALL everything in view is free.
     fn passable(&self, rel_x: i32, rel_y: i32) -> bool {
         if !(0..Level::VIEW_WIDTH as i32).contains(&rel_x)
             || !(0..Level::VIEW_HEIGHT as i32).contains(&rel_y)
         {
             return false;
+        }
+        if self.no_walls {
+            return true;
         }
         let x = self.view.0 + rel_x as usize;
         let y = self.view.1 + rel_y as usize;

@@ -174,6 +174,7 @@ fn main() -> Result<()> {
             ("box", tile_cells(&data.box_tiles), TILE, TILE),
             ("objects", object_cells(&data.objects, pal), TILE, TILE),
             ("font", object_cells(&data.font, pal), TILE, TILE),
+            ("small_font", object_cells(&data.small_font, pal), 16, 16),
             (
                 "icons",
                 data.icons
@@ -382,13 +383,14 @@ fn bitmap(path: &Path, b: &Bitmap, pal: &Palette) -> Result<()> {
 fn object_cells(set: &ObjectSet, pal: &Palette) -> Vec<Vec<u8>> {
     (0..set.len())
         .map(|i| {
-            let mut pixels = vec![0; TILE * TILE];
-            let mut mask = vec![false; TILE * TILE];
-            for y in 0..TILE {
-                for x in 0..TILE {
+            let n = set.size();
+            let mut pixels = vec![0; n * n];
+            let mut mask = vec![false; n * n];
+            for y in 0..n {
+                for x in 0..n {
                     if let Some(p) = set.pixel(i, x, y) {
-                        pixels[y * TILE + x] = p;
-                        mask[y * TILE + x] = true;
+                        pixels[y * n + x] = p;
+                        mask[y * n + x] = true;
                     }
                 }
             }

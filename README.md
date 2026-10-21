@@ -16,8 +16,13 @@ You need Rust (via [rustup](https://rustup.rs)) and SDL3
     cargo test
     cargo run -p scout -- path/to/SCOUT_1_4.dsk
 
-For now `scout` is a level viewer: ←/→ switches the level, ↑/↓ the palette.
-`scout DISK --export LEVEL out.bmp [PALETTE]` writes a level as an image.
+`scout` plays the game: logo, title and menu (Play, Password, Settings,
+About, Quit), levels, music and sound. Default keys: arrows move, Return
+takes / drops, Space fires, Esc blows yourself up; Command (or Ctrl) + P
+pauses, + Q quits. The keys can be changed in the settings, which are saved
+in SDL's preference folder (macOS: `~/Library/Application Support/S.C.Out`).
+`scout DISK --export LEVEL out.bmp [screen|map|level] [PALETTE]` writes a
+level as an image, `scout DISK --export-menu PAGE out.bmp` a menu page.
 
 The tests that need the original disk look for it in `SCOUT_DISK` or at
 `re/work/SCOUT_1_4.dsk` and are skipped without it.

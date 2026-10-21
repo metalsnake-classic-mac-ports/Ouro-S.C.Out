@@ -3,30 +3,39 @@
 //! Usage:
 //!   scout [DISK]                                  play
 //!   scout [DISK] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]
+//!   scout [DISK] --export-menu PAGE OUT.bmp       a menu page (see --help)
 //!
 //! DISK is the original `SCOUT_1_4.dsk`. Without it, `SCOUT_DISK` is used,
 //! then `SCOUT_1_4.dsk` in the current folder, then `re/work/SCOUT_1_4.dsk`.
 //!
-//! Keys: arrows move, Return takes / drops / teleports, Space fires,
-//! Backspace blows yourself up, N/P next/previous level, R restart the
-//! level, Tab game screen / level map, F1 palette, F2 original / corrected
-//! music, Esc quit.
+//! Keys (changeable in the settings): arrows move, Return takes / drops /
+//! teleports, Space fires, Esc blows yourself up. Command (or Ctrl) + P
+//! pauses, + Q quits; on the title + G plays, + R resumes, + I settings,
+//! + E password, as in the original.
+//!
+//! For development: N/P next/previous level, R restart the level, Tab game
+//! screen / level map, F1 palette.
 
 mod audio;
+mod menu;
 mod render;
+mod settings;
+mod text;
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
+use menu::{Background, Menu};
 use scout_core::sound::id as sound;
 use scout_core::{Dir, Exit, Game, Key};
 use scout_data::GameData;
 use sdl3::event::{Event, WindowEvent};
-use sdl3::keyboard::{KeyboardState, Keycode, Scancode};
+use sdl3::keyboard::{KeyboardState, Mod, Scancode};
 use sdl3::pixels::PixelFormat;
 use sdl3::render::ScaleMode;
 use sdl3::sys::render::SDL_LOGICAL_PRESENTATION_LETTERBOX;
+use settings::Settings;
 
 /// Palette shown first: the colors of the game screen.
 const DEFAULT_PALETTE: &str = "game";
@@ -37,6 +46,18 @@ const FRAMES_PER_SECOND: u32 = 60;
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
+    if let Some(at) = args.iter().position(|a| a == "--export-menu") {
+        let rest: Vec<String> = args.drain(at..).skip(1).collect();
+        if rest.len() < 2 {
+            bail!(
+                "usage: scout [DISK] --export-menu PAGE OUT.bmp (PAGE: {})",
+                MENU_PAGES.join(", ")
+            );
+        }
+        let disk = find_disk(args.first().map(PathBuf::from))?;
+        let data = GameData::load(&disk).with_context(|| format!("loading {}", disk.display()))?;
+        return export_menu(&data, &rest[0], Path::new(&rest[1]));
+    }
     let export = match args.iter().position(|a| a == "--export") {
         Some(at) => {
             let rest: Vec<String> = args.drain(at..).skip(1).collect();
@@ -132,10 +153,85 @@ fn export_level(
         .with_context(|| format!("writing {}", out.display()))
 }
 
-/// Where the game is between levels (the outer loop of the original, CODE 7).
+/// Keys for development (see the top of this file).
+const DEVELOPER_KEYS: [Scancode; 5] = [
+    Scancode::N,
+    Scancode::P,
+    Scancode::R,
+    Scancode::Tab,
+    Scancode::F1,
+];
+
+const MENU_PAGES: [&str; 8] = [
+    "logo", "title", "menu", "pause", "settings", "password", "wrong", "about",
+];
+
+/// A menu page as the window shows it at twice the size, with the system
+/// font (for looking at them without playing).
+fn export_menu(data: &GameData, page: &str, out: &Path) -> Result<()> {
+    let settings = Settings::default();
+    let mut game = Game::new(data.levels[0].clone());
+    game.skip_intro();
+    let paused = draw(data, &game, View::Screen);
+    let (screen, lines) = if page == "logo" {
+        let mut screen = render::Screen::black();
+        screen.picture(data, menu::LOGO, render::PICTURE_AREA);
+        (screen, vec![])
+    } else {
+        let mut m = Menu::new(Background::Picture(menu::TITLE), false);
+        match page {
+            "title" => {}
+            "menu" => m.open(menu::Page::Main),
+            "pause" => {
+                m = Menu::new(Background::Paused, true);
+                m.open(menu::Page::Main);
+            }
+            "settings" => {
+                m.open(menu::Page::Settings { waiting: false });
+                m.selected = 4;
+            }
+            "password" => m.open(menu::Page::Password {
+                text: "ABC".into(),
+                wrong: false,
+            }),
+            "wrong" => m.open(menu::Page::Password {
+                text: "ABCDEF".into(),
+                wrong: true,
+            }),
+            "about" => m.page = menu::Page::About,
+            _ => bail!("unknown page {page:?}; pages: {}", MENU_PAGES.join(", ")),
+        }
+        m.draw(data, &settings, Some(&paused))
+    };
+    let (w, h) = (2 * render::SCREEN_WIDTH, 2 * render::SCREEN_HEIGHT);
+    let text = text::SystemFont::load().draw(&lines, w, h);
+    let mut rgb = vec![0; w * h * 3];
+    for y in 0..h {
+        for x in 0..w {
+            let src = ((y / 2) * render::SCREEN_WIDTH + x / 2) * 3;
+            let t = &text[(y * w + x) * 4..(y * w + x) * 4 + 4];
+            let a = t[3] as u32;
+            for c in 0..3 {
+                rgb[(y * w + x) * 3 + c] =
+                    ((screen.rgb[src + c] as u32 * (255 - a) + t[c] as u32 * a) / 255) as u8;
+            }
+        }
+    }
+    render::write_bmp(out, w, h, &rgb).with_context(|| format!("writing {}", out.display()))
+}
+
+/// Where the program is (the outer loop of the original, CODE 7).
 enum Phase {
-    /// A screen until a key or the mouse button is pressed and released
-    /// (CODE 7 0x10be).
+    /// A picture until a key or the mouse button is pressed and released:
+    /// the logo before the title, the picture after the last level.
+    Picture {
+        id: i16,
+        key_down: bool,
+    },
+    /// The title or the paused game with the menu (state 0 of CODE 7).
+    Menu(Menu),
+    /// A screen between levels until a key or the mouse button is pressed
+    /// and released (CODE 7 0x10be).
     Screen {
         message: Shown,
         key_down: bool,
@@ -161,9 +257,21 @@ fn level_screen() -> Phase {
     }
 }
 
+fn title() -> Phase {
+    Phase::Menu(Menu::new(Background::Picture(menu::TITLE), false))
+}
+
 /// A message after a level with its sound (CODE 7 ≈ 0x940 …).
-fn message(audio: &audio::Audio, data: &GameData, message: Shown, sound: u8) -> Phase {
-    if let Some(s) = data.sounds.iter().find(|s| s.id == sound as i16) {
+fn message(
+    audio: &audio::Audio,
+    data: &GameData,
+    settings: &Settings,
+    message: Shown,
+    sound: u8,
+) -> Phase {
+    if settings.sounds
+        && let Some(s) = data.sounds.iter().find(|s| s.id == sound as i16)
+    {
         audio.play(s);
     }
     Phase::Screen {
@@ -187,16 +295,18 @@ fn message_canvas(data: &GameData, game: &Game, level: usize, shown: Shown) -> r
     render::message_screen(data, &message)
 }
 
-/// The key of this frame. Like the original, only one key counts.
-fn key(keys: &KeyboardState) -> Key {
+/// The key of this frame. Like the original, only one key counts; Esc
+/// blows the player up (CODE 9, virtual key code 0x35).
+fn key(keys: &KeyboardState, settings: &Settings) -> Key {
+    let [right, left, up, down, get, fire] = settings.keys;
     for (code, key) in [
-        (Scancode::Left, Key::Move(Dir::Left)),
-        (Scancode::Right, Key::Move(Dir::Right)),
-        (Scancode::Down, Key::Move(Dir::Down)),
-        (Scancode::Up, Key::Move(Dir::Up)),
-        (Scancode::Return, Key::Use),
-        (Scancode::Space, Key::Fire),
-        (Scancode::Backspace, Key::SelfDestruct),
+        (left, Key::Move(Dir::Left)),
+        (right, Key::Move(Dir::Right)),
+        (down, Key::Move(Dir::Down)),
+        (up, Key::Move(Dir::Up)),
+        (get, Key::Use),
+        (fire, Key::Fire),
+        (Scancode::Escape, Key::SelfDestruct),
     ] {
         if keys.is_scancode_pressed(code) {
             return key;
@@ -205,11 +315,26 @@ fn key(keys: &KeyboardState) -> Key {
     Key::None
 }
 
+/// The menu shortcuts of the original with Command (or Ctrl).
+fn shortcut(keymod: Mod, code: Scancode) -> Option<char> {
+    let command = keymod.intersects(Mod::LGUIMOD | Mod::RGUIMOD | Mod::LCTRLMOD | Mod::RCTRLMOD);
+    let name = code.name();
+    let mut chars = name.chars();
+    match (command, chars.next(), chars.next()) {
+        (true, Some(c), None) => Some(c.to_ascii_uppercase()),
+        _ => None,
+    }
+}
+
 fn run(data: &GameData) -> Result<()> {
     let sdl = sdl3::init()?;
     let audio = audio::Audio::open(&sdl);
+    let mut settings = Settings::load();
     let mut music = audio::Music::open(&sdl);
-    music.start(data, 1);
+    music.fixed = settings.fixed_music;
+    if settings.music {
+        music.start(data, 1);
+    }
     let video = sdl.video()?;
     let window = video
         .window(
@@ -222,19 +347,33 @@ fn run(data: &GameData) -> Result<()> {
         .build()?;
     let mut canvas = window.into_canvas();
     let creator = canvas.texture_creator();
+    let font = text::SystemFont::load();
 
     let mut level = 0usize;
     let mut game = Game::new(data.levels[level].clone());
-    let mut phase = level_screen();
+    // NOWALL stays on until the program ends, as in the original
+    let mut no_walls = false;
+    // the game screen when it was paused
+    let mut paused: Option<render::Canvas> = None;
+    // after the last level the end picture follows the PERFECT screen
+    let mut end_picture = false;
+    let mut phase = Phase::Picture {
+        id: menu::LOGO,
+        key_down: false,
+    };
     let mut view = View::Screen;
     let mut palette = palette_index(data, DEFAULT_PALETTE)?;
     let mut events = sdl.event_pump()?;
     let frame_time = Duration::from_secs(1) / FRAMES_PER_SECOND;
     let mut next_frame = Instant::now();
-    let mut title = String::new();
+    let mut title_text = String::new();
+    let mut shown_lines: Option<(Vec<text::Line>, (u32, u32))> = None;
+    let mut text_texture = None;
     loop {
         for event in events.poll_iter() {
+            let mut action = menu::Action::None;
             match event {
+                Event::Quit { .. } => return Ok(()),
                 Event::Window {
                     win_event: WindowEvent::FocusLost,
                     ..
@@ -243,68 +382,152 @@ fn run(data: &GameData) -> Result<()> {
                     win_event: WindowEvent::FocusGained,
                     ..
                 } => music.resume(),
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => return Ok(()),
                 Event::KeyDown {
-                    keycode: Some(key),
-                    repeat: false,
+                    scancode: Some(code),
+                    keymod,
+                    repeat,
                     ..
                 } => {
-                    let n = data.levels.len();
-                    match key {
-                        Keycode::N => level = (level + 1) % n,
-                        Keycode::P => level = (level + n - 1) % n,
-                        Keycode::R => {}
-                        _ if matches!(phase, Phase::Screen { .. }) => {
-                            if let Phase::Screen { key_down, .. } = &mut phase {
-                                *key_down = true;
+                    // Command (or Ctrl) + a letter: the menu shortcuts
+                    if let Some(c) = shortcut(keymod, code) {
+                        let playing = matches!(phase, Phase::Playing);
+                        action = match c {
+                            'Q' => menu::Action::Quit,
+                            'P' if playing => {
+                                paused = Some(draw(data, &game, View::Screen));
+                                phase = Phase::Menu(Menu::new(Background::Paused, true));
+                                menu::Action::None
                             }
-                            continue;
+                            _ if playing => menu::Action::None,
+                            'G' => menu::Action::Play,
+                            'R' if paused.is_some() => menu::Action::Resume,
+                            'I' | 'E' => {
+                                if let Phase::Menu(m) = &mut phase {
+                                    m.choose(if c == 'I' {
+                                        menu::Item::Settings
+                                    } else {
+                                        menu::Item::Password
+                                    });
+                                }
+                                menu::Action::None
+                            }
+                            _ => menu::Action::None,
+                        };
+                    } else {
+                        match &mut phase {
+                            Phase::Menu(m) => action = m.key(code, &mut settings, data),
+                            Phase::Picture { key_down, .. } | Phase::Screen { key_down, .. }
+                                if !repeat && !DEVELOPER_KEYS.contains(&code) =>
+                            {
+                                *key_down = true
+                            }
+                            _ => {}
                         }
-                        Keycode::Tab => {
-                            view = match view {
-                                View::Screen => View::Map,
-                                View::Map | View::Level => View::Screen,
-                            };
-                            continue;
+                        if !repeat && !matches!(phase, Phase::Menu(_)) {
+                            // developer keys
+                            let n = data.levels.len();
+                            let mut new_level = None;
+                            match code {
+                                Scancode::N => new_level = Some((level + 1) % n),
+                                Scancode::P => new_level = Some((level + n - 1) % n),
+                                Scancode::R => new_level = Some(level),
+                                Scancode::Tab => {
+                                    view = match view {
+                                        View::Screen => View::Map,
+                                        View::Map | View::Level => View::Screen,
+                                    }
+                                }
+                                Scancode::F1 => palette = (palette + 1) % data.palettes.len(),
+                                _ => {}
+                            }
+                            if let Some(l) = new_level
+                                && matches!(
+                                    phase,
+                                    Phase::Playing
+                                        | Phase::Screen {
+                                            message: Shown::Level,
+                                            ..
+                                        }
+                                )
+                            {
+                                level = l;
+                                game = Game::new(data.levels[level].clone());
+                                game.no_walls = no_walls;
+                                phase = level_screen();
+                            }
                         }
-                        Keycode::F2 => {
-                            music.toggle_fixed();
-                            continue;
-                        }
-                        Keycode::F1 => {
-                            palette = (palette + 1) % data.palettes.len();
-                            continue;
-                        }
-                        _ => continue,
                     }
-                    game = Game::new(data.levels[level].clone());
-                    phase = level_screen();
                 }
-                Event::KeyUp { .. } | Event::MouseButtonUp { .. } => {
-                    if let Phase::Screen {
+                Event::KeyUp { .. } | Event::MouseButtonUp { .. } => match phase {
+                    Phase::Picture { id, key_down: true } => {
+                        phase = if id == menu::END_PICTURE {
+                            level_screen()
+                        } else {
+                            title()
+                        };
+                    }
+                    Phase::Screen {
                         message,
                         key_down: true,
-                    } = phase
-                    {
+                    } => {
                         // a key was pressed and released
-                        if message == Shown::Level {
-                            game.start_intro();
-                            phase = Phase::Playing;
-                        } else {
-                            phase = Phase::Quiet(message);
-                        }
+                        phase = match message {
+                            Shown::Level => {
+                                game.start_intro();
+                                Phase::Playing
+                            }
+                            // the original goes back to its title with the
+                            // game over picture (CODE 7 0xa86)
+                            Shown::GameOver => Phase::Menu(Menu::new(
+                                Background::Picture(menu::GAME_OVER_PICTURE),
+                                false,
+                            )),
+                            _ => Phase::Quiet(message),
+                        };
                     }
-                }
-                Event::MouseButtonDown { .. } => {
-                    if let Phase::Screen { key_down, .. } = &mut phase {
-                        *key_down = true;
+                    _ => {}
+                },
+                Event::MouseButtonDown { .. } => match &mut phase {
+                    Phase::Picture { key_down, .. } | Phase::Screen { key_down, .. } => {
+                        *key_down = true
                     }
-                }
+                    Phase::Menu(m) if m.page == menu::Page::Closed => m.open(menu::Page::Main),
+                    _ => {}
+                },
                 _ => {}
+            }
+            match action {
+                menu::Action::None => {}
+                menu::Action::Quit => return Ok(()),
+                menu::Action::Play | menu::Action::Level(_) => {
+                    level = match action {
+                        menu::Action::Level(l) => l,
+                        _ => 0,
+                    };
+                    game = Game::new(data.levels[level].clone());
+                    game.no_walls = no_walls;
+                    paused = None;
+                    end_picture = false;
+                    phase = level_screen();
+                }
+                menu::Action::Resume => {
+                    if paused.take().is_some() {
+                        phase = Phase::Playing;
+                    }
+                }
+                menu::Action::NoWalls => {
+                    no_walls = true;
+                    game.no_walls = true;
+                }
+                menu::Action::SettingsChanged => {
+                    music.set_fixed(settings.fixed_music);
+                    if settings.music && !music.is_playing() {
+                        // switched on: the original starts from position 0
+                        music.start(data, 0);
+                    } else if !settings.music {
+                        music.stop();
+                    }
+                }
             }
         }
 
@@ -313,16 +536,23 @@ fn run(data: &GameData) -> Result<()> {
         while next_frame <= now {
             next_frame += frame_time;
             match &mut phase {
-                Phase::Screen { .. } => {}
+                Phase::Picture { .. } | Phase::Menu(_) | Phase::Screen { .. } => {}
                 Phase::Quiet(_) => {
                     if !audio.busy() {
-                        phase = level_screen();
+                        phase = if std::mem::take(&mut end_picture) {
+                            Phase::Picture {
+                                id: menu::END_PICTURE,
+                                key_down: false,
+                            }
+                        } else {
+                            level_screen()
+                        };
                     }
                 }
                 Phase::Playing => {
-                    game.sounds.on = audio.is_on();
+                    game.sounds.on = audio.is_on() && settings.sounds;
                     game.sounds.busy = audio.busy();
-                    game.tick(key(&events.keyboard_state()));
+                    game.tick(key(&events.keyboard_state(), &settings));
                     for id in game.sounds.start.drain(..) {
                         if let Some(s) = data.sounds.iter().find(|s| s.id == id as i16) {
                             audio.play(s);
@@ -330,25 +560,28 @@ fn run(data: &GameData) -> Result<()> {
                     }
                     match game.exit {
                         Some(Exit::Won) => {
-                            // after the last level the original goes on with the first
+                            // after the last level the picture 1002, then the
+                            // first level again (CODE 7 0x9a4)
                             level = (level + 1) % data.levels.len();
+                            end_picture = level == 0;
                             game.next_level(data.levels[level].clone());
-                            phase = message(&audio, data, Shown::Perfect, sound::PERFECT);
+                            phase =
+                                message(&audio, data, &settings, Shown::Perfect, sound::PERFECT);
                         }
                         Some(exit @ (Exit::Died | Exit::SelfDestructed)) => {
                             game.restart();
                             phase = if exit == Exit::Died {
-                                message(&audio, data, Shown::TryAgain, sound::TRY_AGAIN)
+                                message(&audio, data, &settings, Shown::TryAgain, sound::TRY_AGAIN)
                             } else {
-                                message(&audio, data, Shown::Aborted, sound::ABORTED)
+                                message(&audio, data, &settings, Shown::Aborted, sound::ABORTED)
                             };
                         }
                         Some(Exit::GameOver) => {
-                            // the original shows a picture and goes back to its
-                            // title; we start again with the first level
                             level = 0;
                             game = Game::new(data.levels[level].clone());
-                            phase = message(&audio, data, Shown::GameOver, sound::GAME_OVER);
+                            game.no_walls = no_walls;
+                            phase =
+                                message(&audio, data, &settings, Shown::GameOver, sound::GAME_OVER);
                         }
                         None => {}
                     }
@@ -356,37 +589,99 @@ fn run(data: &GameData) -> Result<()> {
             }
         }
 
-        let image = match phase {
-            Phase::Screen { message, .. } | Phase::Quiet(message) => {
-                message_canvas(data, &game, level, message)
-            }
-            Phase::Playing => draw(data, &game, view),
-        };
         let p = &data.palettes[palette];
-        let (w, h) = (image.width as u32, image.height as u32);
-        let mut texture = creator.create_texture_streaming(PixelFormat::RGB24, w, h)?;
+        let (rgb, w, h, lines) = match &phase {
+            Phase::Picture { id, .. } => {
+                let mut screen = render::Screen::black();
+                screen.picture(data, *id, render::PICTURE_AREA);
+                (
+                    screen.rgb,
+                    render::SCREEN_WIDTH,
+                    render::SCREEN_HEIGHT,
+                    vec![],
+                )
+            }
+            Phase::Menu(m) => {
+                let (screen, lines) = m.draw(data, &settings, paused.as_ref());
+                (
+                    screen.rgb,
+                    render::SCREEN_WIDTH,
+                    render::SCREEN_HEIGHT,
+                    lines,
+                )
+            }
+            Phase::Screen { message, .. } | Phase::Quiet(message) => {
+                let image = message_canvas(data, &game, level, *message);
+                (
+                    render::Screen::from_canvas(&image, &p.palette).rgb,
+                    image.width,
+                    image.height,
+                    vec![],
+                )
+            }
+            Phase::Playing => {
+                let image = draw(data, &game, view);
+                let mut rgb = vec![0; image.width * image.height * 3];
+                image.to_rgb24(&p.palette, &mut rgb, image.width * 3);
+                (rgb, image.width, image.height, vec![])
+            }
+        };
+        let mut texture =
+            creator.create_texture_streaming(PixelFormat::RGB24, w as u32, h as u32)?;
         texture.set_scale_mode(ScaleMode::Nearest);
         texture.with_lock(None, |buf: &mut [u8], pitch: usize| {
-            image.to_rgb24(&p.palette, buf, pitch)
+            for (row, line) in rgb.chunks_exact(w * 3).enumerate() {
+                buf[row * pitch..row * pitch + w * 3].copy_from_slice(line);
+            }
         })?;
-        canvas.set_logical_size(w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX)?;
-        let new_title = format!(
-            "S.C.Out – level {}/{}{}{} (arrows move, N/P level, R restart, Tab map, F2 music)",
-            level + 1,
-            data.levels.len(),
-            if p.name == DEFAULT_PALETTE {
-                String::new()
-            } else {
-                format!(" – palette {}", p.name)
-            },
-            if music.fixed { " – music fixed" } else { "" }
-        );
-        if new_title != title {
+        canvas.set_logical_size(w as u32, h as u32, SDL_LOGICAL_PRESENTATION_LETTERBOX)?;
+
+        // the system font at the resolution of the window
+        if lines.is_empty() {
+            text_texture = None;
+            shown_lines = None;
+        } else {
+            let (ow, oh) = canvas.output_size()?;
+            let scale = (ow as f32 / w as f32).min(oh as f32 / h as f32).max(1.0);
+            let size = ((w as f32 * scale) as u32, (h as f32 * scale) as u32);
+            if shown_lines.as_ref() != Some(&(lines.clone(), size)) {
+                let rgba = font.draw(&lines, size.0 as usize, size.1 as usize);
+                let mut t =
+                    creator.create_texture_streaming(PixelFormat::ABGR8888, size.0, size.1)?;
+                t.set_blend_mode(sdl3::render::BlendMode::Blend);
+                t.with_lock(None, |buf: &mut [u8], pitch: usize| {
+                    let row = size.0 as usize * 4;
+                    for (y, line) in rgba.chunks_exact(row).enumerate() {
+                        buf[y * pitch..y * pitch + row].copy_from_slice(line);
+                    }
+                })?;
+                text_texture = Some(t);
+                shown_lines = Some((lines, size));
+            }
+        }
+
+        let new_title = match phase {
+            Phase::Playing | Phase::Screen { .. } | Phase::Quiet(_) => format!(
+                "S.C.Out – level {}/{}{}",
+                level + 1,
+                data.levels.len(),
+                if p.name == DEFAULT_PALETTE {
+                    String::new()
+                } else {
+                    format!(" – palette {}", p.name)
+                }
+            ),
+            _ => "S.C.Out".to_string(),
+        };
+        if new_title != title_text {
             canvas.window_mut().set_title(&new_title)?;
-            title = new_title;
+            title_text = new_title;
         }
         canvas.clear();
         canvas.copy(&texture, None, None)?;
+        if let Some(t) = &text_texture {
+            canvas.copy(t, None, None)?;
+        }
         canvas.present();
         std::thread::sleep(next_frame.saturating_duration_since(Instant::now()));
     }
