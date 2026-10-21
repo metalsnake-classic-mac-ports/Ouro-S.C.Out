@@ -188,7 +188,7 @@ fn export_menu(data: &GameData, page: &str, out: &Path) -> Result<()> {
             }
             "settings" => {
                 m.open(menu::Page::Settings);
-                m.selected = 3;
+                m.selected = 2;
             }
             "keys" => {
                 m.open(menu::Page::Keys { waiting: false });

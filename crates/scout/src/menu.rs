@@ -98,9 +98,9 @@ pub struct Menu {
 }
 
 /// Rows of the settings page: three switches, the keys, back.
-const SETTING_ROWS: usize = 5;
+const SETTING_ROWS: usize = 4;
 /// The row of the keys on the settings page.
-const KEYS_ROW: usize = 3;
+const KEYS_ROW: usize = 2;
 /// Rows of the keys page: the keys, back.
 const KEY_ROWS: usize = KEY_LABELS.len() + 1;
 
@@ -172,9 +172,20 @@ impl Menu {
                 | Scancode::Left
                 | Scancode::Right => {
                     match self.selected {
-                        0 => settings.music = !settings.music,
+                        // off, as in the original, fixed
+                        0 => {
+                            let now = music_choice(settings);
+                            let next = if code == Scancode::Left {
+                                now + 2
+                            } else {
+                                now + 1
+                            } % 3;
+                            settings.music = next != 0;
+                            if next != 0 {
+                                settings.fixed_music = next == 2;
+                            }
+                        }
                         1 => settings.sounds = !settings.sounds,
-                        2 => settings.fixed_music = !settings.fixed_music,
                         KEYS_ROW => {
                             if !matches!(code, Scancode::Left | Scancode::Right) {
                                 self.open(Page::Keys { waiting: false });
@@ -375,26 +386,17 @@ impl Menu {
             }
             Page::Settings => {
                 let on = |b: bool| if b { "ON" } else { "OFF" };
-                let player = if settings.fixed_music {
-                    "FIXED"
-                } else {
-                    "ORIGINAL"
-                };
+                let music = ["OFF", "ORIGINAL", "FIXED"][music_choice(settings)];
                 let rows = [
                     (
                         "MUSIC",
-                        Value::Text(on(settings.music).into()),
-                        "Music on or off",
+                        Value::Text(music.into()),
+                        "Music off, as in the original (with the bugs of its player) or fixed",
                     ),
                     (
-                        "EFFECTS",
+                        "SFX",
                         Value::Text(on(settings.sounds).into()),
                         "Sound effects on or off",
-                    ),
-                    (
-                        "PLAYER",
-                        Value::Text(player.into()),
-                        "The music player: as in the original (with its bugs) or fixed",
                     ),
                     ("KEYS", Value::None, "The keys of the game"),
                     ("BACK", Value::None, "Back to the menu"),
@@ -406,7 +408,7 @@ impl Menu {
                     "SETTINGS",
                     &rows,
                     self.selected,
-                    48,
+                    (48, 288),
                 );
                 screen.overlay(&canvas, game_palette, LIST_BOX);
                 lines.push(
@@ -437,7 +439,7 @@ impl Menu {
                     "KEYS",
                     &rows,
                     self.selected,
-                    38,
+                    (38, 352),
                 );
                 screen.overlay(&canvas, game_palette, LIST_BOX);
                 let hint = if *waiting {
@@ -500,8 +502,20 @@ const KEY_LABELS: [(&str, &str); 7] = [
     ("DOWN", "Move down"),
     ("GET-DROP", "Take, drop or swap an object; use a teleporter"),
     ("FIRE", "Fire a missile"),
-    ("DESTRUCT", "Blow yourself up (Esc in the original)"),
+    (
+        "ABORT",
+        "Blow yourself up, the level is ABORTED (Esc in the original)",
+    ),
 ];
+
+/// The music row: 0 off, 1 as in the original, 2 fixed.
+fn music_choice(settings: &Settings) -> usize {
+    match (settings.music, settings.fixed_music) {
+        (false, _) => 0,
+        (true, false) => 1,
+        (true, true) => 2,
+    }
+}
 
 /// The value column of a row on a list page.
 enum Value {
@@ -512,7 +526,7 @@ enum Value {
 
 /// A page of the settings: a title and rows of block letters with a value
 /// column, the selected row marked by the player and described below in
-/// the system font.
+/// the system font. `(pitch, value_x)`: rows apart, x of the values.
 fn list_page(
     data: &GameData,
     canvas: &mut Canvas,
@@ -520,14 +534,14 @@ fn list_page(
     title: &str,
     rows: &[(&str, Value, &str)],
     selected: usize,
-    pitch: i32,
+    (pitch, value_x): (i32, i32),
 ) {
     let (bx, by, w, h) = LIST_BOX;
     canvas.marble_box(data, bx, by, w / 32, h / 32);
     let title_x = bx + (w as i32 - 32 * title.len() as i32) / 2;
     canvas.block_text(&data.font, title_x, by + 28, title);
     let font = &data.font;
-    let (label_x, value_x) = (bx + 72, bx + 352);
+    let (label_x, value_x) = (bx + 72, bx + value_x);
     for (row, (label, value, about)) in rows.iter().enumerate() {
         let y = by + 84 + pitch * row as i32;
         canvas.block_text(font, label_x, y, label);
