@@ -8,7 +8,7 @@ use scout_data::GameData;
 use sdl3::keyboard::Scancode;
 
 use crate::render::{self, Canvas, Screen};
-use crate::settings::{KEY_NAMES, Settings};
+use crate::settings::Settings;
 use crate::text::Line;
 
 /// The picture of the title (PICT 1000); after a lost game the original
@@ -102,7 +102,7 @@ const SETTING_ROWS: usize = 5;
 /// The row of the keys on the settings page.
 const KEYS_ROW: usize = 3;
 /// Rows of the keys page: the keys, back.
-const KEY_ROWS: usize = KEY_NAMES.len() + 1;
+const KEY_ROWS: usize = KEY_LABELS.len() + 1;
 
 impl Menu {
     pub fn new(background: Background, resumable: bool) -> Self {
@@ -203,7 +203,7 @@ impl Menu {
                     }
                     Scancode::Escape => self.back_to_settings(),
                     Scancode::Return | Scancode::KpEnter | Scancode::Space => {
-                        if self.selected < KEY_NAMES.len() {
+                        if self.selected < KEY_LABELS.len() {
                             self.page = Page::Keys { waiting: true };
                         } else {
                             self.back_to_settings();
@@ -375,22 +375,29 @@ impl Menu {
             }
             Page::Settings => {
                 let on = |b: bool| if b { "ON" } else { "OFF" };
+                let player = if settings.fixed_music {
+                    "FIXED"
+                } else {
+                    "ORIGINAL"
+                };
                 let rows = [
-                    ("MUSIC", Value::Text(on(settings.music).into())),
-                    ("SOUND EFFECTS", Value::Text(on(settings.sounds).into())),
                     (
-                        "MUSIC PLAYER",
-                        Value::Text(
-                            if settings.fixed_music {
-                                "CORRECTED"
-                            } else {
-                                "ORIGINAL"
-                            }
-                            .into(),
-                        ),
+                        "MUSIC",
+                        Value::Text(on(settings.music).into()),
+                        "Music on or off",
                     ),
-                    ("KEYS", Value::None),
-                    ("BACK", Value::None),
+                    (
+                        "EFFECTS",
+                        Value::Text(on(settings.sounds).into()),
+                        "Sound effects on or off",
+                    ),
+                    (
+                        "PLAYER",
+                        Value::Text(player.into()),
+                        "The music player: as in the original (with its bugs) or fixed",
+                    ),
+                    ("KEYS", Value::None, "The keys of the game"),
+                    ("BACK", Value::None, "Back to the menu"),
                 ];
                 list_page(
                     data,
@@ -399,7 +406,7 @@ impl Menu {
                     "SETTINGS",
                     &rows,
                     self.selected,
-                    36,
+                    48,
                 );
                 screen.overlay(&canvas, game_palette, LIST_BOX);
                 lines.push(
@@ -409,20 +416,20 @@ impl Menu {
                 );
             }
             Page::Keys { waiting } => {
-                let mut rows: Vec<(&str, Value)> = KEY_NAMES
+                let mut rows: Vec<(&str, Value, &str)> = KEY_LABELS
                     .iter()
                     .zip(settings.keys)
                     .enumerate()
-                    .map(|(i, (&name, key))| {
+                    .map(|(i, ((label, about), key))| {
                         let value = if *waiting && i == self.selected {
-                            Value::Text("PRESS A KEY".into())
+                            Value::Text("?".into())
                         } else {
                             Value::Key(key)
                         };
-                        (name, value)
+                        (*label, value, *about)
                     })
                     .collect();
-                rows.push(("BACK", Value::None));
+                rows.push(("BACK", Value::None, "Back to the settings"));
                 list_page(
                     data,
                     &mut canvas,
@@ -430,7 +437,7 @@ impl Menu {
                     "KEYS",
                     &rows,
                     self.selected,
-                    26,
+                    38,
                 );
                 screen.overlay(&canvas, game_palette, LIST_BOX);
                 let hint = if *waiting {
@@ -478,13 +485,23 @@ impl Menu {
     }
 }
 
-/// The box of the settings and the keys: the whole picture area.
-const LIST_BOX: (i32, i32, usize, usize) = (
-    render::PICTURE_AREA.0 as i32,
-    render::PICTURE_AREA.1 as i32 + 6,
-    16 * 32,
-    11 * 32,
-);
+/// The box of the settings and the keys: the width of the screen (they
+/// are shown on black), room for the hints below.
+const LIST_BOX: (i32, i32, usize, usize) = (0, 8, 20 * 32, 13 * 32);
+/// Where the description of the selected row goes.
+const ABOUT_Y: f32 = 426.0;
+
+/// The labels of the keys on the keys page (at most 8 letters) and what
+/// they do.
+const KEY_LABELS: [(&str, &str); 7] = [
+    ("RIGHT", "Move right"),
+    ("LEFT", "Move left"),
+    ("UP", "Move up"),
+    ("DOWN", "Move down"),
+    ("GET-DROP", "Take, drop or swap an object; use a teleporter"),
+    ("FIRE", "Fire a missile"),
+    ("DESTRUCT", "Blow yourself up (Esc in the original)"),
+];
 
 /// The value column of a row on a list page.
 enum Value {
@@ -493,14 +510,15 @@ enum Value {
     Key(Scancode),
 }
 
-/// A page of the settings: a title and rows of small block letters with a
-/// value column, the selected row marked by the small player.
+/// A page of the settings: a title and rows of block letters with a value
+/// column, the selected row marked by the player and described below in
+/// the system font.
 fn list_page(
     data: &GameData,
     canvas: &mut Canvas,
     lines: &mut Vec<Line>,
     title: &str,
-    rows: &[(&str, Value)],
+    rows: &[(&str, Value, &str)],
     selected: usize,
     pitch: i32,
 ) {
@@ -508,29 +526,30 @@ fn list_page(
     canvas.marble_box(data, bx, by, w / 32, h / 32);
     let title_x = bx + (w as i32 - 32 * title.len() as i32) / 2;
     canvas.block_text(&data.font, title_x, by + 28, title);
-    let small = &data.small_font;
-    let value_x = bx + 304;
-    for (row, (label, value)) in rows.iter().enumerate() {
-        let y = by + 80 + pitch * row as i32;
-        canvas.block_text(small, bx + 64, y, label);
+    let font = &data.font;
+    let (label_x, value_x) = (bx + 72, bx + 352);
+    for (row, (label, value, about)) in rows.iter().enumerate() {
+        let y = by + 84 + pitch * row as i32;
+        canvas.block_text(font, label_x, y, label);
         match value {
             Value::None => {}
-            Value::Text(text) => canvas.block_text(small, value_x, y, text),
+            Value::Text(text) => canvas.block_text(font, value_x, y, text),
             Value::Key(key) => {
                 let text = key_label(*key);
-                if text.chars().count() <= 11 && render::in_block_font(&text) {
-                    canvas.block_text(small, value_x, y, &text);
+                if text.chars().count() <= 8 && render::in_block_font(&text) {
+                    canvas.block_text(font, value_x, y, &text);
                 } else {
                     // a key whose name the block letters cannot show
-                    lines.push(
-                        Line::new(value_x as f32, y as f32 - 1.0, key.name())
-                            .color([0xFF, 0xFF, 0xFF]),
-                    );
+                    let mut line = Line::new(value_x as f32, y as f32 + 3.0, key.name())
+                        .color([0xFF, 0xFF, 0xFF]);
+                    line.size = 24.0;
+                    lines.push(line);
                 }
             }
         }
         if row == selected {
-            canvas.draw_object_half(data, cursor(), bx + 40, y);
+            canvas.draw_object(data, cursor(), bx + 32, y);
+            lines.push(Line::new(320.0, ABOUT_Y, *about).centered());
         }
     }
 }

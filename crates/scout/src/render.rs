@@ -189,26 +189,6 @@ impl Canvas {
         }
     }
 
-    /// An object at half size (every second pixel), e.g. the player as a
-    /// small cursor.
-    pub fn draw_object_half(&mut self, data: &GameData, object: usize, x: i32, y: i32) {
-        let set = &data.objects;
-        if object >= set.len() {
-            return;
-        }
-        for row in 0..TILE_SIZE / 2 {
-            for col in 0..TILE_SIZE / 2 {
-                let (px, py) = (x + col as i32, y + row as i32);
-                if px < 0 || py < 0 || px as usize >= self.width || py as usize >= self.height {
-                    continue;
-                }
-                if let Some(p) = set.pixel(object, 2 * col, 2 * row) {
-                    self.pixels[py as usize * self.width + px as usize] = p;
-                }
-            }
-        }
-    }
-
     /// Convert to packed RGB24 rows with the given pitch.
     pub fn to_rgb24(&self, palette: &Palette, out: &mut [u8], pitch: usize) {
         for (y, row) in self.pixels.chunks_exact(self.width).enumerate() {
