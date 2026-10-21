@@ -5,10 +5,12 @@
 //!   scout [DISK] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]
 //!   scout [DISK] --export-menu PAGE OUT.bmp       a menu page (see --help)
 //!
-//! DISK is the original `SCOUT_1_4.dsk` (or the application). Without it,
-//! `SCOUT_DISK` is used, then the one chosen before (saved in the
-//! settings), then `SCOUT_1_4.dsk` in the current folder, then
-//! `re/work/SCOUT_1_4.dsk`; if there is none, the game asks for it.
+//! DISK is the original `SCOUT_1_4.dsk`, the application or a data pack
+//! (`scout-data.zip`, made by `scout-extract`). Without it, `SCOUT_DISK` is
+//! used, then the one chosen before (saved in the settings), then
+//! `scout-data.zip` beside the program or in the current folder, then
+//! `SCOUT_1_4.dsk` in the current folder, then `re/work/SCOUT_1_4.dsk`; if
+//! there is none, the game asks for it.
 //!
 //! Keys (changeable in the settings): arrows move, Return takes / drops /
 //! teleports, Space fires, Esc blows yourself up. Command (or Ctrl) and P
@@ -38,7 +40,7 @@ use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::{KeyboardState, Mod, Scancode};
 use sdl3::pixels::PixelFormat;
 use sdl3::render::ScaleMode;
-use sdl3::sys::render::SDL_LOGICAL_PRESENTATION_LETTERBOX;
+use sdl3::sys::render::SDL_LOGICAL_PRESENTATION_INTEGER_SCALE;
 use settings::Settings;
 
 /// Palette shown first: the colors of the game screen.
@@ -96,10 +98,19 @@ fn main() -> Result<()> {
     export_level(&data, level, view, palette, &PathBuf::from(&rest[1]))
 }
 
+/// The data pack `scout-extract` makes; the game looks for it beside the
+/// program and in the current folder.
+const PACK: &str = "scout-data.zip";
+
+/// A file in the folder of the program.
+fn beside_program(name: &str) -> Option<PathBuf> {
+    Some(std::env::current_exe().ok()?.parent()?.join(name))
+}
+
 /// What the player sees when the game data is missing.
 const NEED_DATA: &str = "S.C.Out needs the data of the original game (Kalisto, 1993): \
-the disk image SCOUT_1_4.dsk or the S.C.OUT application itself (version 1.4 or 1.3.1). \
-They are not included.\n\nPlease choose the file in the next window.";
+the disk image SCOUT_1_4.dsk, the S.C.OUT application itself (version 1.4 or 1.3.1) \
+or a data pack made from them with scout-extract (scout-data.zip). They are not included.\n\nPlease choose the file in the next window.";
 
 /// The game data: from the command line, `SCOUT_DISK`, the file chosen
 /// before, the usual places, or else chosen by the player (`None` if they
@@ -114,7 +125,9 @@ fn load_data(
         .into_iter()
         .chain(std::env::var_os("SCOUT_DISK").map(PathBuf::from))
         .chain(settings.disk.clone())
+        .chain(beside_program(PACK))
         .chain([
+            PathBuf::from(PACK),
             PathBuf::from("SCOUT_1_4.dsk"),
             PathBuf::from("re/work/SCOUT_1_4.dsk"),
         ]);
@@ -754,7 +767,7 @@ fn run(disk: Option<PathBuf>, dev: bool) -> Result<()> {
                 buf[row * pitch..row * pitch + w * 3].copy_from_slice(line);
             }
         })?;
-        canvas.set_logical_size(w as u32, h as u32, SDL_LOGICAL_PRESENTATION_LETTERBOX)?;
+        canvas.set_logical_size(w as u32, h as u32, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE)?;
 
         // the system font at the resolution of the window
         if lines.is_empty() {
@@ -762,7 +775,11 @@ fn run(disk: Option<PathBuf>, dev: bool) -> Result<()> {
             shown_lines = None;
         } else {
             let (ow, oh) = canvas.output_size()?;
-            let scale = (ow as f32 / w as f32).min(oh as f32 / h as f32).max(1.0);
+            // the picture is scaled by whole numbers (SDL_LOGICAL_PRESENTATION_INTEGER_SCALE)
+            let scale = (ow as f32 / w as f32)
+                .min(oh as f32 / h as f32)
+                .floor()
+                .max(1.0);
             let size = ((w as f32 * scale) as u32, (h as f32 * scale) as u32);
             if shown_lines.as_ref() != Some(&(lines.clone(), size)) {
                 let rgba = font.draw(&lines, size.0 as usize, size.1 as usize);

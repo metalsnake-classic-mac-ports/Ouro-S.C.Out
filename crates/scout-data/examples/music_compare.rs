@@ -25,8 +25,8 @@ fn main() -> Result<()> {
     let seconds: f64 = rest.get(1).map_or(Ok(210.0), |s| s.parse())?;
     let data = GameData::load(std::path::Path::new(&disk))?;
     // the game starts the music at position 1
-    let mut original = MusicPlayer::new(&data.music, &data.music_code, 1);
-    let mut fixed = MusicPlayer::new(&data.music, &data.music_code, 1);
+    let mut original = MusicPlayer::new(&data.music, &data.music_volumes, 1);
+    let mut fixed = MusicPlayer::new(&data.music, &data.music_volumes, 1);
     fixed.fixed = true;
     let ticks = (seconds * RATE / scout_core::music::TICK_SAMPLES as f64) as usize;
     let mut samples = Vec::new();

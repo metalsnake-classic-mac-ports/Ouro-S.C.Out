@@ -10,3 +10,4 @@ scout-core.workspace = true
 thiserror.workspace = true
 # only for the scout-extract tool
 png = "0.17"
+zip = { version = "9.0.5", default-features = false, features = ["deflate"] }

@@ -124,6 +124,23 @@ impl ObjectSet {
         Ok(Self { data, size })
     }
 
+    /// Objects from their pixels, row by row (`None`: transparent).
+    pub fn from_pixels(size: usize, items: &[Vec<Option<u8>>]) -> Result<Self> {
+        let mut data = vec![0; items.len() * size * size * 2];
+        for (index, pixels) in items.iter().enumerate() {
+            if pixels.len() != size * size {
+                return Err(corrupt(format!("an object has {} pixels", pixels.len())));
+            }
+            for (p, pixel) in pixels.iter().enumerate() {
+                let (x, y) = (p % size, p / size);
+                let base = index * size * size * 2 + y * 2 * size + (x / 4) * 8 + x % 4;
+                data[base] = if pixel.is_some() { 0 } else { 0xFF };
+                data[base + 4] = pixel.unwrap_or(0);
+            }
+        }
+        Ok(Self { data, size })
+    }
+
     pub fn len(&self) -> usize {
         self.data.len() / (self.size * self.size * 2)
     }

@@ -120,7 +120,7 @@ impl Music {
     /// it comes back to the front).
     pub fn start(&mut self, data: &GameData, position: u8) {
         self.stop();
-        let mut player = MusicPlayer::new(&data.music, &data.music_code, position);
+        let mut player = MusicPlayer::new(&data.music, &data.music_volumes, position);
         player.fixed = self.fixed;
         self.player = Some(player);
     }

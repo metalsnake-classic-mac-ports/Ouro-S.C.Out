@@ -46,8 +46,9 @@ The tests that need the original disk look for it in `SCOUT_DISK` or at
 - `scout-extract [OPTIONS] [DISK] OUT_DIR` (crate `scout-data`): exports graphics
   (PNG, single and/or sheets), sounds (WAV), the music and its unused earlier version
   (ProTracker `.mod` and WAV), levels (text and/or pictures of the whole
-  level), level codes and the palette as the game reads them; `--help` lists the
-  options. Install it with `cargo install --path crates/scout-data`; with `SCOUT_DISK`
+  level), level codes and the palette as the game reads them, and the data pack
+  `scout-data.zip` (`--only pack`: everything the game needs in ordinary formats, which
+  the game reads instead of the disk image); `--help` lists the options. Install it with `cargo install --path crates/scout-data`; with `SCOUT_DISK`
   set to the disk image it works from any folder, e.g.
   `scout-extract --only level-images ~/scout-levels`
 - `re/tools/`: tools to read and unpack the resources of the original game

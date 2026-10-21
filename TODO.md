@@ -31,7 +31,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [x] Screen frame; level 1 start screen matches the original screenshot (99.15 %)
 - [x] Player sprite and the start animation
 - [x] Graphics: frame `SHAP 5102`–`5104`, side panel icons `5105`, block letters `5106`, box
-      tiles `5108`; `5107` is still unknown (see "To check")
+      tiles `5108`; `5107` the small block letters (unused by the game)
 - [x] Game logic in `scout-core`, using the original code as reference
   - [x] Main loop (CODE 9, 0x0): single-threaded, one pass = one frame
   - [x] Input (CODE 6, 0x7a8): only the first pressed key counts; commands 0–3 move,
@@ -69,7 +69,8 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   - [ ] Mouse in the menus (now only keys; a click opens the menu and closes screens)
   - [x] Pause when the window loses the focus (what the original does in the game is not
         checked; it stops its music)
-  - [x] Full screen (setting SCREEN, F11, Command / Ctrl + F)
+  - [x] Full screen (setting SCREEN, F11, Command / Ctrl + F); the picture is always scaled
+        by whole numbers
   - [x] Developer keys only with `--dev`
   - [x] First start without game data: message and file dialog, the path is saved
   - [ ] Dissolve between screens (CODE 8 0x1354); the random numbers it uses only with
@@ -101,8 +102,10 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 
 ### Data packs (later)
 
-- [ ] Choose a folder (or archive) with extracted data instead of the disk image: the layout
-      `scout-extract` writes (PNG, WAV, level text) as the open format
+- [x] Data pack: `scout-extract --only pack` writes `scout-data.zip` (PNG, WAV, `.mod`, text,
+      GIMP palette; no original resource data), the game reads it instead of the disk image
+      (`scout_data::pack`); identical game data, checked by `original_pack.rs`
+- [ ] The same layout as a folder (not zipped), to edit files in place
 - [ ] Packs that replace parts: sound packs, level packs, graphics packs, … on top of the
       original data
 - [ ] High-resolution graphics and sounds (larger tiles / higher sample rates than the original)
@@ -115,14 +118,6 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   conversion ≈ 1 ms of it), the VM's sound device reports ≈ 13 ms; the way from the VM
   to the host's speakers is not measurable from inside. To compare: `afplay` a WAV from
   `scout-extract` in the VM and on the host.
-
-### To check
-
-- [ ] Objects 24–29 have pink frames in the extracted graphics (mask?): compare with the
-      original in the emulator. Used in: 24 levels 68, 101; 25 level 71; 26 levels 7, 45, 47,
-      58–61, 67, 68, 94, 95, 101 (first: level 7, box 3, 6); 27 levels 11, 45, 47–49, 58–61,
-      67–69, 93–95, 100, 101 (first: level 11, box 4, 5); 28 levels 47, 59, 60; 29 levels 58,
-      59, 68
 
 ### Lowest priority
 

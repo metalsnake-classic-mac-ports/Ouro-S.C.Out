@@ -4,8 +4,10 @@
 //! by routine, including its quirks, and compared byte by byte with the
 //! original running in an emulator (`re/tools/emu_music.py`).
 //!
-//! The player's tables (volumes, steps, vibrato, periods) are read from the
-//! original code, which the caller passes in (CODE 10 without its header).
+//! The player's tables are built like the ones in CODE 10: the ProTracker
+//! sine and periods, the steps `16800004 / period`, and the volume table
+//! from 64 gains ([`Volumes`]), which follow no formula and come with the
+//! game data (`volumes_from_code` reads them from the original code).
 //!
 //! With [`MusicPlayer::fixed`] the player corrects the bugs of the original
 //! (re/BUGS.md): E commands, C volume, volume row, finetune in the volume,
@@ -16,6 +18,27 @@
 pub const TICK_SAMPLES: usize = 279;
 /// Output rate: 7/11 of the Mac's 22254.54 Hz (CODE 10 0x5ece).
 pub const RATE: f64 = 14161.98;
+
+/// The volume table: row v (volume v, 0–63) is `128 + floor((s − 128) ·
+/// g / 65536)` for the unsigned sample s, with the gain g = `Volumes[v]`
+/// (0 for silence, 65536 for full volume). The original's gains rise
+/// unevenly from 0.049 to 1; they are kept as they are.
+pub type Volumes = [u32; 64];
+
+/// The vibrato sine of ProTracker (CODE 10 0x3e).
+const SINE: [u8; 32] = [
+    0, 24, 49, 74, 97, 120, 141, 161, 180, 197, 212, 224, 235, 244, 250, 253, 255, 253, 250, 244,
+    235, 224, 212, 197, 180, 161, 141, 120, 97, 74, 49, 24,
+];
+/// The periods of ProTracker's three octaves, then 0 (CODE 10 0x5e).
+const PERIOD_TABLE: [u16; 37] = [
+    856, 808, 762, 720, 678, 640, 604, 570, 538, 508, 480, 453, 428, 404, 381, 360, 339, 320, 302,
+    285, 269, 254, 240, 226, 214, 202, 190, 180, 170, 160, 151, 143, 135, 127, 120, 113, 0,
+];
+/// The step through a sample per output sample, 16.16, is this divided by
+/// the period (CODE 10 0x9d8, periods 0–856).
+const STEP_DIVIDEND: u32 = 16_800_004;
+const LAST_PERIOD: usize = 856;
 
 /// Offsets of the tables in CODE 10.
 const VIBRATO: usize = 0x3E;
@@ -81,6 +104,45 @@ pub struct MusicPlayer {
     voices: [Voice; 4],
 }
 
+/// The tables at their places in CODE 10 (the rest of the code is 0).
+pub fn tables(volumes: &Volumes) -> Vec<u8> {
+    let mut code = vec![0; VOLUMES_END];
+    code[VIBRATO..VIBRATO + SINE.len()].copy_from_slice(&SINE);
+    for (i, p) in PERIOD_TABLE.iter().enumerate() {
+        code[PERIODS + 2 * i..PERIODS + 2 * i + 2].copy_from_slice(&p.to_be_bytes());
+    }
+    for period in 1..=LAST_PERIOD {
+        let step = STEP_DIVIDEND / period as u32;
+        code[STEPS + 4 * period..STEPS + 4 * period + 4].copy_from_slice(&step.to_be_bytes());
+    }
+    for (v, &gain) in volumes.iter().enumerate() {
+        for s in 0..256 {
+            let d = s as i64 - 128;
+            code[VOLUMES + 256 * v + s] = (128 + ((d * gain as i64) >> 16)) as u8;
+        }
+    }
+    code
+}
+
+/// The gains of the volume table in the original code (CODE 10 without
+/// its header), `None` if a row is not of the form of [`Volumes`].
+pub fn volumes_from_code(code: &[u8]) -> Option<Volumes> {
+    let table = code.get(VOLUMES..VOLUMES_END)?;
+    let mut volumes = [0; 64];
+    for (v, row) in table.as_chunks::<256>().0.iter().enumerate() {
+        let fits = |gain: u32| {
+            row.iter().enumerate().all(|(s, &b)| {
+                let d = s as i64 - 128;
+                128 + ((d * gain as i64) >> 16) == b as i64
+            })
+        };
+        // the gain is about the value for the loudest negative sample
+        let guess = ((128 - row[0] as i64) * 65536 / 128).clamp(0, 65536) as u32;
+        volumes[v] = (guess.saturating_sub(1024)..=(guess + 1024).min(65536)).find(|&g| fits(g))?;
+    }
+    Some(volumes)
+}
+
 fn word(data: &[u8], at: usize) -> u16 {
     match data.get(at..at + 2) {
         Some(b) => u16::from_be_bytes([b[0], b[1]]),
@@ -92,13 +154,9 @@ impl MusicPlayer {
     /// Start the module at an order position (CODE 10 0x5740). The game
     /// starts at position 1 when it launches and at 0 when the music is
     /// switched on again; the song loops back to that position.
-    pub fn new(module: &[u8], code: &[u8], start: u8) -> Self {
+    pub fn new(module: &[u8], volumes: &Volumes, start: u8) -> Self {
         let mut module = module.to_vec();
-        // room for reads past the end, which are 0 in the emulator
-        let mut code = code.to_vec();
-        if code.len() < VOLUMES_END {
-            code.resize(VOLUMES_END, 0);
-        }
+        let mut code = tables(volumes);
         for b in &mut code[VOLUMES..VOLUMES_END] {
             *b >>= 2;
         }
@@ -176,8 +234,8 @@ impl MusicPlayer {
 
     /// The whole song once from position 0, as the player plays it: until
     /// it jumps back (at most `max_ticks`).
-    pub fn render_song(module: &[u8], code: &[u8], fixed: bool, max_ticks: usize) -> Vec<u8> {
-        let mut player = Self::new(module, code, 0);
+    pub fn render_song(module: &[u8], volumes: &Volumes, fixed: bool, max_ticks: usize) -> Vec<u8> {
+        let mut player = Self::new(module, volumes, 0);
         player.fixed = fixed;
         let mut out = Vec::new();
         let mut last = 0;

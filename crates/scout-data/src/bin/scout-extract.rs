@@ -12,6 +12,8 @@
 //! - `levels/`: each level as text (translated values the game uses and the
 //!   values of the level file) and/or as a picture of the whole level
 //! - `codes.txt`, `palette.txt`
+//! - `scout-data.zip`: the data pack the game can use instead of the disk
+//!   (see `scout_data::pack`)
 //!
 //! Usage: scout-extract [OPTIONS] [DISK] OUT_DIR, see `scout-extract --help`.
 //! Install with `cargo install --path crates/scout-data`.
@@ -38,18 +40,24 @@ usage: scout-extract [OPTIONS] [DISK] OUT_DIR
 
   --only LIST        what to export, comma separated (default: all):
                      graphics, sounds, music, levels, level-images, codes,
-                     palette
+                     palette, pack (scout-data.zip: everything the game
+                     needs, in ordinary formats, for the game to use)
   --graphics MODE    single (one PNG per item), sheets, or both (default)
   --levels LIST      only these levels (numbers from 1, comma separated)
   -h, --help         this text
 
-DISK is the original SCOUT_1_4.dsk, or the application itself (its
-resource fork, e.g. version 1.3.1 unpacked from its archive). Without it:
+DISK is the original SCOUT_1_4.dsk, the application itself (its
+resource fork, e.g. version 1.3.1 unpacked from its archive) or a data
+pack. Without it:
 $SCOUT_DISK, then SCOUT_1_4.dsk in the current folder, then
 re/work/SCOUT_1_4.dsk.
 
 Example: scout-extract --only level-images ~/scout-levels";
-const PARTS: [&str; 7] = [
+/// The file name of the data pack (the game looks for it too).
+const PACK: &str = "scout-data.zip";
+
+const PARTS: [&str; 8] = [
+    "pack",
     "graphics",
     "sounds",
     "music",
@@ -127,19 +135,8 @@ impl Options {
     }
 }
 
-/// A disk image, or an application file: its resource fork (on macOS
-/// `FILE/..namedfork/rsrc`) or the file as a raw resource fork.
 fn load(path: &Path) -> Result<GameData> {
-    match GameData::load(path) {
-        Err(scout_data::Error::NotHfs) => {
-            let fork = fs::read(path.join("..namedfork/rsrc"))
-                .ok()
-                .filter(|f| !f.is_empty())
-                .map_or_else(|| fs::read(path), Ok)?;
-            Ok(GameData::from_resource_fork(&fork)?)
-        }
-        other => Ok(other?),
-    }
+    Ok(GameData::load(path)?)
 }
 
 /// The disk image like the game looks for it.
@@ -219,6 +216,12 @@ fn main() -> Result<()> {
         ));
     }
 
+    if opt.wants("pack") {
+        fs::create_dir_all(out)?;
+        fs::write(out.join(PACK), data.to_pack()?)?;
+        done.push(PACK.to_string());
+    }
+
     if opt.wants("sounds") {
         let sounds = out.join("sounds");
         fs::create_dir_all(&sounds)?;
@@ -243,7 +246,7 @@ fn main() -> Result<()> {
             ("music_5200_unused", &data.unused_music),
         ] {
             fs::write(dir.join(format!("{name}.mod")), module)?;
-            let song = MusicPlayer::render_song(module, &data.music_code, false, max_ticks);
+            let song = MusicPlayer::render_song(module, &data.music_volumes, false, max_ticks);
             wav(&dir.join(format!("{name}.wav")), rate, &song)?;
         }
         done.push("music (2 modules)".into());

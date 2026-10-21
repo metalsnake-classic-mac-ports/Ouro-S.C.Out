@@ -10,6 +10,7 @@ pub mod error;
 pub mod graphics;
 pub mod hfs;
 pub mod lzrw1a;
+pub mod pack;
 pub mod palette;
 pub mod pict;
 pub mod resource;
@@ -49,7 +50,7 @@ const SMALL_FONT_ID: i16 = 5107;
 const BOX_ID: i16 = 5108;
 const CODES_ID: i16 = 5300;
 /// Sound effects 'snd ' 100–124 (see re/NOTES.md, Sound).
-const SOUND_IDS: std::ops::RangeInclusive<i16> = 100..=124;
+pub(crate) const SOUND_IDS: std::ops::RangeInclusive<i16> = 100..=124;
 const LEVELS_ID: i16 = 6642;
 const GAME_PALETTE_ID: i16 = 128;
 const LEVEL_BYTES: usize = 2880;
@@ -70,9 +71,8 @@ pub struct GameData {
     pub sounds: Vec<Sound>,
     /// The music: 'SHAP' 200, a ProTracker module (not compressed).
     pub music: Vec<u8>,
-    /// CODE 10 without its 4-byte header: the music player, whose tables
-    /// (volumes, steps, vibrato, periods) the rewrite's player uses.
-    pub music_code: Vec<u8>,
+    /// The gains of the music player's volume table (from CODE 10).
+    pub music_volumes: scout_core::music::Volumes,
     /// 'SHAP' 5200 unpacked: an earlier version of the music, unused.
     pub unused_music: Vec<u8>,
     /// The block letters of the screens between levels (CODE 8 0x19c2):
@@ -107,14 +107,31 @@ pub struct Picture {
 }
 
 impl GameData {
-    /// Load from the disk image file `SCOUT_1_4.dsk`.
+    /// Load from a data pack (see [`pack`]), the disk image
+    /// `SCOUT_1_4.dsk`, or the application itself: its resource fork (on
+    /// macOS `FILE/..namedfork/rsrc`) or a file holding the resource fork.
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
-        let image = std::fs::read(path).map_err(|source| Error::Io {
-            path: path.to_owned(),
-            source,
-        })?;
-        Self::from_disk_image(&image)
+        let read = |path: &Path| {
+            std::fs::read(path).map_err(|source| Error::Io {
+                path: path.to_owned(),
+                source,
+            })
+        };
+        let bytes = read(path)?;
+        if pack::is_pack(&bytes) {
+            return Self::from_pack(&bytes);
+        }
+        match Self::from_disk_image(&bytes) {
+            Err(Error::NotHfs) => {
+                let fork = std::fs::read(path.join("..namedfork/rsrc"))
+                    .ok()
+                    .filter(|f| !f.is_empty())
+                    .unwrap_or(bytes);
+                Self::from_resource_fork(&fork)
+            }
+            other => other,
+        }
     }
 
     pub fn from_disk_image(image: &[u8]) -> Result<Self> {
@@ -187,12 +204,12 @@ impl GameData {
                 .map(|id| Sound::from_snd(id, &res.get(b"snd ", id)?.data))
                 .collect::<Result<_>>()?,
             music: res.get(SHAP, MUSIC_ID)?.data.clone(),
-            music_code: res
+            music_volumes: res
                 .get(b"CODE", MUSIC_CODE_ID)?
                 .data
                 .get(4..)
-                .ok_or_else(|| error::corrupt("CODE 10 too short"))?
-                .to_vec(),
+                .and_then(scout_core::music::volumes_from_code)
+                .ok_or_else(|| error::corrupt("no volume table in CODE 10"))?,
             unused_music: shap(UNUSED_MUSIC_ID)?,
             font: ObjectSet::new(shap(FONT_ID)?)?,
             small_font: ObjectSet::with_size(shap(SMALL_FONT_ID)?, 16)?,
@@ -228,7 +245,7 @@ fn parse_levels(data: &[u8]) -> Result<Vec<Level>> {
         .collect())
 }
 
-fn parse_codes(data: &[u8]) -> Vec<String> {
+pub(crate) fn parse_codes(data: &[u8]) -> Vec<String> {
     String::from_utf8_lossy(data)
         .split(['\r', '\n'])
         .map(str::trim)

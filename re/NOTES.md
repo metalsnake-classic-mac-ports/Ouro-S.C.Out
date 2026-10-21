@@ -387,6 +387,14 @@ Toolbox calls inside:
   arpeggio; per row B position jump, C volume, D pattern break, F speed
   (1–31 only). At the end of the order list the song goes back to the start
   parameter; this module ends with B00, so it always continues at 0.
+- Tables (CODE 10): the vibrato sine (0x3e) and the periods (0x5e, 36
+  and a 0) are ProTracker's; the steps (0x9d8, periods 0–856) are
+  `16800004 / period` in 16.16; the volume table (0x1740) is row v:
+  `128 + floor((s − 128) · g_v)` with gains g_v that rise unevenly from
+  0.049 (row 1) to 1 (row 63), no formula found. The rewrite builds all
+  tables from these rules and the 64 gains (`scout_core::music::tables`,
+  test `tables_match_the_original_code`); the data pack holds only the
+  gains.
 - 0x5d0a, mixer: per channel a step from the table at 0x9d8 (period × 4:
   integer and 16-bit fraction), samples read backwards through the volume
   table (row volume − 1), each channel into its own buffer, then the four
@@ -474,6 +482,12 @@ The game pauses (the PAUSE box and the menu) when its window loses the
 focus. The keys are a page of their own under Settings. Assigning a key that is in
 use swaps the two keys. Self destruct, fixed to
 Esc in the original, is a seventh key in the settings (default Esc).
+
+## Pink frames
+
+Objects 24–29 (mirrors and the like) have pink frames in the graphics.
+The original shows them that way too (checked in Basilisk II, levels 7
+and 68).
 
 ## Screens between the levels (CODE 8)
 
