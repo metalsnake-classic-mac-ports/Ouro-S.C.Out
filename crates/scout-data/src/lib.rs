@@ -26,7 +26,11 @@ pub use pict::IndexedImage;
 use resource::ResourceFork;
 pub use sound::Sound;
 
+/// The game on the disk: an application by Kalisto (creator 'KIRI'),
+/// normally named "S.C.OUT"; renamed copies (e.g. "S.C.OUT 1.3.1") work too.
 const APPLICATION: &str = "S.C.OUT";
+const APPLICATION_TYPE: &[u8; 4] = b"APPL";
+const CREATOR: &[u8; 4] = b"KIRI";
 const SHAP: &[u8; 4] = b"SHAP";
 const OBJECTS_ID: i16 = 5100;
 const TILES_ID: i16 = 5101;
@@ -99,7 +103,16 @@ impl GameData {
 
     pub fn from_disk_image(image: &[u8]) -> Result<Self> {
         let volume = hfs::Volume::open(image)?;
-        let app = volume.file(APPLICATION)?;
+        let files = volume.files()?;
+        let mut apps: Vec<_> = files
+            .iter()
+            .filter(|f| &f.file_type == APPLICATION_TYPE && &f.creator == CREATOR)
+            .collect();
+        apps.sort_by_key(|f| !f.name.eq_ignore_ascii_case(APPLICATION));
+        let app = match apps.first() {
+            Some(app) => (*app).clone(),
+            None => volume.file(APPLICATION)?,
+        };
         Self::from_resource_fork(&volume.resource_fork(&app)?)
     }
 
