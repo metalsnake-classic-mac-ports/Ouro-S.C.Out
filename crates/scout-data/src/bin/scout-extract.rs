@@ -80,7 +80,7 @@ impl Options {
                     _ => return Err(USAGE.into()),
                 },
                 "-h" | "--help" => {
-                    print!("{HELP}\n");
+                    println!("{HELP}");
                     std::process::exit(0);
                 }
                 other if other.starts_with('-') => {
