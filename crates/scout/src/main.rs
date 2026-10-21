@@ -9,7 +9,8 @@
 //!
 //! Keys: arrows move, Return takes / drops / teleports, Space fires,
 //! Backspace blows yourself up, N/P next/previous level, R restart the
-//! level, Tab game screen / level map, F1 palette, Esc quit.
+//! level, Tab game screen / level map, F1 palette, F2 original / corrected
+//! music, Esc quit.
 
 mod audio;
 mod render;
@@ -270,6 +271,10 @@ fn run(data: &GameData) -> Result<()> {
                             };
                             continue;
                         }
+                        Keycode::F2 => {
+                            music.toggle_fixed();
+                            continue;
+                        }
                         Keycode::F1 => {
                             palette = (palette + 1) % data.palettes.len();
                             continue;
@@ -366,14 +371,15 @@ fn run(data: &GameData) -> Result<()> {
         })?;
         canvas.set_logical_size(w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX)?;
         let new_title = format!(
-            "S.C.Out – level {}/{}{} (arrows move, N/P level, R restart, Tab map)",
+            "S.C.Out – level {}/{}{}{} (arrows move, N/P level, R restart, Tab map, F2 music)",
             level + 1,
             data.levels.len(),
             if p.name == DEFAULT_PALETTE {
                 String::new()
             } else {
                 format!(" – palette {}", p.name)
-            }
+            },
+            if music.fixed { " – music fixed" } else { "" }
         );
         if new_title != title {
             canvas.window_mut().set_title(&new_title)?;

@@ -6,6 +6,11 @@
 //!
 //! The player's tables (volumes, steps, vibrato, periods) are read from the
 //! original code, which the caller passes in (CODE 10 without its header).
+//!
+//! With [`MusicPlayer::fixed`] the player corrects the bugs of the original
+//! (re/BUGS.md): E commands, C volume, volume row, finetune in the volume,
+//! loop start, the fraction of the sample position. It can be switched at
+//! any time, to compare.
 
 /// Samples per tick (one call of CODE 10 0x0).
 pub const TICK_SAMPLES: usize = 279;
@@ -50,11 +55,15 @@ struct Voice {
     period: u16,
     loop_ptr: Option<usize>,
     loop_len: u32,
+    /// Fraction of the position, kept between ticks only when fixed.
+    frac: u16,
 }
 
 /// The state of CODE 10 (kept inside the segment in the original).
 #[derive(Clone, Debug)]
 pub struct MusicPlayer {
+    /// Correct the bugs of the original instead of playing like it.
+    pub fixed: bool,
     /// The module with its samples converted (reversed, unsigned).
     module: Vec<u8>,
     /// CODE 10 with the volume table divided by 4 (CODE 10 0x5850).
@@ -143,6 +152,7 @@ impl MusicPlayer {
             ptr = end;
         }
         Self {
+            fixed: false,
             module,
             code,
             order,
@@ -229,6 +239,13 @@ impl MusicPlayer {
             c.volume = word(&self.module, entry + 2);
             c.loop_ptr = c.start;
             c.loop_len = word(&self.module, entry + 6);
+            if self.fixed {
+                // the samples are reversed: the loop starts this far from
+                // the start of the reversed data (the original skips this)
+                let repeat = word(&self.module, entry + 4);
+                let skip = c.length.saturating_sub(repeat).saturating_sub(c.loop_len);
+                c.loop_ptr = c.start.map(|p| p + 2 * skip as usize);
+            }
             self.voices[ch].volume = c.volume;
         }
         let period = u16::from_be_bytes([note[0], note[1]]) & 0xFFF;
@@ -263,7 +280,12 @@ impl MusicPlayer {
                 }
                 let v = self.channels[ch].note[3] as u16;
                 self.voices[ch].volume = (self.voices[ch].volume & 0xFF00) | v;
+                if self.fixed {
+                    let c = &mut self.channels[ch];
+                    c.volume = (c.volume & 0xFF00) | v;
+                }
             }
+            0xE if self.fixed => self.extended_row(ch),
             0xD => self.jump = !self.jump,
             0xF => {
                 let speed = param & 0x1F;
@@ -325,9 +347,61 @@ impl MusicPlayer {
                         self.vibrato(ch);
                         self.volume_slide(ch);
                     }
+                    0xE if self.fixed => self.extended_effects(ch),
                     _ => {}
                 }
             }
+        }
+    }
+
+    /// Fixed only: E commands on the tick of the row (fine slides, note cut
+    /// at 0). The original ignores all E commands.
+    fn extended_row(&mut self, ch: usize) {
+        let param = self.channels[ch].note[3];
+        let x = (param & 0xF) as u16;
+        let c = &mut self.channels[ch];
+        match param >> 4 {
+            0x1 => {
+                c.period = c.period.saturating_sub(x).max(0x71);
+                self.voices[ch].period = c.period;
+            }
+            0x2 => {
+                c.period = (c.period + x).min(0x358);
+                self.voices[ch].period = c.period;
+            }
+            0xA => {
+                c.volume = (c.volume & 0xFF00) | ((c.volume & 0xFF) + x).min(0x40);
+                self.voices[ch].volume = c.volume;
+            }
+            0xB => {
+                c.volume = (c.volume & 0xFF00) | (c.volume & 0xFF).saturating_sub(x);
+                self.voices[ch].volume = c.volume;
+            }
+            0xC if x == 0 => {
+                c.volume &= 0xFF00;
+                self.voices[ch].volume = c.volume;
+            }
+            _ => {}
+        }
+    }
+
+    /// Fixed only: E commands between rows (retrigger, note cut).
+    fn extended_effects(&mut self, ch: usize) {
+        let param = self.channels[ch].note[3];
+        let x = param & 0xF;
+        match param >> 4 {
+            0x9 if x != 0 && self.counter.is_multiple_of(x) => {
+                let c = self.channels[ch];
+                let v = &mut self.voices[ch];
+                v.ptr = c.start;
+                v.pos = c.length.wrapping_mul(2) as u32;
+                v.frac = 0;
+            }
+            0xC if self.counter == x => {
+                self.channels[ch].volume &= 0xFF00;
+                self.voices[ch].volume = self.channels[ch].volume;
+            }
+            _ => {}
         }
     }
 
@@ -433,8 +507,12 @@ impl MusicPlayer {
             let v = self.voices[ch];
             let mut ptr = v.ptr;
             let mut pos = v.pos;
-            let mut row = v.volume;
-            row = row.saturating_sub(1);
+            let mut row = if self.fixed {
+                // only the volume byte, and row n for volume n (64 → 63)
+                (v.volume & 0xFF).min(63)
+            } else {
+                v.volume.saturating_sub(1)
+            };
             row <<= 8;
             let step_at = |period: u16| {
                 let i = (period.wrapping_mul(4)) as i16 as isize;
@@ -448,7 +526,7 @@ impl MusicPlayer {
             let step = step_at(v.period);
             let (mut frac_step, mut int_step) = (step as u16, (step >> 16) as u16);
             let loop_step = if v.loop_len == 0 { 0 } else { step };
-            let mut frac: u16 = 0;
+            let mut frac: u16 = if self.fixed { v.frac } else { 0 };
             for o in out.iter_mut() {
                 let (f, borrow) = frac.overflowing_sub(frac_step);
                 frac = f;
@@ -474,6 +552,7 @@ impl MusicPlayer {
             }
             self.voices[ch].ptr = ptr;
             self.voices[ch].pos = pos;
+            self.voices[ch].frac = frac;
         }
         out
     }

@@ -196,8 +196,16 @@ CODE 10, the music replay, compared with ProTracker:
   loops of this module end at the sample end, so this is not audible.
 - The fraction of the sample position starts at 0 on every tick, a tiny
   pitch error.
+- The mixer takes the whole volume word, finetune × 256 + volume, as the
+  volume: a sample with a finetune other than 0 would read the wrong part
+  of the table. All samples of this module have finetune 0. (The finetune
+  is not applied to the pitch either.)
 
-The rewrite plays the module exactly like the original.
+The rewrite plays the module exactly like the original. With
+`MusicPlayer::fixed` (F2 in the game, to compare) it corrects all of the
+above. The E commands it handles are those that need no extra state: E1 / E2
+fine portamento, E9 retrigger, EA / EB fine volume slide and EC note cut.
+Finetune stays unapplied.
 
 ## Not bugs, but easy to get wrong
 

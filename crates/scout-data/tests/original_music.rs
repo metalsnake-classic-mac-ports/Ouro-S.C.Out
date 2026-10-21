@@ -34,3 +34,25 @@ fn music_matches_the_original() {
         }
     }
 }
+
+/// The corrected player differs (the module uses E93), but only a little.
+#[test]
+fn fixed_music_differs_from_the_original() {
+    let disk = repo_root().join("re/work/SCOUT_1_4.dsk");
+    if !disk.exists() {
+        eprintln!("skipped: disk image not found");
+        return;
+    }
+    let data = GameData::load(&disk).expect("original disk image loads");
+    let mut original = MusicPlayer::new(&data.music, &data.music_code, 0);
+    let mut fixed = MusicPlayer::new(&data.music, &data.music_code, 0);
+    fixed.fixed = true;
+    let (mut differ, mut total) = (0, 0);
+    for _ in 0..10_000 {
+        let (a, b) = (original.tick(), fixed.tick());
+        differ += a.iter().zip(&b).filter(|(a, b)| a != b).count();
+        total += TICK_SAMPLES;
+    }
+    assert!(differ > 0);
+    assert!(differ < total, "{differ} of {total}");
+}

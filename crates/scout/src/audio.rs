@@ -86,6 +86,8 @@ pub struct Music {
     player: Option<MusicPlayer>,
     /// Stopped because the game went to the background (`-0x6db4`).
     suspended: bool,
+    /// Play with the bugs of the original player corrected.
+    pub fixed: bool,
 }
 
 impl Music {
@@ -110,6 +112,7 @@ impl Music {
             stream: stream.ok(),
             player: None,
             suspended: false,
+            fixed: false,
         }
     }
 
@@ -117,7 +120,9 @@ impl Music {
     /// it comes back to the front).
     pub fn start(&mut self, data: &GameData, position: u8) {
         self.stop();
-        self.player = Some(MusicPlayer::new(&data.music, &data.music_code, position));
+        let mut player = MusicPlayer::new(&data.music, &data.music_code, position);
+        player.fixed = self.fixed;
+        self.player = Some(player);
     }
 
     /// The game goes to the background: the music stops (CODE 7 0x105a).
@@ -141,6 +146,15 @@ impl Music {
         self.player = None;
         if let Some(stream) = &self.stream {
             let _ = stream.clear();
+        }
+    }
+
+    /// Switch between the original and the corrected player, in the
+    /// middle of the song.
+    pub fn toggle_fixed(&mut self) {
+        self.fixed = !self.fixed;
+        if let Some(player) = &mut self.player {
+            player.fixed = self.fixed;
         }
     }
 

@@ -90,6 +90,9 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [ ] Turn off the sound that plays when the player starts moving (101 / 108)
 - [ ] Choice of the projectile colors: intended (default) or as on a real Mac / in
       Basilisk II (see re/BUGS.md)
+- [x] Music player with the bugs of the original corrected (`MusicPlayer::fixed`, re/BUGS.md),
+      for now switched with F2 during the game, to compare
+  - [ ] Make it a setting once there is a settings menu (default: like the original)
 
 ### Data packs (later)
 
