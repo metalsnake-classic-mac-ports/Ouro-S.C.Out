@@ -81,6 +81,18 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   - [x] Who sets `-0x53b4` (switch of tile 61) and the carried object `-0x578c`: the player;
         dropping the key (object 30) on tile 0x100 clears `-0x53b4`
 
+### Options (modern extensions, off by default unless noted)
+
+- [ ] Turn off the sound that plays when the player starts moving (101 / 108)
+- [ ] Choice of the projectile colors: intended (default) or as on a real Mac / in
+      Basilisk II (see re/BUGS.md)
+- [ ] Frame rate: 60 fps (default) or 30 fps like slower Macs of the time
+
+### Requirements
+
+- Sound starts without delay: the rewrite must not add latency (device buffer of 256
+  frames now; the original in Basilisk II is delayed as well, which may be the emulation)
+
 The sections below were written for the old port and stay as a reference.
 The old port now lives in `legacy-port/`, so `build/` below means `legacy-port/build/`.
 
