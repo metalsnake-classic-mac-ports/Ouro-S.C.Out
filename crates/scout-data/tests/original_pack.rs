@@ -97,7 +97,6 @@ fn a_pack_holds_the_same_data() {
         assert_eq!((x.id, x.rate, &x.samples), (y.id, y.rate, &y.samples));
     }
     assert_eq!(a.music, b.music);
-    assert_eq!(a.unused_music, b.unused_music);
     assert_eq!(a.music_volumes, b.music_volumes);
 
     // and the music from the pack is the original's

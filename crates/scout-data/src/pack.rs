@@ -12,8 +12,8 @@
 //!   game palette when read (the nearest color for a new one)
 //! - `pictures/ID.png`: the pictures, each with its own colors (at most 256)
 //! - `sounds/ID.wav`: 8-bit mono (16-bit is converted)
-//! - `music/music.mod`, `music/unused.mod`: the music and its unused earlier
-//!   version; `music/volumes.txt`: the 64 gains of the player's volume table
+//! - `music/music.mod`: the music; `music/volumes.txt`: the 64 gains of the
+//!   player's volume table
 //! - `levels/NNN.txt`: the values of the level file (24 rows of 40 tiles,
 //!   then 24 rows of 40 floor values; lines with `#` are comments),
 //!   `levels/codes.txt`: the level codes, one per line (level 2 first)
@@ -119,7 +119,6 @@ impl GameData {
             put(&format!("sounds/{}.wav", s.id), &wav(s.rate, &s.samples))?;
         }
         put("music/music.mod", &self.music)?;
-        put("music/unused.mod", &self.unused_music)?;
         let volumes: String = self
             .music_volumes
             .iter()
@@ -266,7 +265,7 @@ impl GameData {
             sounds,
             music: read("music/music.mod")?,
             music_volumes,
-            unused_music: read("music/unused.mod")?,
+            unused_music: None,
             font,
             small_font,
             box_tiles: TileSet::new(box_tiles)?,

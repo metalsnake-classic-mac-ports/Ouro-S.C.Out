@@ -241,15 +241,16 @@ fn main() -> Result<()> {
         let rate = music::RATE.round() as u32;
         // ten minutes at most; the songs take about three
         let max_ticks = (600.0 * music::RATE) as usize / music::TICK_SAMPLES;
-        for (name, module) in [
-            ("music_200", &data.music),
-            ("music_5200_unused", &data.unused_music),
-        ] {
+        let modules = [
+            Some(("music_200", &data.music)),
+            data.unused_music.as_ref().map(|m| ("music_5200_unused", m)),
+        ];
+        for (name, module) in modules.into_iter().flatten() {
             fs::write(dir.join(format!("{name}.mod")), module)?;
             let song = MusicPlayer::render_song(module, &data.music_volumes, false, max_ticks);
             wav(&dir.join(format!("{name}.wav")), rate, &song)?;
         }
-        done.push("music (2 modules)".into());
+        done.push("music".into());
     }
 
     let levels = out.join("levels");

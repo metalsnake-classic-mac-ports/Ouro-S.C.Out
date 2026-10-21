@@ -100,6 +100,18 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [x] Music player with the bugs of the original corrected (`MusicPlayer::fixed`, re/BUGS.md):
       setting MUSIC PLAYER, default like the original
 
+### Level selection (new feature)
+
+- [ ] A level selection in the menu: every level with its name and a thumbnail (the part of
+      the level that is visible when it starts, i.e. the start view)
+- [ ] Levels get names; the original levels are named after their password (level 1 has
+      none: needs a name of its own)
+- [ ] Save per level whether it was completed and the times of three successful runs: the
+      first, the fastest and the latest; mark completed levels in the selection
+- [ ] Decide: what counts as the time of a run (from the start animation to the target,
+      over lost lives / restarts at checkpoints?), and how a level started from the
+      selection relates to lives and the normal game
+
 ### Data packs (later)
 
 - [x] Data pack: `scout-extract --only pack` writes `scout-data.zip` (PNG, WAV, `.mod`, text,

@@ -73,8 +73,9 @@ pub struct GameData {
     pub music: Vec<u8>,
     /// The gains of the music player's volume table (from CODE 10).
     pub music_volumes: scout_core::music::Volumes,
-    /// 'SHAP' 5200 unpacked: an earlier version of the music, unused.
-    pub unused_music: Vec<u8>,
+    /// 'SHAP' 5200 unpacked: an earlier version of the music, unused (only
+    /// for `scout-extract`; a data pack does not have it).
+    pub unused_music: Option<Vec<u8>>,
     /// The block letters of the screens between levels (CODE 8 0x19c2):
     /// A–Z, 1–9, 0, then `.` at 38, `:` at 40, `-` at 44.
     pub font: ObjectSet,
@@ -210,7 +211,7 @@ impl GameData {
                 .get(4..)
                 .and_then(scout_core::music::volumes_from_code)
                 .ok_or_else(|| error::corrupt("no volume table in CODE 10"))?,
-            unused_music: shap(UNUSED_MUSIC_ID)?,
+            unused_music: Some(shap(UNUSED_MUSIC_ID)?),
             font: ObjectSet::new(shap(FONT_ID)?)?,
             small_font: ObjectSet::with_size(shap(SMALL_FONT_ID)?, 16)?,
             box_tiles: TileSet::new(shap(BOX_ID)?)?,
