@@ -470,7 +470,8 @@ like the original, the menu and the dialogs are marble boxes with block
 letters (`crates/scout/src/menu.rs`), with hints and key names in the
 system font. The shortcuts work with Command or Ctrl. Settings are saved
 in a text file (SDL's preference folder) instead of the application.
-The keys are a page of their own under Settings. Assigning a key that is in
+The game pauses (the PAUSE box and the menu) when its window loses the
+focus. The keys are a page of their own under Settings. Assigning a key that is in
 use swaps the two keys. Self destruct, fixed to
 Esc in the original, is a seventh key in the settings (default Esc).
 

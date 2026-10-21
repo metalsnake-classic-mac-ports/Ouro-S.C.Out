@@ -1,20 +1,24 @@
 //! S.C.Out for macOS, Windows and Linux (work in progress).
 //!
 //! Usage:
-//!   scout [DISK]                                  play
+//!   scout [--dev] [DISK]                          play
 //!   scout [DISK] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]
 //!   scout [DISK] --export-menu PAGE OUT.bmp       a menu page (see --help)
 //!
-//! DISK is the original `SCOUT_1_4.dsk`. Without it, `SCOUT_DISK` is used,
-//! then `SCOUT_1_4.dsk` in the current folder, then `re/work/SCOUT_1_4.dsk`.
+//! DISK is the original `SCOUT_1_4.dsk` (or the application). Without it,
+//! `SCOUT_DISK` is used, then the one chosen before (saved in the
+//! settings), then `SCOUT_1_4.dsk` in the current folder, then
+//! `re/work/SCOUT_1_4.dsk`; if there is none, the game asks for it.
 //!
 //! Keys (changeable in the settings): arrows move, Return takes / drops /
-//! teleports, Space fires, Esc blows yourself up. Command (or Ctrl) + P
-//! pauses, + Q quits; on the title + G plays, + R resumes, + I settings,
-//! + E password, as in the original.
+//! teleports, Space fires, Esc blows yourself up. Command (or Ctrl) and P
+//! pauses, Q quits; on the title G plays, R resumes, I opens the settings
+//! and E the password, as in the original. F11 or Command (or Ctrl) and F
+//! switches to full screen. The game pauses when its window loses the
+//! focus.
 //!
-//! For development: N/P next/previous level, R restart the level, Tab game
-//! screen / level map, F1 palette.
+//! With `--dev`, keys for development: N/P next/previous level, R restart
+//! the level, Tab game screen / level map, F1 palette.
 
 mod audio;
 mod menu;
@@ -68,22 +72,108 @@ fn main() -> Result<()> {
         }
         None => None,
     };
+    let dev = match args.iter().position(|a| a == "--dev") {
+        Some(at) => {
+            args.remove(at);
+            true
+        }
+        None => false,
+    };
+    let Some(rest) = export else {
+        return run(args.first().map(PathBuf::from), dev);
+    };
     let disk = find_disk(args.first().map(PathBuf::from))?;
     let data = GameData::load(&disk).with_context(|| format!("loading {}", disk.display()))?;
 
-    match export {
-        Some(rest) => {
-            let level: usize = rest[0].parse().context("LEVEL must be a number from 1")?;
-            let view = match rest.get(2).map(String::as_str) {
-                None | Some("screen") => View::Screen,
-                Some("map") => View::Map,
-                Some("level") => View::Level,
-                Some(other) => bail!("unknown view {other:?}, use screen, map or level"),
-            };
-            let palette = rest.get(3).map(String::as_str).unwrap_or(DEFAULT_PALETTE);
-            export_level(&data, level, view, palette, &PathBuf::from(&rest[1]))
+    let level: usize = rest[0].parse().context("LEVEL must be a number from 1")?;
+    let view = match rest.get(2).map(String::as_str) {
+        None | Some("screen") => View::Screen,
+        Some("map") => View::Map,
+        Some("level") => View::Level,
+        Some(other) => bail!("unknown view {other:?}, use screen, map or level"),
+    };
+    let palette = rest.get(3).map(String::as_str).unwrap_or(DEFAULT_PALETTE);
+    export_level(&data, level, view, palette, &PathBuf::from(&rest[1]))
+}
+
+/// What the player sees when the game data is missing.
+const NEED_DATA: &str = "S.C.Out needs the data of the original game (Kalisto, 1993): \
+the disk image SCOUT_1_4.dsk or the S.C.OUT application itself (version 1.4 or 1.3.1). \
+They are not included.\n\nPlease choose the file in the next window.";
+
+/// The game data: from the command line, `SCOUT_DISK`, the file chosen
+/// before, the usual places, or else chosen by the player (`None` if they
+/// cancel).
+fn load_data(
+    window: &sdl3::video::Window,
+    events: &mut sdl3::EventPump,
+    arg: Option<PathBuf>,
+    settings: &mut Settings,
+) -> Result<Option<GameData>> {
+    let candidates = arg
+        .into_iter()
+        .chain(std::env::var_os("SCOUT_DISK").map(PathBuf::from))
+        .chain(settings.disk.clone())
+        .chain([
+            PathBuf::from("SCOUT_1_4.dsk"),
+            PathBuf::from("re/work/SCOUT_1_4.dsk"),
+        ]);
+    for path in candidates.filter(|p| p.exists()) {
+        match GameData::load(&path) {
+            Ok(data) => return Ok(Some(data)),
+            Err(e) => eprintln!("{}: {e}", path.display()),
         }
-        None => run(&data),
+    }
+    let mut message = NEED_DATA.to_string();
+    loop {
+        sdl3::messagebox::show_simple_message_box(
+            sdl3::messagebox::MessageBoxFlag::INFORMATION,
+            "S.C.Out",
+            &message,
+            window,
+        )?;
+        let Some(path) = choose_file(window, events) else {
+            return Ok(None);
+        };
+        match GameData::load(&path) {
+            Ok(data) => {
+                settings.disk = Some(path);
+                settings.save();
+                return Ok(Some(data));
+            }
+            Err(e) => {
+                message = format!(
+                    "{} is not the S.C.Out game data ({e}).\n\n{NEED_DATA}",
+                    path.display()
+                );
+            }
+        }
+    }
+}
+
+/// The system's dialog to open a file; `None` if the player cancels.
+fn choose_file(window: &sdl3::video::Window, events: &mut sdl3::EventPump) -> Option<PathBuf> {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    let chosen: Rc<RefCell<Option<Option<PathBuf>>>> = Rc::default();
+    let result = chosen.clone();
+    sdl3::dialog::show_open_file_dialog(
+        &[],
+        None::<&Path>,
+        false,
+        window,
+        Box::new(move |files, _| {
+            *result.borrow_mut() = Some(files.ok().and_then(|f| f.into_iter().next()));
+        }),
+    )
+    .ok()?;
+    // the answer comes while events are handled
+    loop {
+        if let Some(path) = chosen.borrow_mut().take() {
+            return path;
+        }
+        events.pump_events();
+        std::thread::sleep(Duration::from_millis(10));
     }
 }
 
@@ -188,7 +278,7 @@ fn export_menu(data: &GameData, page: &str, out: &Path) -> Result<()> {
             }
             "settings" => {
                 m.open(menu::Page::Settings);
-                m.selected = 2;
+                m.selected = 3;
             }
             "keys" => {
                 m.open(menu::Page::Keys { waiting: false });
@@ -331,15 +421,11 @@ fn shortcut(keymod: Mod, code: Scancode) -> Option<char> {
     }
 }
 
-fn run(data: &GameData) -> Result<()> {
+fn run(disk: Option<PathBuf>, dev: bool) -> Result<()> {
     let sdl = sdl3::init()?;
     let audio = audio::Audio::open(&sdl);
     let mut settings = Settings::load();
     let mut music = audio::Music::open(&sdl);
-    music.fixed = settings.fixed_music;
-    if settings.music {
-        music.start(data, 1);
-    }
     let video = sdl.video()?;
     let window = video
         .window(
@@ -350,7 +436,19 @@ fn run(data: &GameData) -> Result<()> {
         .resizable()
         .position_centered()
         .build()?;
+    let mut events = sdl.event_pump()?;
+    let Some(data) = load_data(&window, &mut events, disk, &mut settings)? else {
+        return Ok(());
+    };
+    let data = &data;
+    music.fixed = settings.fixed_music;
+    if settings.music {
+        music.start(data, 1);
+    }
     let mut canvas = window.into_canvas();
+    if settings.fullscreen {
+        let _ = canvas.window_mut().set_fullscreen(true);
+    }
     let creator = canvas.texture_creator();
     let font = text::SystemFont::load();
 
@@ -368,7 +466,6 @@ fn run(data: &GameData) -> Result<()> {
     };
     let mut view = View::Screen;
     let mut palette = palette_index(data, DEFAULT_PALETTE)?;
-    let mut events = sdl.event_pump()?;
     let frame_time = Duration::from_secs(1) / FRAMES_PER_SECOND;
     let mut next_frame = Instant::now();
     let mut title_text = String::new();
@@ -382,7 +479,14 @@ fn run(data: &GameData) -> Result<()> {
                 Event::Window {
                     win_event: WindowEvent::FocusLost,
                     ..
-                } => music.suspend(),
+                } => {
+                    music.suspend();
+                    // unlike the original, the game pauses in the background
+                    if matches!(phase, Phase::Playing) {
+                        paused = Some(draw(data, &game, View::Screen));
+                        phase = Phase::Menu(Menu::new(Background::Paused, true));
+                    }
+                }
                 Event::Window {
                     win_event: WindowEvent::FocusGained,
                     ..
@@ -394,10 +498,20 @@ fn run(data: &GameData) -> Result<()> {
                     ..
                 } => {
                     // Command (or Ctrl) + a letter: the menu shortcuts
-                    if let Some(c) = shortcut(keymod, code) {
+                    if code == Scancode::F11 {
+                        settings.fullscreen = !settings.fullscreen;
+                        settings.save();
+                        let _ = canvas.window_mut().set_fullscreen(settings.fullscreen);
+                    } else if let Some(c) = shortcut(keymod, code) {
                         let playing = matches!(phase, Phase::Playing);
                         action = match c {
                             'Q' => menu::Action::Quit,
+                            'F' => {
+                                settings.fullscreen = !settings.fullscreen;
+                                settings.save();
+                                let _ = canvas.window_mut().set_fullscreen(settings.fullscreen);
+                                menu::Action::None
+                            }
                             'P' if playing => {
                                 paused = Some(draw(data, &game, View::Screen));
                                 phase = Phase::Menu(Menu::new(Background::Paused, true));
@@ -422,13 +536,13 @@ fn run(data: &GameData) -> Result<()> {
                         match &mut phase {
                             Phase::Menu(m) => action = m.key(code, &mut settings, data),
                             Phase::Picture { key_down, .. } | Phase::Screen { key_down, .. }
-                                if !repeat && !DEVELOPER_KEYS.contains(&code) =>
+                                if !repeat && !(dev && DEVELOPER_KEYS.contains(&code)) =>
                             {
                                 *key_down = true
                             }
                             _ => {}
                         }
-                        if !repeat && !matches!(phase, Phase::Menu(_)) {
+                        if dev && !repeat && !matches!(phase, Phase::Menu(_)) {
                             // developer keys
                             let n = data.levels.len();
                             let mut new_level = None;
@@ -525,6 +639,7 @@ fn run(data: &GameData) -> Result<()> {
                     game.no_walls = true;
                 }
                 menu::Action::SettingsChanged => {
+                    let _ = canvas.window_mut().set_fullscreen(settings.fullscreen);
                     music.set_fixed(settings.fixed_music);
                     if settings.music && !music.is_playing() {
                         // switched on: the original starts from position 0
@@ -666,7 +781,7 @@ fn run(data: &GameData) -> Result<()> {
         }
 
         let new_title = match phase {
-            Phase::Playing | Phase::Screen { .. } | Phase::Quiet(_) => format!(
+            Phase::Playing | Phase::Screen { .. } | Phase::Quiet(_) if dev => format!(
                 "S.C.Out – level {}/{}{}",
                 level + 1,
                 data.levels.len(),

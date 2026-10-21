@@ -97,10 +97,10 @@ pub struct Menu {
     pub resumable: bool,
 }
 
-/// Rows of the settings page: three switches, the keys, back.
-const SETTING_ROWS: usize = 4;
+/// Rows of the settings page: music, sound effects, screen, the keys, back.
+const SETTING_ROWS: usize = 5;
 /// The row of the keys on the settings page.
-const KEYS_ROW: usize = 2;
+const KEYS_ROW: usize = 3;
 /// Rows of the keys page: the keys, back.
 const KEY_ROWS: usize = KEY_LABELS.len() + 1;
 
@@ -186,6 +186,7 @@ impl Menu {
                             }
                         }
                         1 => settings.sounds = !settings.sounds,
+                        2 => settings.fullscreen = !settings.fullscreen,
                         KEYS_ROW => {
                             if !matches!(code, Scancode::Left | Scancode::Right) {
                                 self.open(Page::Keys { waiting: false });
@@ -391,12 +392,24 @@ impl Menu {
                     (
                         "MUSIC",
                         Value::Text(music.into()),
-                        "Music off, as in the original (with the bugs of its player) or fixed",
+                        "Music off, original (with the bugs of its player) or fixed",
                     ),
                     (
                         "SFX",
                         Value::Text(on(settings.sounds).into()),
                         "Sound effects on or off",
+                    ),
+                    (
+                        "SCREEN",
+                        Value::Text(
+                            if settings.fullscreen {
+                                "FULL"
+                            } else {
+                                "WINDOW"
+                            }
+                            .into(),
+                        ),
+                        "In a window or full screen (also F11 or Command / Ctrl + F)",
                     ),
                     ("KEYS", Value::None, "The keys of the game"),
                     ("BACK", Value::None, "Back to the menu"),
@@ -408,7 +421,7 @@ impl Menu {
                     "SETTINGS",
                     &rows,
                     self.selected,
-                    (48, 288),
+                    (48, 304),
                 );
                 screen.overlay(&canvas, game_palette, LIST_BOX);
                 lines.push(
@@ -502,10 +515,7 @@ const KEY_LABELS: [(&str, &str); 7] = [
     ("DOWN", "Move down"),
     ("GET-DROP", "Take, drop or swap an object; use a teleporter"),
     ("FIRE", "Fire a missile"),
-    (
-        "ABORT",
-        "Blow yourself up, the level is ABORTED (Esc in the original)",
-    ),
+    ("ABORT", "Blow yourself up, the level is ABORTED"),
 ];
 
 /// The music row: 0 off, 1 as in the original, 2 fixed.

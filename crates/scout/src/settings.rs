@@ -28,6 +28,9 @@ pub struct Settings {
     pub fixed_music: bool,
     /// Right, left, up, down, get / drop, fire, self destruct.
     pub keys: [Scancode; 7],
+    pub fullscreen: bool,
+    /// The original game data the player chose (disk image or application).
+    pub disk: Option<PathBuf>,
 }
 
 impl Default for Settings {
@@ -48,6 +51,8 @@ impl Default for Settings {
                 Scancode::Space,
                 Scancode::Escape,
             ],
+            fullscreen: false,
+            disk: None,
         }
     }
 }
@@ -77,6 +82,8 @@ impl Settings {
                 "music" => settings.music = on,
                 "sounds" => settings.sounds = on,
                 "music player" => settings.fixed_music = value == "corrected",
+                "screen" => settings.fullscreen = value == "full",
+                "disk" => settings.disk = Some(PathBuf::from(value)),
                 _ => {
                     if let Some(i) = KEY_NAMES.iter().position(|k| k.eq_ignore_ascii_case(name))
                         && let Some(code) = Scancode::from_name(value)
@@ -102,6 +109,13 @@ impl Settings {
                 "original"
             }
         );
+        text += &format!(
+            "screen = {}\n",
+            if self.fullscreen { "full" } else { "window" }
+        );
+        if let Some(disk) = &self.disk {
+            text += &format!("disk = {}\n", disk.display());
+        }
         for (name, key) in KEY_NAMES.iter().zip(self.keys) {
             text += &format!("{} = {}\n", name.to_lowercase(), key.name());
         }

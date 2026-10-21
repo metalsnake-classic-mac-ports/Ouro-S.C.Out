@@ -67,6 +67,11 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         game, settings saved in a file, level codes and NOWALL, pictures 1001 (game over) and
         1002 (end); Command / Ctrl + P pause, + Q quit, + G / R / I / E like the menu shortcuts
   - [ ] Mouse in the menus (now only keys; a click opens the menu and closes screens)
+  - [x] Pause when the window loses the focus (what the original does in the game is not
+        checked; it stops its music)
+  - [x] Full screen (setting SCREEN, F11, Command / Ctrl + F)
+  - [x] Developer keys only with `--dev`
+  - [x] First start without game data: message and file dialog, the path is saved
   - [ ] Dissolve between screens (CODE 8 0x1354); the random numbers it uses only with
         the lowest priority (see below)
   - [x] Sound effects ('snd ' 100–124) requested like the original, one channel; the messages
@@ -113,8 +118,11 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 
 ### To check
 
-- [ ] Objects 26–31 have pink frames in the extracted graphics (mask?): compare with the
-      original in the emulator (26/27 are mirrors)
+- [ ] Objects 24–29 have pink frames in the extracted graphics (mask?): compare with the
+      original in the emulator. Used in: 24 levels 68, 101; 25 level 71; 26 levels 7, 45, 47,
+      58–61, 67, 68, 94, 95, 101 (first: level 7, box 3, 6); 27 levels 11, 45, 47–49, 58–61,
+      67–69, 93–95, 100, 101 (first: level 11, box 4, 5); 28 levels 47, 59, 60; 29 levels 58,
+      59, 68
 
 ### Lowest priority
 
