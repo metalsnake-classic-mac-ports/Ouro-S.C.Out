@@ -1,6 +1,17 @@
 //! The tile and object graphics of the original game (8 bit, 32 × 32).
 
 use crate::error::{Result, corrupt};
+use crate::palette::Palette;
+
+/// A picture with its own colors.
+#[derive(Debug, Clone)]
+pub struct IndexedImage {
+    pub width: usize,
+    pub height: usize,
+    /// One palette index per pixel, row by row.
+    pub pixels: Vec<u8>,
+    pub palette: Palette,
+}
 
 pub const TILE_SIZE: usize = 32;
 const TILE_BYTES: usize = TILE_SIZE * TILE_SIZE;

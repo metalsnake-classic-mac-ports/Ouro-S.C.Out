@@ -1,16 +1,15 @@
 //! S.C.Out for macOS, Windows and Linux (work in progress).
 //!
 //! Usage:
-//!   scout [--dev] [DISK]                          play
-//!   scout [DISK] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]
-//!   scout [DISK] --export-menu PAGE OUT.bmp       a menu page (see --help)
+//!   scout [--dev] [DATA]                          play
+//!   scout [DATA] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]
+//!   scout [DATA] --export-menu PAGE OUT.bmp       a menu page (see --help)
 //!
-//! DISK is the original `SCOUT_1_4.dsk`, the application or a data pack
-//! (`scout-data.zip`, made by `scout-extract`). Without it, `SCOUT_DISK` is
-//! used, then the one chosen before (saved in the settings), then
-//! `scout-data.zip` beside the program or in the current folder, then
-//! `SCOUT_1_4.dsk` in the current folder, then `re/work/SCOUT_1_4.dsk`; if
-//! there is none, the game asks for it.
+//! DATA is the data pack `scout-data.zip` (made by `scout-extract` from the
+//! original). Without it, `SCOUT_DATA` is used, then the one chosen before
+//! (saved in the settings), then `scout-data.zip` beside the program or in
+//! the current folder, then `re/work/scout-data.zip`; if there is none, the
+//! game asks for it.
 //!
 //! Keys (changeable in the settings): arrows move, Return takes / drops /
 //! teleports, Space fires, Esc blows yourself up. Command (or Ctrl) and P
@@ -56,19 +55,19 @@ fn main() -> Result<()> {
         let rest: Vec<String> = args.drain(at..).skip(1).collect();
         if rest.len() < 2 {
             bail!(
-                "usage: scout [DISK] --export-menu PAGE OUT.bmp (PAGE: {})",
+                "usage: scout [DATA] --export-menu PAGE OUT.bmp (PAGE: {})",
                 MENU_PAGES.join(", ")
             );
         }
-        let disk = find_disk(args.first().map(PathBuf::from))?;
-        let data = GameData::load(&disk).with_context(|| format!("loading {}", disk.display()))?;
+        let path = find_data(args.first().map(PathBuf::from))?;
+        let data = GameData::load(&path).with_context(|| format!("loading {}", path.display()))?;
         return export_menu(&data, &rest[0], Path::new(&rest[1]));
     }
     let export = match args.iter().position(|a| a == "--export") {
         Some(at) => {
             let rest: Vec<String> = args.drain(at..).skip(1).collect();
             if rest.len() < 2 {
-                bail!("usage: scout [DISK] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]");
+                bail!("usage: scout [DATA] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]");
             }
             Some(rest)
         }
@@ -84,8 +83,8 @@ fn main() -> Result<()> {
     let Some(rest) = export else {
         return run(args.first().map(PathBuf::from), dev);
     };
-    let disk = find_disk(args.first().map(PathBuf::from))?;
-    let data = GameData::load(&disk).with_context(|| format!("loading {}", disk.display()))?;
+    let path = find_data(args.first().map(PathBuf::from))?;
+    let data = GameData::load(&path).with_context(|| format!("loading {}", path.display()))?;
 
     let level: usize = rest[0].parse().context("LEVEL must be a number from 1")?;
     let view = match rest.get(2).map(String::as_str) {
@@ -102,15 +101,18 @@ fn main() -> Result<()> {
 /// program and in the current folder.
 const PACK: &str = "scout-data.zip";
 
+/// Where `scout-extract --only pack re/work` puts it during development.
+const DEV_PACK: &str = "re/work/scout-data.zip";
+
 /// A file in the folder of the program.
 fn beside_program(name: &str) -> Option<PathBuf> {
     Some(std::env::current_exe().ok()?.parent()?.join(name))
 }
 
 /// What the player sees when the game data is missing.
-const NEED_DATA: &str = "S.C.Out needs the data of the original game (Kalisto, 1993): \
-the disk image SCOUT_1_4.dsk, the S.C.OUT application itself (version 1.4 or 1.3.1) \
-or a data pack made from them with scout-extract (scout-data.zip). They are not included.\n\nPlease choose the file in the next window.";
+const NEED_DATA: &str = "S.C.Out needs the data of the original game (Kalisto, 1993) \
+as a data pack, scout-data.zip. It is not included: make it with scout-extract from \
+the original disk image SCOUT_1_4.dsk or the S.C.OUT application (version 1.4 or 1.3.1).\n\nPlease choose the file in the next window.";
 
 /// The game data: from the command line, `SCOUT_DISK`, the file chosen
 /// before, the usual places, or else chosen by the player (`None` if they
@@ -123,14 +125,10 @@ fn load_data(
 ) -> Result<Option<GameData>> {
     let candidates = arg
         .into_iter()
-        .chain(std::env::var_os("SCOUT_DISK").map(PathBuf::from))
-        .chain(settings.disk.clone())
+        .chain(std::env::var_os("SCOUT_DATA").map(PathBuf::from))
+        .chain(settings.data.clone())
         .chain(beside_program(PACK))
-        .chain([
-            PathBuf::from(PACK),
-            PathBuf::from("SCOUT_1_4.dsk"),
-            PathBuf::from("re/work/SCOUT_1_4.dsk"),
-        ]);
+        .chain([PathBuf::from(PACK), PathBuf::from(DEV_PACK)]);
     for path in candidates.filter(|p| p.exists()) {
         match GameData::load(&path) {
             Ok(data) => return Ok(Some(data)),
@@ -150,7 +148,7 @@ fn load_data(
         };
         match GameData::load(&path) {
             Ok(data) => {
-                settings.disk = Some(path);
+                settings.data = Some(path);
                 settings.save();
                 return Ok(Some(data));
             }
@@ -190,20 +188,13 @@ fn choose_file(window: &sdl3::video::Window, events: &mut sdl3::EventPump) -> Op
     }
 }
 
-fn find_disk(arg: Option<PathBuf>) -> Result<PathBuf> {
-    let candidates = arg
-        .into_iter()
-        .chain(std::env::var_os("SCOUT_DISK").map(PathBuf::from))
-        .chain([
-            PathBuf::from("SCOUT_1_4.dsk"),
-            PathBuf::from("re/work/SCOUT_1_4.dsk"),
-        ]);
-    for path in candidates {
-        if path.exists() {
-            return Ok(path);
-        }
-    }
-    bail!("original disk image SCOUT_1_4.dsk not found; pass its path as the first argument")
+fn find_data(arg: Option<PathBuf>) -> Result<PathBuf> {
+    arg.into_iter()
+        .chain(std::env::var_os("SCOUT_DATA").map(PathBuf::from))
+        .chain(beside_program(PACK))
+        .chain([PathBuf::from(PACK), PathBuf::from(DEV_PACK)])
+        .find(|p| p.exists())
+        .with_context(|| format!("{PACK} not found; pass its path as the first argument"))
 }
 
 fn palette_index(data: &GameData, name: &str) -> Result<usize> {
@@ -434,7 +425,7 @@ fn shortcut(keymod: Mod, code: Scancode) -> Option<char> {
     }
 }
 
-fn run(disk: Option<PathBuf>, dev: bool) -> Result<()> {
+fn run(data_path: Option<PathBuf>, dev: bool) -> Result<()> {
     let sdl = sdl3::init()?;
     let audio = audio::Audio::open(&sdl);
     let mut settings = Settings::load();
@@ -450,13 +441,12 @@ fn run(disk: Option<PathBuf>, dev: bool) -> Result<()> {
         .position_centered()
         .build()?;
     let mut events = sdl.event_pump()?;
-    let Some(data) = load_data(&window, &mut events, disk, &mut settings)? else {
+    let Some(data) = load_data(&window, &mut events, data_path, &mut settings)? else {
         return Ok(());
     };
     let data = &data;
-    music.fixed = settings.fixed_music;
     if settings.music {
-        music.start(data, 1);
+        music.start(data);
     }
     let mut canvas = window.into_canvas();
     if settings.fullscreen {
@@ -653,10 +643,8 @@ fn run(disk: Option<PathBuf>, dev: bool) -> Result<()> {
                 }
                 menu::Action::SettingsChanged => {
                     let _ = canvas.window_mut().set_fullscreen(settings.fullscreen);
-                    music.set_fixed(settings.fixed_music);
                     if settings.music && !music.is_playing() {
-                        // switched on: the original starts from position 0
-                        music.start(data, 0);
+                        music.start(data);
                     } else if !settings.music {
                         music.stop();
                     }

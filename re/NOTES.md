@@ -147,7 +147,7 @@ edge boxes, so it hardly matters; the Rust version ignores such writes.
 
 Testing: `re/tools/emu_world.py` (real levels) and `re/tools/emu_fuzz.py`
 (random levels with walls around) run the original world automaton in
-Unicorn; the test `crates/scout-data/tests/original_world.rs` compares the
+Unicorn; the test `crates/scout-original/tests/original_world.rs` compares the
 Rust version frame by frame (tiles, floor, skip flags, global flags).
 
 Projectiles: 40 entries of 0x30 bytes at `-0x6cf6` (active, …, x `-0x6cf2`,
@@ -392,7 +392,7 @@ Toolbox calls inside:
   `16800004 / period` in 16.16; the volume table (0x1740) is row v:
   `128 + floor((s − 128) · g_v)` with gains g_v that rise unevenly from
   0.049 (row 1) to 1 (row 63), no formula found. The rewrite builds all
-  tables from these rules and the 64 gains (`scout_core::music::tables`,
+  tables from these rules and the 64 gains (`scout_original::music::tables`,
   test `tables_match_the_original_code`); the data pack holds only the
   gains.
 - 0x5d0a, mixer: per channel a step from the table at 0x9d8 (period × 4:
@@ -408,14 +408,16 @@ plays all the time, in the menu, the screens and the game; it stops when
 it is switched off or the program goes to the background (suspend event,
 CODE 7 0x105a, `-0x6db4`).
 
-The rewrite: `scout_core::music::MusicPlayer`, a port of CODE 10 that
-reads the tables from the original code; it matches the original byte for
-byte over 7 minutes from positions 0 and 1 (`re/tools/emu_music.py`, test
-`music_matches_the_original`). The frontend plays it on a second stream.
-Unlike the original it does not start again from position 0 when the game
-comes back to the front: it pauses in the background and goes on where it
-stopped. `scout-extract --only music` writes both modules as `.mod` and
-as WAV played by the game's player.
+The rewrite: `scout_original::music::MusicPlayer`, a port of CODE 10; it
+matches the original byte for byte over 7 minutes from positions 0 and 1
+(`re/tools/emu_music.py`, test `music_matches_the_original`).
+`scout-extract` renders the song once through from position 0 (as the
+original or with its bugs fixed) into the data pack as FLAC; the game
+plays that in a loop on a second stream, from the start (the original's
+start at position 1 is not to be heard). Unlike the original it does not
+start again when the game comes back to the front: it pauses in the
+background and goes on where it stopped. `scout-extract --only music`
+writes both modules as `.mod` and as WAV played by the game's player.
 
 ## Title, menus and dialogs (CODE 7, CODE 2)
 

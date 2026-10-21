@@ -1,0 +1,14 @@
+[package]
+name = "scout-original"
+description = "Reads the original S.C.Out Mac data (1993) and makes the data pack of the game"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+scout-core.workspace = true
+scout-data.workspace = true
+thiserror.workspace = true
+png = "0.17"
+flacenc = { version = "0.5.1", default-features = false }
+zip = { version = "9.0.5", default-features = false }

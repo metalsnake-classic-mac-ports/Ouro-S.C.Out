@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use scout_core::Level;
 use scout_data::GameData;
+use scout_original::MusicVersion;
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -22,7 +23,11 @@ fn load() -> Option<GameData> {
         );
         return None;
     }
-    Some(GameData::load(&path).expect("original disk image loads"))
+    Some(
+        scout_original::load(&path, MusicVersion::Original)
+            .expect("original disk image loads")
+            .game,
+    )
 }
 
 #[test]

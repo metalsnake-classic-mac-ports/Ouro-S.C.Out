@@ -7,18 +7,12 @@ pub enum Error {
         path: PathBuf,
         source: std::io::Error,
     },
-    #[error("not an HFS disk image")]
-    NotHfs,
-    #[error("file {0:?} not found on the disk")]
-    FileNotFound(String),
-    #[error("resource '{kind}' {id} not found")]
-    MissingResource { kind: String, id: i16 },
     #[error("corrupt data: {0}")]
     Corrupt(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub(crate) fn corrupt(message: impl Into<String>) -> Error {
+pub fn corrupt(message: impl Into<String>) -> Error {
     Error::Corrupt(message.into())
 }

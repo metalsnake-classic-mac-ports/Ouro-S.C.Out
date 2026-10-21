@@ -3,8 +3,9 @@
 
 use std::path::PathBuf;
 
-use scout_core::music::{MusicPlayer, TICK_SAMPLES};
 use scout_data::{GameData, Palette};
+use scout_original::MusicVersion;
+use scout_original::music::TICK_SAMPLES;
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -29,8 +30,10 @@ fn a_pack_holds_the_same_data() {
         eprintln!("skipped: disk image not found");
         return;
     }
-    let a = GameData::load(&disk).expect("original disk image loads");
-    let pack = a.to_pack().expect("pack");
+    let a = scout_original::load(&disk, MusicVersion::Original)
+        .expect("original disk image loads")
+        .game;
+    let pack = scout_original::pack::write(&a).expect("pack");
     let b = GameData::from_pack(&pack).expect("pack loads");
     let (pa, pb) = (&a.game_palette, &b.game_palette);
     assert_eq!(pa, pb);
@@ -96,15 +99,18 @@ fn a_pack_holds_the_same_data() {
     for (x, y) in a.sounds.iter().zip(&b.sounds) {
         assert_eq!((x.id, x.rate, &x.samples), (y.id, y.rate, &y.samples));
     }
-    assert_eq!(a.music, b.music);
-    assert_eq!(a.music_volumes, b.music_volumes);
-
-    // and the music from the pack is the original's
-    let reference = repo_root().join("re/work/music/start1.raw");
+    // the music, losslessly (FLAC), and it is the original's
+    assert_eq!(
+        (a.music.rate, &a.music.samples),
+        (b.music.rate, &b.music.samples)
+    );
+    let reference = repo_root().join("re/work/music/start0.raw");
     if let Ok(reference) = std::fs::read(reference) {
-        let mut player = MusicPlayer::new(&b.music, &b.music_volumes, 1);
-        for expected in reference.as_chunks::<TICK_SAMPLES>().0.iter().take(3000) {
-            assert_eq!(&player.tick(), expected);
-        }
+        let n = 3000 * TICK_SAMPLES;
+        let expected: Vec<i16> = reference[..n]
+            .iter()
+            .map(|&s| ((s as i16) - 128) << 8)
+            .collect();
+        assert_eq!(b.music.samples[..n], expected[..]);
     }
 }

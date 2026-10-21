@@ -4,8 +4,8 @@
 
 use std::path::PathBuf;
 
-use scout_core::music::{MusicPlayer, TICK_SAMPLES};
-use scout_data::GameData;
+use scout_original::MusicVersion;
+use scout_original::music::{MusicPlayer, TICK_SAMPLES};
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -19,10 +19,11 @@ fn music_matches_the_original() {
         eprintln!("skipped: disk image or recordings not found");
         return;
     }
-    let data = GameData::load(&disk).expect("original disk image loads");
+    let data =
+        scout_original::load(&disk, MusicVersion::Original).expect("original disk image loads");
     for start in [0u8, 1] {
         let reference = std::fs::read(dir.join(format!("start{start}.raw"))).unwrap();
-        let mut player = MusicPlayer::new(&data.music, &data.music_volumes, start);
+        let mut player = MusicPlayer::new(&data.module, &data.volumes, start);
         for (tick, expected) in reference.as_chunks::<TICK_SAMPLES>().0.iter().enumerate() {
             let got = player.tick();
             if let Some(i) = (0..TICK_SAMPLES).find(|&i| got[i] != expected[i]) {
@@ -43,9 +44,10 @@ fn fixed_music_differs_from_the_original() {
         eprintln!("skipped: disk image not found");
         return;
     }
-    let data = GameData::load(&disk).expect("original disk image loads");
-    let mut original = MusicPlayer::new(&data.music, &data.music_volumes, 0);
-    let mut fixed = MusicPlayer::new(&data.music, &data.music_volumes, 0);
+    let data =
+        scout_original::load(&disk, MusicVersion::Original).expect("original disk image loads");
+    let mut original = MusicPlayer::new(&data.module, &data.volumes, 0);
+    let mut fixed = MusicPlayer::new(&data.module, &data.volumes, 0);
     fixed.fixed = true;
     let (mut differ, mut total) = (0, 0);
     for _ in 0..10_000 {
@@ -66,8 +68,8 @@ fn tables_match_the_original_code() {
         eprintln!("skipped: {} not found", code.display());
         return;
     };
-    let volumes = scout_core::music::volumes_from_code(&code).expect("volume table");
-    let built = scout_core::music::tables(&volumes);
+    let volumes = scout_original::music::volumes_from_code(&code).expect("volume table");
+    let built = scout_original::music::tables(&volumes);
     for (name, range) in [
         ("sine", 0x3E..0x5E),
         ("periods", 0x5E..0xD0),

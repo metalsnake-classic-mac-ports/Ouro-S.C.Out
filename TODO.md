@@ -6,7 +6,8 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 
 - `scout-core`: deterministic simulation with a fixed tick, no I/O, tested with unit and replay tests
 - frontend with SDL3 for macOS, Windows and Linux
-- the game data is read directly from the original disk image `SCOUT_1_4.dsk` (like a Doom WAD)
+- the game data comes from the original disk image `SCOUT_1_4.dsk`: since 2026-10-22
+  `scout-extract` converts it into a data pack (`scout-data.zip`) that the game reads
 - gameplay as close to the original as possible; modern extensions as options,
   later also high-resolution graphics and sound packs
 - the original 68k code (Ghidra) is the reference for the game logic,
@@ -60,9 +61,10 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   - [x] Screens between the levels (level / password / lives, try again, aborted, game over,
         perfect) like the original (CODE 8 0x176c …); waiting for a key on the level screen
   - [x] Music: `SHAP 200` with a port of the original player (CODE 10), byte for byte like
-        the original (`re/tools/emu_music.py`, test `music_matches_the_original`); from
-        position 1 at the start, pauses in the background and goes on where it stopped (the
-        original starts again from 0)
+        the original (`re/tools/emu_music.py`, test `music_matches_the_original`); rendered
+        by `scout-extract` into the pack (FLAC, fixed or original), played in a loop from the
+        start (the original starts at order position 1, not to be heard), pauses in the
+        background and goes on where it stopped (the original starts again)
   - [x] Logo, title, menu (Play, Resume, Password, Settings, About, Quit) in the style of the
         game, settings saved in a file, level codes and NOWALL, pictures 1001 (game over) and
         1002 (end); Command / Ctrl + P pause, + Q quit, + G / R / I / E like the menu shortcuts
@@ -98,14 +100,14 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [ ] Choice of the projectile colors: intended (default) or as on a real Mac / in
       Basilisk II (see re/BUGS.md)
 - [x] Music player with the bugs of the original corrected (`MusicPlayer::fixed`, re/BUGS.md):
-      setting MUSIC PLAYER, default like the original
+      chosen when the pack is made (`scout-extract --music fixed|original`, default fixed)
 
 ### Level selection (new feature)
 
 - [ ] A level selection in the menu: every level with its name and a thumbnail (the part of
       the level that is visible when it starts, i.e. the start view)
-- [ ] Levels get names; the original levels are named after their password (level 1 has
-      none: needs a name of its own)
+- [ ] Levels get names; the original levels are named after their password, level 1 (which
+      has none; the original has no name for it either, only "LEVEL 000") is START
 - [ ] Save per level whether it was completed and the times of three successful runs: the
       first, the fastest and the latest; mark completed levels in the selection
 - [ ] Decide: what counts as the time of a run (from the start animation to the target,
@@ -114,9 +116,11 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 
 ### Data packs (later)
 
-- [x] Data pack: `scout-extract --only pack` writes `scout-data.zip` (PNG, WAV, `.mod`, text,
-      GIMP palette; no original resource data), the game reads it instead of the disk image
-      (`scout_data::pack`); identical game data, checked by `original_pack.rs`
+- [x] Data pack: `scout-extract --only pack` writes `scout-data.zip` (PNG, WAV, FLAC, text,
+      GIMP palette; no original resource data); the game reads only that (`scout_data::pack`),
+      the original is read by `scout-original`; identical game data, checked by
+      `original_pack.rs`
+- [ ] Music in other formats in a pack (WAV, Ogg), e.g. for own music
 - [ ] The same layout as a folder (not zipped), to edit files in place
 - [ ] Packs that replace parts: sound packs, level packs, graphics packs, … on top of the
       original data

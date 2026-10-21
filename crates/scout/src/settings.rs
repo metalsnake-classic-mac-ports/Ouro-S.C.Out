@@ -24,13 +24,11 @@ pub const KEY_NAMES: [&str; 7] = [
 pub struct Settings {
     pub music: bool,
     pub sounds: bool,
-    /// Play the music with the bugs of the original player corrected.
-    pub fixed_music: bool,
     /// Right, left, up, down, get / drop, fire, self destruct.
     pub keys: [Scancode; 7],
     pub fullscreen: bool,
-    /// The original game data the player chose (disk image or application).
-    pub disk: Option<PathBuf>,
+    /// The data pack the player chose.
+    pub data: Option<PathBuf>,
 }
 
 impl Default for Settings {
@@ -41,7 +39,6 @@ impl Default for Settings {
         Self {
             music: true,
             sounds: true,
-            fixed_music: false,
             keys: [
                 Scancode::Right,
                 Scancode::Left,
@@ -52,7 +49,7 @@ impl Default for Settings {
                 Scancode::Escape,
             ],
             fullscreen: false,
-            disk: None,
+            data: None,
         }
     }
 }
@@ -81,9 +78,8 @@ impl Settings {
             match name {
                 "music" => settings.music = on,
                 "sounds" => settings.sounds = on,
-                "music player" => settings.fixed_music = value == "corrected",
                 "screen" => settings.fullscreen = value == "full",
-                "disk" => settings.disk = Some(PathBuf::from(value)),
+                "data" => settings.data = Some(PathBuf::from(value)),
                 _ => {
                     if let Some(i) = KEY_NAMES.iter().position(|k| k.eq_ignore_ascii_case(name))
                         && let Some(code) = Scancode::from_name(value)
@@ -99,22 +95,13 @@ impl Settings {
     pub fn save(&self) {
         let Some(path) = path() else { return };
         let on = |b: bool| if b { "on" } else { "off" };
-        let mut text = format!(
-            "music = {}\nsounds = {}\nmusic player = {}\n",
-            on(self.music),
-            on(self.sounds),
-            if self.fixed_music {
-                "corrected"
-            } else {
-                "original"
-            }
-        );
+        let mut text = format!("music = {}\nsounds = {}\n", on(self.music), on(self.sounds));
         text += &format!(
             "screen = {}\n",
             if self.fullscreen { "full" } else { "window" }
         );
-        if let Some(disk) = &self.disk {
-            text += &format!("disk = {}\n", disk.display());
+        if let Some(data) = &self.data {
+            text += &format!("data = {}\n", data.display());
         }
         for (name, key) in KEY_NAMES.iter().zip(self.keys) {
             text += &format!("{} = {}\n", name.to_lowercase(), key.name());

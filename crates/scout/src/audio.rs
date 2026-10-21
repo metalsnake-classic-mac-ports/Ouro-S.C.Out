@@ -3,7 +3,6 @@
 //! sounds after a level (5564 Hz) are repeated sample by sample up to that.
 
 use anyhow::Result;
-use scout_core::music::{self, MusicPlayer};
 use scout_data::{GameData, Sound};
 use sdl3::audio::{AudioFormat, AudioSpec, AudioStreamOwner};
 
@@ -80,61 +79,72 @@ impl Audio {
 const MUSIC_AHEAD: f64 = 0.1;
 
 /// The music on its own channel, as in the original (CODE 10 0x5e86 opens a
-/// second sound channel and double buffer at 14162 Hz).
+/// second sound channel): the recording from the data pack in a loop.
 pub struct Music {
+    audio: Option<sdl3::AudioSubsystem>,
     stream: Option<AudioStreamOwner>,
-    player: Option<MusicPlayer>,
+    /// The song and where it is.
+    song: Option<(Vec<i16>, usize)>,
+    rate: u32,
     /// Stopped because the game went to the background (`-0x6db4`).
     suspended: bool,
-    /// Play with the bugs of the original player corrected.
-    pub fixed: bool,
 }
 
 impl Music {
     pub fn open(sdl: &sdl3::Sdl) -> Self {
-        let stream = (|| -> Result<AudioStreamOwner> {
-            let spec = AudioSpec {
-                freq: Some(music::RATE.round() as i32),
-                channels: Some(1),
-                format: Some(AudioFormat::U8),
-            };
-            let stream = sdl
-                .audio()?
-                .default_playback_device()
-                .open_device_stream(Some(&spec))?;
-            stream.resume()?;
-            Ok(stream)
-        })();
-        if let Err(e) = &stream {
-            eprintln!("no music: {e}");
-        }
         Self {
-            stream: stream.ok(),
-            player: None,
+            audio: sdl.audio().ok(),
+            stream: None,
+            song: None,
+            rate: 0,
             suspended: false,
-            fixed: false,
         }
     }
 
-    /// Start the song at an order position (the game: 1 at launch, 0 when
-    /// it comes back to the front).
-    pub fn start(&mut self, data: &GameData, position: u8) {
+    /// Start the song from the beginning. (The original starts at order
+    /// position 1 when it launches; that is not to be heard.)
+    pub fn start(&mut self, data: &GameData) {
         self.stop();
-        let mut player = MusicPlayer::new(&data.music, &data.music_volumes, position);
-        player.fixed = self.fixed;
-        self.player = Some(player);
+        if data.music.samples.is_empty() {
+            return;
+        }
+        if self.stream.is_none() || self.rate != data.music.rate {
+            self.rate = data.music.rate;
+            self.stream = self.open_stream(data.music.rate);
+        }
+        self.song = Some((data.music.samples.clone(), 0));
+    }
+
+    fn open_stream(&self, rate: u32) -> Option<AudioStreamOwner> {
+        let audio = self.audio.as_ref()?;
+        let spec = AudioSpec {
+            freq: Some(rate as i32),
+            channels: Some(1),
+            format: Some(AudioFormat::s16_sys()),
+        };
+        let stream = audio
+            .default_playback_device()
+            .open_device_stream(Some(&spec))
+            .and_then(|s| s.resume().map(|_| s));
+        match stream {
+            Ok(s) => Some(s),
+            Err(e) => {
+                eprintln!("no music: {e}");
+                None
+            }
+        }
     }
 
     /// The game goes to the background: the music stops (CODE 7 0x105a).
     pub fn suspend(&mut self) {
-        if let (Some(stream), Some(_)) = (&self.stream, &self.player) {
+        if let (Some(stream), Some(_)) = (&self.stream, &self.song) {
             let _ = stream.pause();
             self.suspended = true;
         }
     }
 
     /// Back in front: the music goes on where it stopped. (The original
-    /// starts the song again from position 0, CODE 7 0x7d8.)
+    /// starts the song again, CODE 7 0x7d8.)
     pub fn resume(&mut self) {
         if let (Some(stream), true) = (&self.stream, self.suspended) {
             let _ = stream.resume();
@@ -143,7 +153,7 @@ impl Music {
     }
 
     pub fn stop(&mut self) {
-        self.player = None;
+        self.song = None;
         if let Some(stream) = &self.stream {
             let _ = stream.clear();
             if self.suspended {
@@ -153,28 +163,23 @@ impl Music {
         self.suspended = false;
     }
 
-    /// The original or the corrected player, also in the middle of the song.
-    pub fn set_fixed(&mut self, fixed: bool) {
-        self.fixed = fixed;
-        if let Some(player) = &mut self.player {
-            player.fixed = fixed;
-        }
-    }
-
     pub fn is_playing(&self) -> bool {
-        self.player.is_some()
+        self.song.is_some()
     }
 
-    /// Mix ticks until the queue holds [`MUSIC_AHEAD`] seconds.
+    /// Queue the song until [`MUSIC_AHEAD`] seconds are waiting; at its end
+    /// it starts again.
     pub fn fill(&mut self) {
-        let (Some(stream), Some(player)) = (&self.stream, &mut self.player) else {
+        let (Some(stream), Some((song, at))) = (&self.stream, &mut self.song) else {
             return;
         };
-        let ahead = (music::RATE * MUSIC_AHEAD) as i32;
+        let ahead = (self.rate as f64 * MUSIC_AHEAD) as i32 * 2;
         while stream.queued_bytes().unwrap_or(ahead) < ahead {
-            if stream.put_data(&player.tick()).is_err() {
+            let end = (*at + 1024).min(song.len());
+            if stream.put_data_i16(&song[*at..end]).is_err() {
                 return;
             }
+            *at = if end == song.len() { 0 } else { end };
         }
     }
 }

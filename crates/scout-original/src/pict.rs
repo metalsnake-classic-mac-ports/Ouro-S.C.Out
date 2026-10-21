@@ -3,21 +3,14 @@
 
 use crate::bytes::{i16_at, slice, u8_at, u16_at};
 use crate::error::{Result, corrupt};
-use crate::palette::Palette;
+use scout_data::IndexedImage;
+
+use crate::palette;
 
 const PACK_BITS_RECT: u8 = 0x98;
 const PACK_BITS_RGN: u8 = 0x99;
 const DIRECT_BITS_RECT: u8 = 0x9A;
 const DIRECT_BITS_RGN: u8 = 0x9B;
-
-#[derive(Debug, Clone)]
-pub struct IndexedImage {
-    pub width: usize,
-    pub height: usize,
-    /// One palette index per pixel, row by row.
-    pub pixels: Vec<u8>,
-    pub palette: Palette,
-}
 
 /// Decode the first 8-bit pixmap opcode of a PICT resource.
 pub fn decode(pict: &[u8]) -> Result<IndexedImage> {
@@ -32,7 +25,7 @@ pub fn decode(pict: &[u8]) -> Result<IndexedImage> {
     if width > row_bytes {
         return Err(corrupt("PICT pixmap is wider than its rows"));
     }
-    let (palette, table_len) = Palette::from_color_table(&pict[pixmap + 46..])?;
+    let (palette, table_len) = palette::from_color_table(&pict[pixmap + 46..])?;
     // After the color table: source rect, destination rect, transfer mode.
     let mut pos = pixmap + 46 + table_len + 8 + 8 + 2;
     if u8_at(pict, opcode_at + 1)? == PACK_BITS_RGN {

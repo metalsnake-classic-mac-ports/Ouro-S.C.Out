@@ -9,7 +9,6 @@ use std::path::PathBuf;
 
 use scout_core::world::{Kind, Projectile};
 use scout_core::{Dir, Exit, Game, Key, Level};
-use scout_data::GameData;
 
 fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -362,7 +361,9 @@ fn playing_matches_the_original() {
         eprintln!("skipped: disk image or recordings not found");
         return;
     }
-    let data = GameData::load(&disk).unwrap();
+    let data = scout_original::load(&disk, scout_original::MusicVersion::Original)
+        .unwrap()
+        .game;
     let mut failures = Vec::new();
     let mut compared = 0;
     for (n, level) in data.levels.iter().enumerate() {
@@ -442,7 +443,9 @@ fn world_matches_the_original() {
         eprintln!("skipped: disk image or reference not found");
         return;
     }
-    let data = GameData::load(&disk).unwrap();
+    let data = scout_original::load(&disk, scout_original::MusicVersion::Original)
+        .unwrap()
+        .game;
     let mut failures = Vec::new();
     let mut compared = 0;
     for (n, level) in data.levels.iter().enumerate() {

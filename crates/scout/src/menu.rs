@@ -172,19 +172,7 @@ impl Menu {
                 | Scancode::Left
                 | Scancode::Right => {
                     match self.selected {
-                        // off, as in the original, fixed
-                        0 => {
-                            let now = music_choice(settings);
-                            let next = if code == Scancode::Left {
-                                now + 2
-                            } else {
-                                now + 1
-                            } % 3;
-                            settings.music = next != 0;
-                            if next != 0 {
-                                settings.fixed_music = next == 2;
-                            }
-                        }
+                        0 => settings.music = !settings.music,
                         1 => settings.sounds = !settings.sounds,
                         2 => settings.fullscreen = !settings.fullscreen,
                         KEYS_ROW => {
@@ -387,12 +375,12 @@ impl Menu {
             }
             Page::Settings => {
                 let on = |b: bool| if b { "ON" } else { "OFF" };
-                let music = ["OFF", "ORIGINAL", "FIXED"][music_choice(settings)];
+
                 let rows = [
                     (
                         "MUSIC",
-                        Value::Text(music.into()),
-                        "Music off, original (with the bugs of its player) or fixed",
+                        Value::Text(on(settings.music).into()),
+                        "Music on or off",
                     ),
                     (
                         "SFX",
@@ -517,15 +505,6 @@ const KEY_LABELS: [(&str, &str); 7] = [
     ("FIRE", "Fire a missile"),
     ("ABORT", "Blow yourself up, the level is ABORTED"),
 ];
-
-/// The music row: 0 off, 1 as in the original, 2 fixed.
-fn music_choice(settings: &Settings) -> usize {
-    match (settings.music, settings.fixed_music) {
-        (false, _) => 0,
-        (true, false) => 1,
-        (true, true) => 2,
-    }
-}
 
 /// The value column of a row on a list page.
 enum Value {

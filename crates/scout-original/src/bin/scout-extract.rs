@@ -8,24 +8,24 @@
 //! - `sounds/`: the sound effects as WAV (8-bit mono, original rate)
 //! - `music/`: the music (`SHAP` 200) and the unused earlier version
 //!   (`SHAP` 5200) as ProTracker modules, and each as WAV played by the
-//!   game's player (8-bit mono, 14162 Hz, once through)
+//!   game's player (8-bit mono, 14162 Hz, once through; `--music`)
 //! - `levels/`: each level as text (translated values the game uses and the
 //!   values of the level file) and/or as a picture of the whole level
 //! - `codes.txt`, `palette.txt`
-//! - `scout-data.zip`: the data pack the game can use instead of the disk
-//!   (see `scout_data::pack`)
+//! - `scout-data.zip`: the data pack the game reads (see `scout_data::pack`)
 //!
 //! Usage: scout-extract [OPTIONS] [DISK] OUT_DIR, see `scout-extract --help`.
-//! Install with `cargo install --path crates/scout-data`.
+//! Install with `cargo install --path crates/scout-original`.
 
 use std::fs;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
 use scout_core::Level;
-use scout_core::music::{self, MusicPlayer};
 use scout_data::graphics::{ObjectSet, TileSet};
 use scout_data::{Bitmap, GameData, Palette};
+use scout_original::MusicVersion;
+use scout_original::music::{self, MusicPlayer};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -41,18 +41,21 @@ usage: scout-extract [OPTIONS] [DISK] OUT_DIR
   --only LIST        what to export, comma separated (default: all):
                      graphics, sounds, music, levels, level-images, codes,
                      palette, pack (scout-data.zip: everything the game
-                     needs, in ordinary formats, for the game to use)
+                     needs, in ordinary formats; the game reads it)
+  --music VERSION    the music in the pack and the WAVs: fixed (the bugs
+                     of the original player corrected, default) or
+                     original
   --graphics MODE    single (one PNG per item), sheets, or both (default)
   --levels LIST      only these levels (numbers from 1, comma separated)
   -h, --help         this text
 
-DISK is the original SCOUT_1_4.dsk, the application itself (its
-resource fork, e.g. version 1.3.1 unpacked from its archive) or a data
-pack. Without it:
+DISK is the original SCOUT_1_4.dsk or the application itself (its
+resource fork, e.g. version 1.3.1 unpacked from its archive). Without it:
 $SCOUT_DISK, then SCOUT_1_4.dsk in the current folder, then
 re/work/SCOUT_1_4.dsk.
 
-Example: scout-extract --only level-images ~/scout-levels";
+Examples: scout-extract --only pack ~/S.C.Out
+          scout-extract --only level-images ~/scout-levels";
 /// The file name of the data pack (the game looks for it too).
 const PACK: &str = "scout-data.zip";
 
@@ -75,6 +78,7 @@ struct Options {
     levels: Vec<usize>,
     single: bool,
     sheets: bool,
+    music: MusicVersion,
 }
 
 impl Options {
@@ -83,6 +87,7 @@ impl Options {
         let mut parts: Vec<String> = PARTS.iter().map(|p| p.to_string()).collect();
         let (mut single, mut sheets) = (true, true);
         let mut levels = Vec::new();
+        let mut music = MusicVersion::default();
         let mut args = std::env::args().skip(1);
         while let Some(arg) = args.next() {
             match arg.as_str() {
@@ -99,6 +104,11 @@ impl Options {
                         levels.push(n.trim().parse().map_err(|_| format!("bad level {n:?}"))?);
                     }
                 }
+                "--music" => match args.next().as_deref() {
+                    Some("fixed") => music = MusicVersion::Fixed,
+                    Some("original") => music = MusicVersion::Original,
+                    _ => return Err(USAGE.into()),
+                },
                 "--graphics" => match args.next().as_deref() {
                     Some("single") => (single, sheets) = (true, false),
                     Some("sheets") => (single, sheets) = (false, true),
@@ -127,16 +137,13 @@ impl Options {
             levels,
             single,
             sheets,
+            music,
         })
     }
 
     fn wants(&self, part: &str) -> bool {
         self.parts.iter().any(|p| p == part)
     }
-}
-
-fn load(path: &Path) -> Result<GameData> {
-    Ok(GameData::load(path)?)
 }
 
 /// The disk image like the game looks for it.
@@ -154,7 +161,8 @@ fn find_disk() -> Result<PathBuf> {
 
 fn main() -> Result<()> {
     let opt = Options::parse()?;
-    let data = load(&opt.disk)?;
+    let original = scout_original::load(&opt.disk, opt.music)?;
+    let data = &original.game;
     let pal = &data.game_palette;
     let out = &opt.out;
     let mut done = Vec::new();
@@ -218,7 +226,7 @@ fn main() -> Result<()> {
 
     if opt.wants("pack") {
         fs::create_dir_all(out)?;
-        fs::write(out.join(PACK), data.to_pack()?)?;
+        fs::write(out.join(PACK), scout_original::pack::write(data)?)?;
         done.push(PACK.to_string());
     }
 
@@ -241,13 +249,13 @@ fn main() -> Result<()> {
         let rate = music::RATE.round() as u32;
         // ten minutes at most; the songs take about three
         let max_ticks = (600.0 * music::RATE) as usize / music::TICK_SAMPLES;
-        let modules = [
-            Some(("music_200", &data.music)),
-            data.unused_music.as_ref().map(|m| ("music_5200_unused", m)),
-        ];
-        for (name, module) in modules.into_iter().flatten() {
+        let fixed = opt.music == MusicVersion::Fixed;
+        for (name, module) in [
+            ("music_200", &original.module),
+            ("music_5200_unused", &original.unused_module),
+        ] {
             fs::write(dir.join(format!("{name}.mod")), module)?;
-            let song = MusicPlayer::render_song(module, &data.music_volumes, false, max_ticks);
+            let song = MusicPlayer::render_song(module, &original.volumes, fixed, max_ticks);
             wav(&dir.join(format!("{name}.wav")), rate, &song)?;
         }
         done.push("music".into());
@@ -277,7 +285,7 @@ fn main() -> Result<()> {
                 &levels.join(format!("{name}.png")),
                 w,
                 h,
-                &level_image(&data, level),
+                &level_image(data, level),
             )?;
         }
     }

@@ -202,7 +202,7 @@ CODE 10, the music replay, compared with ProTracker:
   is not applied to the pitch either.)
 
 The rewrite plays the module exactly like the original. With
-`MusicPlayer::fixed` (setting MUSIC PLAYER) it corrects all of the
+`MusicPlayer::fixed` (`scout-extract --music fixed`, the default) it corrects all of the
 above. The E commands it handles are those that need no extra state: E1 / E2
 fine portamento, E9 retrigger, EA / EB fine volume slide and EC note cut.
 Finetune stays unapplied.
