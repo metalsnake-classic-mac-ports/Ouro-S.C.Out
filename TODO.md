@@ -43,8 +43,8 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         the view scrolls up to 6 sideways / 4 up or down, within one frame of the logic
   - [x] Player sprite: object 4 × turret + hull direction (objects 0–15), starts facing down
   - [x] Frame rate of the original: one frame per vertical blank, 60 fps (VBL task in
-        CODE 6, wait in CODE 8; measured in Basilisk II with `SCOUT_FPS=1`). Slower Macs of
-        the time may have dropped to 30 fps: maybe an option later. Confirmed by a screen
+        CODE 6, wait in CODE 8; measured in Basilisk II with `SCOUT_FPS=1`). Always 60 fps
+        (decided 2026-10-21; slower Macs of the time may have dropped to 30 fps). Confirmed by a screen
         recording: start animation 8 frames per step, player 4 px per frame at 60 fps
   - [x] Start pad animation: 0x108 after loading, 64 frames 0xab…0xb2, then the closed
         hatch 0x10b (267), as the screenshot of the original shows
@@ -86,12 +86,19 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [ ] Turn off the sound that plays when the player starts moving (101 / 108)
 - [ ] Choice of the projectile colors: intended (default) or as on a real Mac / in
       Basilisk II (see re/BUGS.md)
-- [ ] Frame rate: 60 fps (default) or 30 fps like slower Macs of the time
 
 ### Requirements
 
-- Sound starts without delay: the rewrite must not add latency (device buffer of 256
-  frames now; the original in Basilisk II is delayed as well, which may be the emulation)
+- Sound starts without delay: the rewrite must not add latency. Measured 2026-10-21 in
+  the VM: from starting a sound to the device taking it ≈ 8 ms (max. 12; SDL's rate
+  conversion ≈ 1 ms of it), the VM's sound device reports ≈ 13 ms; the way from the VM
+  to the host's speakers is not measurable from inside. To compare: `afplay` a WAV from
+  `scout-extract` in the VM and on the host.
+
+### To check
+
+- [ ] Objects 26–31 have pink frames in the extracted graphics (mask?): compare with the
+      original in the emulator (26/27 are mirrors)
 
 The sections below were written for the old port and stay as a reference.
 The old port now lives in `legacy-port/`, so `build/` below means `legacy-port/build/`.

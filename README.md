@@ -33,4 +33,6 @@ The tests that need the original disk look for it in `SCOUT_DISK` or at
 - `re/NOTES.md`: how the original works, from the analysis of its 68k code
 - `re/BUGS.md`: bugs and oddities of the original and how the rewrite
   treats them
+- `scout-extract [DISK] OUT_DIR` (crate `scout-data`): exports all graphics (PNG),
+  sounds (WAV), levels (text), level codes and the palette as the game reads them
 - `re/tools/`: tools to read and unpack the resources of the original game

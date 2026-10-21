@@ -8,3 +8,5 @@ license.workspace = true
 [dependencies]
 scout-core.workspace = true
 thiserror.workspace = true
+# only for the scout-extract tool
+png = "0.17"
