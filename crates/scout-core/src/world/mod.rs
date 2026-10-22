@@ -7,7 +7,7 @@
 //! visited later in the same pass does not move twice.
 //!
 //! The handlers were taken from the original's handler table (see
-//! `re/NOTES.md`); comments name the tile values and code addresses.
+//! `NOTES.md`); comments name the tile values and code addresses.
 
 mod animations;
 mod explosion;

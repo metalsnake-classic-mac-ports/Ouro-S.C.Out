@@ -59,7 +59,7 @@ const ICON_HEIGHT: usize = 19;
 const MAX_SONG_SECONDS: f64 = 600.0;
 
 /// How the music is rendered: by the original player with its bugs, or with
-/// them fixed (see re/BUGS.md).
+/// them fixed (see BUGS.md).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum MusicVersion {
     Original,

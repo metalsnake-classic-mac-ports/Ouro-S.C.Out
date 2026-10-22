@@ -287,19 +287,15 @@ The title and end pictures are 512 × 380 (1000) and 519 × 380 (1001,
 the top left of the 512 × 364 frame area, clipped. The bottom 16 rows (and
 the column of 1001 / 1002) are never seen. The rewrite clips the same way.
 
-## The Codebook gives a wrong code for level 69 (kept)
-
-The printed code list ("Codebook") and the old C++ port give MUFUMO for
-level 69. The game's own data has MUFUPO, and the original accepts only
-that (checked in Basilisk II, 2026-10-19; MUFUMO gives "Wrong password").
-The rewrite also accepts only MUFUPO.
-
 ## Not bugs, but easy to get wrong
 
 - Self destruct is Esc (virtual key code 0x35), not the character `5`: the
   keys are virtual key codes (KMAP resource), and the default fire key is
   keypad 5 (0x57).
 - The level screen counts from 0: level 17 shows "LEVEL 016".
+- The code of level 69 is MUFUPO. MUFUMO, from the fan list "The Codebook 4"
+  (codebook.pp.se) and the old C++ port, is wrong: the original answers
+  "Wrong password" (checked in Basilisk II, 2026-10-19).
 - Command + P and Command + Q in the game are Command, not Caps Lock (key
   code 0x37).
 - The colors of the game screen are not the order of `pltt 128`: the

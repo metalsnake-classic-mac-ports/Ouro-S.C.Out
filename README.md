@@ -55,8 +55,9 @@ The tests that need the original disk (crate `scout-original`) look for it at
 - `crates/scout/`: the SDL3 frontend
 - `data/ouro-scout-data.zip`: the game data, made with
   `ouro-scout-extract --only pack re/work/SCOUT_1_4.dsk data`
-- `re/NOTES.md`: how the original works, from the analysis of its 68k code
-- `re/BUGS.md`: bugs and oddities of the original and how the rewrite
+- `CHANGELOG.md`: what changed in each version; `TODO.md`: what is still to do
+- `NOTES.md`: how the original works, from the analysis of its 68k code
+- `BUGS.md`: bugs and oddities of the original and how the rewrite
   treats them
 - `ouro-scout-extract [OPTIONS] [DISK] OUT_DIR` (crate `scout-original`): exports graphics
   (PNG, single and/or sheets), sounds (WAV), the music and its unused earlier version

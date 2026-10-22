@@ -548,7 +548,7 @@ impl Game {
                     _ => (16, 30, 0, 2),
                 };
                 // The original's view test reaches one box beyond the view
-                // (re/BUGS.md).
+                // (BUGS.md).
                 let (vx0, vy0) = (self.view.0 as i32, self.view.1 as i32);
                 if self.spawn(x * BOX + ox, y * BOX + oy, vx, vy).is_some()
                     && self.sounds.on

@@ -27,7 +27,7 @@ const VIEW_Y: usize = FRAME_Y + Frame::VIEW_Y;
 /// The original takes the colors of the top and bottom row from the bytes
 /// at the addresses 0x64 and 0x65 (`move.b $64.w` instead of `#$64`), part
 /// of an interrupt vector, so they depend on the Mac (Basilisk II: grey and
-/// white). We use the intended values 0x64 and 0x65, see `re/BUGS.md`.
+/// white). We use the intended values 0x64 and 0x65, see `BUGS.md`.
 const PROJECTILE: [[Option<u8>; 4]; 4] = {
     const TOP: Option<u8> = Some(0x64);
     const BOTTOM: Option<u8> = Some(0x65);

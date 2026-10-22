@@ -324,7 +324,7 @@ impl Game {
     /// A closed hatch saves the state to restart from (CODE 5 0x301e). The
     /// carried object is not saved (but a loaded turret is), and the
     /// original also sets the projectile count to the one saved at the
-    /// level start, i.e. 0 (see re/BUGS.md).
+    /// level start, i.e. 0 (see BUGS.md).
     pub(crate) fn checkpoint(&mut self) {
         let (x, y) = (self.player.x, self.player.y);
         *self.restart = RestartState {

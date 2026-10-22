@@ -111,7 +111,7 @@ impl Game {
                     105 | 114 | 123 | 132 => (id::MACHINE, id::MACHINE),
                     213 => (id::FIRE_TILE, id::FIRE_TILE),
                     350 => (id::EXPLOSION, id::EXPLOSION),
-                    // compares with 105 but requests 107 (see re/BUGS.md)
+                    // compares with 105 but requests 107 (see BUGS.md)
                     0x150 => (id::BIG_EXPLOSION, id::EXPLOSION),
                     _ => continue,
                 };

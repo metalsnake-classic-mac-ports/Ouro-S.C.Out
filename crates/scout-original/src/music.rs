@@ -10,7 +10,7 @@
 //! game data (`volumes_from_code` reads them from the original code).
 //!
 //! With [`MusicPlayer::fixed`] the player corrects the bugs of the original
-//! (re/BUGS.md): E commands, C volume, volume row, finetune in the volume,
+//! (BUGS.md): E commands, C volume, volume row, finetune in the volume,
 //! loop start, the fraction of the sample position. It can be switched at
 //! any time, to compare.
 

@@ -17,7 +17,7 @@ pub use palette::{Palette, Rgb};
 pub use sound::{Music, Sound};
 
 /// The numbers of the sound effects (as the 'snd ' resources 100–124 of the
-/// original, see re/NOTES.md, Sound).
+/// original, see NOTES.md, Sound).
 pub const SOUND_IDS: std::ops::RangeInclusive<i16> = 100..=124;
 
 /// All data the game needs.
