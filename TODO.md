@@ -10,16 +10,15 @@ options, off by default unless noted.
 
 ## Game
 
-- [ ] Mouse in the menus (now only keys; a click opens the menu and closes screens)
 - [ ] The block dissolve between screens (CODE 8 0x1354 / 0x1416)
-- [ ] Check in Basilisk II whether the original game pauses in the background (we pause;
-      the original only stops its music)
+- [ ] No lives (decided 2026-10-22): a lost life only restarts from the last checkpoint, no
+      game over. Goes with it: LIVES on the level screen, the GAME OVER screen and
+      picture 1001, the lives in the core (`Player::lives`, `Exit::GameOver`); BUGS.md /
+      NOTES.md describe the original's lives
 
 ## Options
 
 - [ ] Turn off the sound that plays when the player starts moving (101 / 108)
-- [ ] Choice of the projectile colors: intended (default) or as on a real Mac / in
-      Basilisk II (see BUGS.md)
 
 ## Level selection
 
@@ -73,17 +72,3 @@ A place to share packs, free of charge for everyone. (Not to be called a
 - [ ] Homebrew bottles for Intel Macs (a `macos-15-intel` runner); macOS 14 has none because
       Homebrew's sdl3 has no bottle there
 - [ ] A release checklist: CHANGELOG.md, version, tag, formula pull request in the tap
-
-## Requirements
-
-- Sound starts without delay: the rewrite must not add latency. Measured 2026-10-21 in
-  the VM: from starting a sound to the device taking it ≈ 8 ms (max. 12; SDL's rate
-  conversion ≈ 1 ms of it), the VM's sound device reports ≈ 13 ms; the way from the VM
-  to the host's speakers is not measurable from inside. To compare: `afplay` a WAV from
-  `ouro-scout-extract` in the VM and on the host.
-- 60 frames per second always (like the original on a fast enough Mac).
-
-## Lowest priority
-
-- [ ] Random numbers number for number like a real Mac (Basilisk II); not required, the
-      game does not need to match the original's random numbers
