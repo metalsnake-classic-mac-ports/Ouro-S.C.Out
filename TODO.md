@@ -95,6 +95,11 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   - [x] Who sets `-0x53b4` (switch of tile 61) and the carried object `-0x578c`: the player;
         dropping the key (object 30) on tile 0x100 clears `-0x53b4`
 
+### Release
+
+- [ ] A homepage for the game (then `homepage` in the Cargo metadata)
+- [ ] Homebrew tap of the organization (formula: build from source, `depends_on "sdl3"`)
+
 ### Options (modern extensions, off by default unless noted)
 
 - [ ] Turn off the sound that plays when the player starts moving (101 / 108)
