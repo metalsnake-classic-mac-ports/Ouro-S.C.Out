@@ -156,9 +156,19 @@ limit. If the sound never finishes, e.g. in Basilisk II under System 7.0
 (no Sound Manager 3), the game hangs there. The rewrite waits the same
 way; its own audio output always finishes.
 
-## Unused sounds
+## Unused sounds and data
 
-'snd ' 115 and 119 are loaded at start (CODE 5 0x1218) but never played.
+- 'snd ' 115 and 119 are loaded at start (CODE 5 0x1218) but never played.
+- `SHAP 5107`: the block letters at 16 × 16; nothing draws them. (The
+  rewrite's settings used them for a while.)
+- `SHAP 5200`: an earlier version of the music ("2ul"), packed, never
+  loaded. Its sample names announce an "ingame jingle : pos24" and a "lost
+  jingle : pos25", but the song ends at position 24 and those positions
+  point at pattern 0: the jingles were never written.
+- `SHAP 0`: factory settings, read only if `SHAP 1` is missing, which it
+  never is in a shipped copy.
+- The French menus, dialogs, alerts and screen texts (see below).
+- The screens LEVEL UP and LEVEL DOWN, see "Dead code after the main loop".
 
 ## A condition that is always true (harmless)
 
@@ -224,12 +234,77 @@ characters whatever the length of the entry (CODE 2 0x48e), so a shorter
 entry is compared with leftover bytes after it; a real code is always six
 characters, so this only matters for wrong entries.
 
+## The French version is unreachable (not ported)
+
+All menus, dialogs and alerts exist twice, English (256–259, 128, 666) and
+French (1256–1259, 1128, 1666), and so do the texts of the screens between
+levels (ETAPE, VIES, JEU TERMINE, PARFAIT, …). The ID base is the global
+`-0x6dc8` (0 or 1000), but nothing ever writes it, so it stays 0: the
+French texts can never appear. Probably set by hand for a French build.
+The rewrite has only the English texts.
+
+## Version 1.4 beeps at every switch to and from the game (not ported)
+
+CODE 7 0x1048, operating system events (suspend / resume, i.e. another
+program comes to the front or the game comes back): 1.4 calls
+`SysBeep(10)` first, for every such event; 1.3.1 does not. Most likely a
+leftover from debugging. The rewrite does not beep.
+
+## The settings are written into the program itself (not ported)
+
+The settings live in the application's own resource `SHAP 1`. Every time
+the game quits, CODE 5 0x16ce removes that resource and writes a new one
+into the application file. So every copy of the game carries its own
+settings, the shipped versions 1.3.1 and 1.4 differ in them (music off /
+on, other keys), and on a locked disk or a read-only copy saving fails
+with nothing but a beep. The rewrite keeps its settings in a file in the
+user's settings folder.
+
+## The screen dissolve changes the game's random numbers (not ported)
+
+The block dissolve between screens (CODE 8 0x1354 and 0x1416) picks its
+832 blocks with the Toolbox `Random`, the same generator the game logic
+uses (CODE 4 0x2524 and CODE 9 0x221e, e.g. a homing projectile that hits
+a wall picks the axis to undo). How the random numbers of
+a level come out therefore depends on how many screens were shown before.
+The rewrite has no dissolve yet and its own random numbers (Park-Miller like
+the Toolbox, but not matched number for number; see TODO.md).
+
+## The music skips its first pattern once (changed)
+
+CODE 7 0x72a starts the music at order position 1 when the program starts,
+but at position 0 when the music is switched on again or the game comes
+back from the background (0x7d8). The song ends with a jump to position 0
+(command B00), so after the first time through it plays from 0. On the
+first run the first pattern is skipped - not to be heard. Coming back from
+the background restarts the song. The rewrite plays the song from the
+start and lets it go on where it was after a switch to another program.
+
+## Pictures larger than where they are shown (kept)
+
+The title and end pictures are 512 × 380 (1000) and 519 × 380 (1001,
+1002, with a reddish column right of x 512); CODE 8 0x12d8 draws them at
+the top left of the 512 × 364 frame area, clipped. The bottom 16 rows (and
+the column of 1001 / 1002) are never seen. The rewrite clips the same way.
+
+## The Codebook gives a wrong code for level 69 (kept)
+
+The printed code list ("Codebook") and the old C++ port give MUFUMO for
+level 69. The game's own data has MUFUPO, and the original accepts only
+that (checked in Basilisk II, 2026-10-19; MUFUMO gives "Wrong password").
+The rewrite also accepts only MUFUPO.
+
 ## Not bugs, but easy to get wrong
 
 - Self destruct is Esc (virtual key code 0x35), not the character `5`: the
   keys are virtual key codes (KMAP resource), and the default fire key is
   keypad 5 (0x57).
 - The level screen counts from 0: level 17 shows "LEVEL 016".
+- Command + P and Command + Q in the game are Command, not Caps Lock (key
+  code 0x37).
+- The colors of the game screen are not the order of `pltt 128`: the
+  Palette Manager places the entries (screen index i = entry
+  (256 − swap_nibbles(i)) mod 256, see NOTES.md).
 - Scrolling happens within one frame of the game logic, box by box with a
   redraw (one vertical blank) per box; the world does not move meanwhile.
 - Teleporter 0x101 + n leads to the last box (row by row) with 0x105 + n;
