@@ -4,6 +4,8 @@ description = "The game data of S.C.Out and the data pack the game reads"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [dependencies]
 scout-core.workspace = true

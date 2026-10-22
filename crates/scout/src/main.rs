@@ -47,8 +47,32 @@ const DEFAULT_PALETTE: &str = "game";
 /// fast enough (measured in Basilisk II, see re/tools/emulator/README.md).
 const FRAMES_PER_SECOND: u32 = 60;
 
+const HELP: &str = "\
+Ouro S.C.Out: S.C.Out (Kalisto, 1993) for modern systems.
+
+usage: ouro-scout [--dev] [DATA]
+       ouro-scout [DATA] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]
+       ouro-scout [DATA] --export-menu PAGE OUT.bmp
+       ouro-scout --version | --help
+
+The game data is built in; DATA, a data pack made by ouro-scout-extract,
+replaces it (so do SCOUT_DATA and ouro-scout-data.zip beside the program
+or in the current folder).
+
+Keys: arrows move, Return takes / drops, Space fires, Esc blows yourself
+up; Command (or Ctrl) + P pauses, + Q quits; F11 full screen. The keys can
+be changed in the settings.";
+
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        println!("ouro-scout {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("{HELP}");
+        return Ok(());
+    }
     if let Some(at) = args.iter().position(|a| a == "--export-menu") {
         let rest: Vec<String> = args.drain(at..).skip(1).collect();
         if rest.len() < 2 {

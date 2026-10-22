@@ -4,5 +4,7 @@ description = "Game model and simulation of S.C.Out, without any I/O"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 
 [dependencies]

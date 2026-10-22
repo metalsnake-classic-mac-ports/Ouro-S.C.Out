@@ -99,8 +99,9 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 
 - [x] A homepage for the game: `docs/index.html` for GitHub Pages (images made by
       `re/tools/site_assets.py`)
-- [ ] Turn on GitHub Pages (master, /docs), then `homepage` in the Cargo metadata
-- [ ] Homebrew tap of the organization (formula: build from source, `depends_on "sdl3"`)
+- [x] GitHub Pages (master, /docs) and `homepage` / `repository` in the Cargo metadata
+- [x] `ouro-scout --version` / `--help`
+- [ ] Homebrew tap `metalsnake-classic-mac-ports/homebrew-games` with bottles
 
 ### Options (modern extensions, off by default unless noted)
 
