@@ -1,5 +1,7 @@
-# S.C.Out
+# <img src="docs/player.png" alt="" width="32" height="32"> S.C.Out
 Old arcade/strategy game http://en.wikipedia.org/wiki/S.C.OUT
+
+![Level 68 of S.C.Out in Ouro S.C.Out](docs/screenshot.png)
 
 # About this project
 Ouro S.C.Out: a new implementation of S.C.Out in Rust, for macOS, Windows and Linux.
