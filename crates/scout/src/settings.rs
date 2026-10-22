@@ -27,8 +27,6 @@ pub struct Settings {
     /// Right, left, up, down, get / drop, fire, self destruct.
     pub keys: [Scancode; 7],
     pub fullscreen: bool,
-    /// The data pack the player chose.
-    pub data: Option<PathBuf>,
 }
 
 impl Default for Settings {
@@ -49,7 +47,6 @@ impl Default for Settings {
                 Scancode::Escape,
             ],
             fullscreen: false,
-            data: None,
         }
     }
 }
@@ -92,7 +89,6 @@ impl Settings {
                 "music" => settings.music = on,
                 "sounds" => settings.sounds = on,
                 "screen" => settings.fullscreen = value == "full",
-                "data" => settings.data = Some(PathBuf::from(value)),
                 _ => {
                     if let Some(i) = KEY_NAMES.iter().position(|k| k.eq_ignore_ascii_case(name))
                         && let Some(code) = Scancode::from_name(value)
@@ -113,9 +109,6 @@ impl Settings {
             "screen = {}\n",
             if self.fullscreen { "full" } else { "window" }
         );
-        if let Some(data) = &self.data {
-            text += &format!("data = {}\n", data.display());
-        }
         for (name, key) in KEY_NAMES.iter().zip(self.keys) {
             text += &format!("{} = {}\n", name.to_lowercase(), key.name());
         }

@@ -5,11 +5,9 @@
 //!   ouro-scout [DATA] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]
 //!   ouro-scout [DATA] --export-menu PAGE OUT.bmp  a menu page
 //!
-//! DATA is the data pack `ouro-scout-data.zip` (made by `ouro-scout-extract` from the
-//! original). Without it, `SCOUT_DATA` is used, then the one chosen before
-//! (saved in the settings), then `ouro-scout-data.zip` beside the program or in
-//! the current folder, then `re/work/ouro-scout-data.zip`; if there is none, the
-//! game asks for it.
+//! The game data is built in (`data/ouro-scout-data.zip`). DATA, a data
+//! pack made by `ouro-scout-extract`, replaces it; so does `SCOUT_DATA` or a
+//! file `ouro-scout-data.zip` beside the program or in the current folder.
 //!
 //! Keys (changeable in the settings): arrows move, Return takes / drops /
 //! teleports, Space fires, Esc blows yourself up. Command (or Ctrl) and P
@@ -59,8 +57,7 @@ fn main() -> Result<()> {
                 MENU_PAGES.join(", ")
             );
         }
-        let path = find_data(args.first().map(PathBuf::from))?;
-        let data = GameData::load(&path).with_context(|| format!("loading {}", path.display()))?;
+        let data = load_data(args.first().map(PathBuf::from))?;
         return export_menu(&data, &rest[0], Path::new(&rest[1]));
     }
     let export = match args.iter().position(|a| a == "--export") {
@@ -85,8 +82,7 @@ fn main() -> Result<()> {
     let Some(rest) = export else {
         return run(args.first().map(PathBuf::from), dev);
     };
-    let path = find_data(args.first().map(PathBuf::from))?;
-    let data = GameData::load(&path).with_context(|| format!("loading {}", path.display()))?;
+    let data = load_data(args.first().map(PathBuf::from))?;
 
     let level: usize = rest[0].parse().context("LEVEL must be a number from 1")?;
     let view = match rest.get(2).map(String::as_str) {
@@ -99,104 +95,36 @@ fn main() -> Result<()> {
     export_level(&data, level, view, palette, &PathBuf::from(&rest[1]))
 }
 
-/// The data pack `ouro-scout-extract` makes; the game looks for it beside the
-/// program and in the current folder.
+/// The data pack `ouro-scout-extract` makes (`data/ouro-scout-data.zip`),
+/// built into the program.
+const BUNDLED: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../data/ouro-scout-data.zip"
+));
+/// A pack of this name beside the program or in the current folder is used
+/// instead of the built-in one.
 const PACK: &str = "ouro-scout-data.zip";
-
-/// Where `ouro-scout-extract --only pack re/work` puts it during development.
-const DEV_PACK: &str = "re/work/ouro-scout-data.zip";
 
 /// A file in the folder of the program.
 fn beside_program(name: &str) -> Option<PathBuf> {
     Some(std::env::current_exe().ok()?.parent()?.join(name))
 }
 
-/// What the player sees when the game data is missing.
-const NEED_DATA: &str = "S.C.Out needs the data of the original game (Kalisto, 1993) \
-as a data pack, ouro-scout-data.zip. It is not included: make it with ouro-scout-extract from \
-the original disk image SCOUT_1_4.dsk or the S.C.OUT application (version 1.4 or 1.3.1).\n\nPlease choose the file in the next window.";
-
-/// The game data: from the command line, `SCOUT_DISK`, the file chosen
-/// before, the usual places, or else chosen by the player (`None` if they
-/// cancel).
-fn load_data(
-    window: &sdl3::video::Window,
-    events: &mut sdl3::EventPump,
-    arg: Option<PathBuf>,
-    settings: &mut Settings,
-) -> Result<Option<GameData>> {
+/// The game data: a pack from the command line, `SCOUT_DATA`, beside the
+/// program or in the current folder, else the built-in one.
+fn load_data(arg: Option<PathBuf>) -> Result<GameData> {
     let candidates = arg
         .into_iter()
         .chain(std::env::var_os("SCOUT_DATA").map(PathBuf::from))
-        .chain(settings.data.clone())
         .chain(beside_program(PACK))
-        .chain([PathBuf::from(PACK), PathBuf::from(DEV_PACK)]);
+        .chain([PathBuf::from(PACK)]);
     for path in candidates.filter(|p| p.exists()) {
         match GameData::load(&path) {
-            Ok(data) => return Ok(Some(data)),
+            Ok(data) => return Ok(data),
             Err(e) => eprintln!("{}: {e}", path.display()),
         }
     }
-    let mut message = NEED_DATA.to_string();
-    loop {
-        sdl3::messagebox::show_simple_message_box(
-            sdl3::messagebox::MessageBoxFlag::INFORMATION,
-            "S.C.Out",
-            &message,
-            window,
-        )?;
-        let Some(path) = choose_file(window, events) else {
-            return Ok(None);
-        };
-        match GameData::load(&path) {
-            Ok(data) => {
-                settings.data = Some(path);
-                settings.save();
-                return Ok(Some(data));
-            }
-            Err(e) => {
-                message = format!(
-                    "{} is not the S.C.Out game data ({e}).\n\n{NEED_DATA}",
-                    path.display()
-                );
-            }
-        }
-    }
-}
-
-/// The system's dialog to open a file; `None` if the player cancels.
-fn choose_file(window: &sdl3::video::Window, events: &mut sdl3::EventPump) -> Option<PathBuf> {
-    use std::cell::RefCell;
-    use std::rc::Rc;
-    let chosen: Rc<RefCell<Option<Option<PathBuf>>>> = Rc::default();
-    let result = chosen.clone();
-    sdl3::dialog::show_open_file_dialog(
-        &[],
-        None::<&Path>,
-        false,
-        window,
-        Box::new(move |files, _| {
-            *result.borrow_mut() = Some(files.ok().and_then(|f| f.into_iter().next()));
-        }),
-    )
-    .ok()?;
-    // the answer comes while events are handled
-    loop {
-        if let Some(path) = chosen.borrow_mut().take() {
-            return path;
-        }
-        events.pump_events();
-        std::thread::sleep(Duration::from_millis(10));
-    }
-}
-
-fn find_data(arg: Option<PathBuf>) -> Result<PathBuf> {
-    arg.into_iter()
-        .chain(std::env::var_os("SCOUT_DATA").map(PathBuf::from))
-        .chain(beside_program(PACK))
-        .chain([PathBuf::from(PACK), PathBuf::from(DEV_PACK)])
-        .find(|p| p.exists())
-        .with_context(|| format!("{PACK} not found; pass its path as the first argument"))
+    GameData::from_pack(BUNDLED).context("the built-in game data")
 }
 
 fn palette_index(data: &GameData, name: &str) -> Result<usize> {
@@ -443,9 +371,7 @@ fn run(data_path: Option<PathBuf>, dev: bool) -> Result<()> {
         .position_centered()
         .build()?;
     let mut events = sdl.event_pump()?;
-    let Some(data) = load_data(&window, &mut events, data_path, &mut settings)? else {
-        return Ok(());
-    };
+    let data = load_data(data_path)?;
     let data = &data;
     if settings.music {
         music.start(data);

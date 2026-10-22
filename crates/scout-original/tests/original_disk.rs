@@ -4,7 +4,6 @@
 
 use std::path::PathBuf;
 
-use scout_core::Level;
 use scout_data::GameData;
 use scout_original::MusicVersion;
 
@@ -69,27 +68,8 @@ fn every_level_has_a_start() {
 fn level_codes() {
     let Some(game) = load() else { return };
     assert_eq!(game.level_codes[0], "RAFAFE"); // level 2
-    assert_eq!(game.level_codes[67], "MUFUPO"); // level 69, the port says MUFUMO
+    assert_eq!(game.level_codes[67], "MUFUPO"); // level 69 (the Codebook says MUFUMO)
     assert_eq!(game.level_codes[99], "ZETIPO"); // level 101
-}
-
-#[test]
-fn levels_match_the_port_where_it_was_not_edited() {
-    let Some(game) = load() else { return };
-    let port = std::fs::read(repo_root().join("legacy-port/LEVEL.DAT")).unwrap();
-    // Levels the port changed with its editor (0-based).
-    let edited = [7, 9, 67, 70, 79, 85, 93, 94, 98];
-    for (n, level) in game.levels.iter().enumerate() {
-        let chunk = &port[2 + n * 2880..2 + (n + 1) * 2880];
-        let same = (0..Level::HEIGHT).all(|y| {
-            (0..Level::WIDTH).all(|x| {
-                let i = y * Level::WIDTH + x;
-                level.file_tile(x, y) == u16::from_le_bytes([chunk[2 * i], chunk[2 * i + 1]])
-                    && level.file_floor(x, y) == chunk[2 * Level::CELLS + i]
-            })
-        });
-        assert_eq!(same, !edited.contains(&n), "level {}", n + 1);
-    }
 }
 
 #[test]

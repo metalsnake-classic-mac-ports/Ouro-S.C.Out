@@ -11,7 +11,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - gameplay as close to the original as possible; modern extensions as options,
   later also high-resolution graphics and sound packs
 - the original 68k code (Ghidra) is the reference for the game logic,
-  Paul Mercat's C++ port shows where to look
+  Paul Mercat's C++ port showed where to look (removed 2026-10-22, see the git history)
 
 ### Milestone 1: show the levels ✓
 
@@ -74,7 +74,8 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   - [x] Full screen (setting SCREEN, F11, Command / Ctrl + F); the picture is always scaled
         by whole numbers
   - [x] Developer keys only with `--dev`
-  - [x] First start without game data: message and file dialog, the path is saved
+  - [x] The game data is built in (`data/ouro-scout-data.zip`); a pack as argument, in
+        `SCOUT_DATA` or beside the program replaces it (the file dialog for missing data is gone)
   - [ ] Dissolve between screens (CODE 8 0x1354); the random numbers it uses only with
         the lowest priority (see below)
   - [x] Sound effects ('snd ' 100–124) requested like the original, one channel; the messages
@@ -140,26 +141,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [ ] Random numbers number for number like a real Mac (Basilisk II); not required, the
       game does not need to match the original's random numbers
 
-The sections below were written for the old port and stay as a reference.
-The old port now lives in `legacy-port/`, so `build/` below means `legacy-port/build/`.
-
-## 0. Run the current code as a baseline
-
-- [x] Install SDL 1.2 (`brew install sdl12-compat freetype pkg-config`)
-- [x] Install SDL_ttf 2.0 (SDL 1.2 version). Homebrew no longer has it, so it is
-      built from the `SDL-1.2` branch of SDL_ttf as a static library in `~/.local`
-- [x] Build the current code unchanged (15 warnings, no errors)
-- [x] Start the game from `build/`: Kalisto logo and title screen work
-  - macOS asks for microphone access when the sound starts. The game waits
-    until the dialog is answered. "Don't allow" is fine, the game needs no microphone.
-- [x] Play a few levels: **crashes after about a minute of playing**
-  - Crash in the `DoBullets` thread in `SDL_BlitSurface(board → screen)`, reading a NULL
-    pixel format (`dst_fmt->bytes_per_pixel`). Most likely cause: several threads blit
-    from the same surface (`board`) to different targets at the same time (e.g. `MoveUs`
-    blits `board → boximg`), and SDL's per-surface blit cache is not thread-safe.
-    See step 4.
-
-## Original game (Mac version 1.4, 1993)
+## Original game (Mac version 1.4, 1993): first findings
 
 Disk image `SCOUT_1_4.dsk` (HFS floppy). Read it with `hfsutils` (`hmount`, `hcopy -m`).
 Everything is in the resource fork of the application:
@@ -224,45 +206,3 @@ Everything is in the resource fork of the application:
 - [x] Level 69 code: the original accepts `MUFUPO` (as in its data); `MUFUMO` from the port
       and the Codebook gives "Wrong Code" (tested in the emulator, 2026-10-19).
       The original shows level numbers from 0 (so level 69 is shown as "68").
-- [ ] Rename the sound files after the original resource names
-- [ ] Write down what works and what doesn't (crashes, flickering, sound, timing)
-
-## 1. Build setup
-
-- [ ] Replace the Makefile with CMake
-- [ ] Copy the resources into `build/` during the build, so they exist only once in the repo
-  - Keep both `rules.txt` files: the root copy is for development and the editor,
-    `build/rules.txt` is for the shipped game
-- [ ] Make debug/release builds switch `FINAL` (and the matching `rules.txt`)
-
-## 2. Fix obvious bugs
-
-- [ ] Turn on compiler warnings and fix them
-- [ ] Functions without a return value on some paths: `GetDir`, `dirx`, `diry`, `DoView`, `EnterCode` (without TTF)
-- [ ] `na`/`na2` can be used uninitialized in `DoAnim`
-- [ ] `GetLevel(int, char *)` returns without `fclose`
-- [ ] `LoadSound`: the `malloc` result is used even when it is `NULL`
-- [ ] Check prefs file handling (`prefs.dat` stores raw `SDLKey` values)
-
-## 3. Port to SDL2 or SDL3
-
-- [ ] Decide between SDL2 and SDL3
-- [ ] Graphics: surfaces/`SDL_Flip` → renderer/textures
-- [ ] Input: `SDL_GetKeyState`, `SDL_EnableUNICODE` → keyboard state and text input events
-- [ ] Sound: `SDL_OpenAudio` callback → audio stream (or SDL_mixer)
-- [ ] Text: SDL_ttf for the new SDL version
-
-## 4. Replace threads with one game loop
-
-The game draws to the screen and changes the level from several threads
-(`DoBullets`, `DoAnim`, `DoView`, plus the main thread) without locks.
-That is not allowed on modern macOS and can crash.
-
-- [ ] Update animations, bullets and the view once per frame in the main thread
-- [ ] Keep the original timing (`TANIM`, `TBALLS`, `TVIEW`, `TMUS`)
-
-## 5. Optional cleanup
-
-- [ ] Split `main.cpp` (about 4000 lines) into modules
-- [ ] Use modern C++ where it makes the code clearer
-- [ ] Decide whether to rename the sound files (`son01.wav` → ...)
