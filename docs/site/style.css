@@ -1,0 +1,232 @@
+/* Ouro S.C.Out - the colours and materials of the game itself:
+   the black Mac screen around it, the pink marble boxes of its screens,
+   the slate inside them, the cyan block letters, the violet ice band. */
+
+@font-face {
+  font-family: "Chakra Petch";
+  src: url("fonts/chakra-petch-400.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Chakra Petch";
+  src: url("fonts/chakra-petch-600.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+
+:root {
+  --screen: #000000;
+  --marble: #cfabb3;
+  --marble-light: #dbb7bf;
+  --marble-dark: #a7808c;
+  --marble-ink: #2a1020;
+  --slate: #636363;
+  --cyan: #00c7f7;
+  --cyan-light: #8be7f7;
+  --ice: #1f00a7;
+  --text: #f2eef0;
+  --text-dim: #c9c2c6;
+  --code-bg: #000000;
+
+  --step: 1.25;
+  --size-body: 1.125rem;
+  --size-small: 0.95rem;
+  --measure: 70ch;
+  --gap: 2rem;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--screen); }
+
+body {
+  margin: 0;
+  background: var(--screen);
+  color: var(--text);
+  font-family: "Chakra Petch", system-ui, sans-serif;
+  font-size: var(--size-body);
+  line-height: 1.6;
+}
+
+.pixel { image-rendering: pixelated; }
+
+img, canvas { max-width: 100%; height: auto; display: block; }
+
+a { color: var(--cyan-light); text-underline-offset: 0.18em; }
+a:hover { color: var(--cyan); }
+a:focus-visible, .button:focus-visible {
+  outline: 3px solid var(--cyan);
+  outline-offset: 3px;
+}
+
+/* --- top line ----------------------------------------------------- */
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem;
+  border-bottom: 4px solid var(--ice);
+}
+.brand { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; }
+.brand h1 { margin: 0; line-height: 0; }
+.brand h1 img { height: 24px; width: auto; }
+.brand > img { width: 32px; height: 32px; }
+.source { font-size: var(--size-small); white-space: nowrap; }
+
+/* --- page --------------------------------------------------------- */
+
+main {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 2.5rem 1rem 3rem;
+  display: grid;
+  gap: 3rem;
+}
+/* grid items may shrink below their content (long code lines scroll) */
+main > *, .gallery > *, .credits-body > * { min-width: 0; }
+
+h2 { margin: 0 0 1.25rem; line-height: 0; }
+h2 img { height: 32px; width: auto; }
+
+p, ul, ol, dl, table { max-width: var(--measure); }
+p { margin: 0 0 1em; }
+
+/* --- the title picture, revealed like the original shows pictures -- */
+
+.hero { display: grid; gap: 1.5rem; }
+.title-picture {
+  width: 100%;
+  max-width: 880px;
+  aspect-ratio: 512 / 364;
+  margin: 0 auto;
+}
+.title-picture canvas, .title-picture img { width: 100%; height: 100%; }
+.lead {
+  font-size: calc(var(--size-body) * var(--step));
+  line-height: 1.45;
+  margin: 0 auto;
+  max-width: 44ch;
+  text-align: center;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  margin: 0 auto;
+}
+
+/* buttons: a pressed-out marble tile */
+.button {
+  display: inline-block;
+  padding: 0.6rem 1.2rem;
+  background: var(--marble);
+  color: var(--marble-ink);
+  font-weight: 600;
+  text-decoration: none;
+  border: 3px solid;
+  border-color: var(--marble-light) var(--marble-dark) var(--marble-dark) var(--marble-light);
+}
+.button:hover { background: var(--marble-light); color: var(--marble-ink); }
+.button:active { border-color: var(--marble-dark) var(--marble-light) var(--marble-light) var(--marble-dark); }
+
+/* --- the marble boxes of the game's screens (CODE 8 0x15ce) -------- */
+
+.box {
+  border: 32px solid transparent;
+  border-image: url("box.png") 32 fill round;
+  image-rendering: pixelated;
+  padding: 0.75rem 1rem 0.5rem;
+}
+.box > :last-child { margin-bottom: 0; }
+
+.box ul { padding-left: 1.2em; margin: 0 0 1em; }
+.box li { margin-bottom: 0.5em; }
+.box li::marker { color: var(--cyan); }
+
+figure { margin: 1.5rem 0 0; }
+figcaption {
+  margin-top: 0.5rem;
+  font-size: var(--size-small);
+  color: var(--text-dim);
+}
+
+/* --- screens ------------------------------------------------------ */
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: var(--gap);
+}
+.gallery figure { margin: 0; }
+
+/* --- play --------------------------------------------------------- */
+
+.box ol { padding-left: 1.4em; margin: 0; }
+.box ol li { margin-bottom: 1em; }
+.box ol li::marker { color: var(--cyan); font-weight: 600; }
+
+pre {
+  margin: 0.5rem 0 0;
+  padding: 0.75rem 1rem;
+  background: var(--code-bg);
+  border-left: 4px solid var(--cyan);
+  overflow-x: auto;
+}
+code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+/* --- keys --------------------------------------------------------- */
+
+.keys { border-collapse: collapse; margin-bottom: 1em; }
+.keys th, .keys td { text-align: left; vertical-align: top; padding: 0.35rem 0; }
+.keys th { padding-right: 2rem; white-space: nowrap; font-weight: 600; color: var(--cyan-light); }
+.keys tr + tr th, .keys tr + tr td { border-top: 1px solid rgba(255, 255, 255, 0.15); }
+
+/* --- credits ------------------------------------------------------ */
+
+.credits-body {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) 1fr;
+  gap: var(--gap);
+  align-items: start;
+}
+.credits dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 1.5rem;
+  margin: 0 0 1em;
+}
+.credits dt { color: var(--cyan-light); }
+.credits dd { margin: 0; }
+
+/* --- footer ------------------------------------------------------- */
+
+footer {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  border-top: 4px solid var(--ice);
+  font-size: var(--size-small);
+  color: var(--text-dim);
+}
+
+/* --- small screens ------------------------------------------------ */
+
+@media (max-width: 40rem) {
+  :root { --size-body: 1rem; --gap: 1.25rem; }
+  main { gap: 2rem; }
+  .box { border-width: 16px; padding: 0.75rem 0.5rem 0.25rem; }
+  h2 img { height: 24px; }
+  .brand h1 img { height: 18px; }
+  .source { display: none; }
+  .credits-body { grid-template-columns: 1fr; }
+  .keys th { padding-right: 1rem; white-space: normal; }
+}

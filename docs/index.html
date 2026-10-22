@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ouro S.C.Out</title>
+<meta name="description" content="S.C.Out, the 1993 Mac game by Kalisto, rewritten to run on macOS, Windows and Linux - the same 101 levels, rules, sounds and music.">
+<link rel="icon" type="image/png" href="site/player.png">
+<link rel="stylesheet" href="site/style.css">
+<script src="site/dissolve.js" defer></script>
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="./">
+    <img class="pixel" src="site/player.png" alt="" width="32" height="32">
+    <h1><img class="pixel" src="site/heading-logo.png" alt="Ouro S.C.Out" width="372" height="32"></h1>
+  </a>
+  <a class="source" href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out">Source on GitHub</a>
+</header>
+
+<main>
+
+<section class="hero">
+  <div class="title-picture">
+    <canvas id="title" class="pixel" width="512" height="364" role="img"
+            aria-label="The title picture of S.C.Out: a green stone face, a cannon and the silver scout"></canvas>
+    <noscript><img class="pixel" src="site/title.png" width="512" height="364" alt="The title picture of S.C.Out"></noscript>
+  </div>
+  <p class="lead">S.C.Out, the 1993 Mac game by Kalisto, rewritten to run on macOS, Windows and
+  Linux. The same 101 levels, rules, sounds and music as the original - in a window or full screen,
+  with sharp pixels.</p>
+  <p class="actions">
+    <a class="button" href="#play">Build and play</a>
+    <a class="button" href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out">Source on GitHub</a>
+  </p>
+</section>
+
+<section class="box" aria-labelledby="game">
+  <h2 id="game"><img class="pixel" src="site/heading-game.png" alt="The game" width="244" height="32"></h2>
+  <p>You steer a small armoured scout through a hostile base, one screen of boxes at a time. Open
+  doors with keys and switches, ride rails and teleporters, push your way past conveyors, dodge
+  cannons and mines - and destroy the target that ends each level. Every level has a six-letter
+  password that brings you back to it.</p>
+  <p>The puzzles get mean quickly. Five lives, checkpoints on the way, and a self destruct button for
+  the moments you have locked yourself in.</p>
+  <figure>
+    <img class="pixel" src="site/screen-level68.png" width="1024" height="728" loading="lazy"
+         alt="Level 68: the scout on its start box, a jungle, mirrors, cannons and doors">
+    <figcaption>Level 68, just after the start.</figcaption>
+  </figure>
+</section>
+
+<section class="box" aria-labelledby="faithful">
+  <h2 id="faithful"><img class="pixel" src="site/heading-faithful.png" alt="As in 1993" width="296" height="32"></h2>
+  <p>This is not a remake. The levels, pictures and sounds come from the original Mac version, and
+  the rules were taken from its program code and checked against it: the original's code runs in an
+  emulator next to this version, and both have to do exactly the same, frame by frame.</p>
+  <ul>
+    <li>The game runs at 60 frames per second, like the original on a fast enough Mac.</li>
+    <li>Fred Motte's music, played by a copy of the original's own music player - with a few bugs of
+      that player fixed.</li>
+    <li>Bugs of the original game are written down, and where fixing one would change how the game
+      plays, it stays.</li>
+    <li>New: keys you can change, full screen, pixels scaled by whole numbers, and the game pauses
+      when you switch to another window.</li>
+  </ul>
+</section>
+
+<section class="screens" aria-labelledby="screens">
+  <h2 id="screens"><img class="pixel" src="site/heading-screens.png" alt="Screens" width="224" height="32"></h2>
+  <div class="gallery">
+    <figure>
+      <img class="pixel" src="site/screen-levelscreen.png" width="1024" height="728" loading="lazy"
+           alt="The screen before level 17: level number, password and lives in a marble box">
+      <figcaption>Before each level: its number, its password and your lives.</figcaption>
+    </figure>
+    <figure>
+      <img class="pixel" src="site/screen-menu.png" width="1024" height="728" loading="lazy"
+           alt="The menu over the title picture: Play, Password, Settings, About, Quit">
+      <figcaption>The menu, in the style of the game's own screens.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section class="box" id="play" aria-labelledby="play-heading">
+  <h2 id="play-heading"><img class="pixel" src="site/heading-play.png" alt="Play" width="128" height="32"></h2>
+  <p>There are no ready-made downloads yet; the game is built from its source code. It takes a few
+  minutes, and the game data is included.</p>
+  <ol>
+    <li>Install <a href="https://rustup.rs">Rust</a> and SDL3. On a Mac with Homebrew:
+      <pre><code>brew install sdl3</code></pre></li>
+    <li>Get the source:
+      <pre><code>git clone https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out
+cd Ouro-S.C.Out</code></pre></li>
+    <li>Build and start the game:
+      <pre><code>cargo run --release -p scout</code></pre></li>
+  </ol>
+</section>
+
+<section class="box" aria-labelledby="keys">
+  <h2 id="keys"><img class="pixel" src="site/heading-keys.png" alt="Keys" width="128" height="32"></h2>
+  <table class="keys">
+    <tbody>
+      <tr><th scope="row">Arrow keys</th><td>Move</td></tr>
+      <tr><th scope="row">Return</th><td>Take, drop or swap an object; use a teleporter</td></tr>
+      <tr><th scope="row">Space</th><td>Fire a missile</td></tr>
+      <tr><th scope="row">Esc</th><td>Self destruct</td></tr>
+      <tr><th scope="row">Command&nbsp;P / Ctrl&nbsp;P</th><td>Pause and open the menu</td></tr>
+      <tr><th scope="row">Command&nbsp;Q / Ctrl&nbsp;Q</th><td>Quit</td></tr>
+      <tr><th scope="row">F11</th><td>Full screen</td></tr>
+    </tbody>
+  </table>
+  <p>The game keys can be changed in Settings → Keys.</p>
+</section>
+
+<section class="box credits" aria-labelledby="credits">
+  <h2 id="credits"><img class="pixel" src="site/heading-credits.png" alt="Credits" width="224" height="32"></h2>
+  <div class="credits-body">
+    <img class="pixel about" src="site/about.png" width="320" height="200" loading="lazy"
+         alt="The About box of the original: Kalisto, S.C.Out and its authors">
+    <div>
+      <p>S.C.Out © 1992 Atreid Concept, published by Kalisto:</p>
+      <dl>
+        <dt>Program</dt><dd>Mathieu Marciacq</dd>
+        <dt>Mac version</dt><dd>Fabrice Armisen</dd>
+        <dt>Graphics</dt><dd>Stephan Renaudin</dd>
+        <dt>Sound effects</dt><dd>Olivier Bailly-Maître</dd>
+        <dt>Music</dt><dd>Fred Motte</dd>
+        <dt>Compression</dt><dd>Ross Williams</dd>
+      </dl>
+      <p>Ouro S.C.Out by MetalSnake, 2026. Paul Mercat's 2008 port showed the way into the game.
+      This project is not affiliated with the authors of the original.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <p>Part of <a href="https://github.com/metalsnake-classic-mac-ports">MetalSnake's Classic Mac Ports</a>.
+  Code under the MIT license; the game data belongs to its authors.</p>
+</footer>
+
+</body>
+</html>
