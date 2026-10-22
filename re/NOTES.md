@@ -27,8 +27,8 @@ The rewrite reads version 1.4 US (`SCOUT_1_4.dsk`, application dated
   to (21, 12)).
 
 Graphics, sounds, codes and the other CODE segments are identical.
-`scout-extract` also reads the 1.3.1 application (its resource fork), e.g.
-`scout-extract --only level-images --levels 68,71,80,94,95,99 "S.C.OUT 1.3.1" OUT`.
+`ouro-scout-extract` also reads the 1.3.1 application (its resource fork), e.g.
+`ouro-scout-extract --only level-images --levels 68,71,80,94,95,99 "S.C.OUT 1.3.1" OUT`.
 
 ## Tools
 
@@ -411,12 +411,12 @@ CODE 7 0x105a, `-0x6db4`).
 The rewrite: `scout_original::music::MusicPlayer`, a port of CODE 10; it
 matches the original byte for byte over 7 minutes from positions 0 and 1
 (`re/tools/emu_music.py`, test `music_matches_the_original`).
-`scout-extract` renders the song once through from position 0 (as the
+`ouro-scout-extract` renders the song once through from position 0 (as the
 original or with its bugs fixed) into the data pack as FLAC; the game
 plays that in a loop on a second stream, from the start (the original's
 start at position 1 is not to be heard). Unlike the original it does not
 start again when the game comes back to the front: it pauses in the
-background and goes on where it stopped. `scout-extract --only music`
+background and goes on where it stopped. `ouro-scout-extract --only music`
 writes both modules as `.mod` and as WAV played by the game's player.
 
 ## Title, menus and dialogs (CODE 7, CODE 2)

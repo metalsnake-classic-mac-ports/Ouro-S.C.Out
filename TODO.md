@@ -7,7 +7,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - `scout-core`: deterministic simulation with a fixed tick, no I/O, tested with unit and replay tests
 - frontend with SDL3 for macOS, Windows and Linux
 - the game data comes from the original disk image `SCOUT_1_4.dsk`: since 2026-10-22
-  `scout-extract` converts it into a data pack (`scout-data.zip`) that the game reads
+  `ouro-scout-extract` converts it into a data pack (`ouro-scout-data.zip`) that the game reads
 - gameplay as close to the original as possible; modern extensions as options,
   later also high-resolution graphics and sound packs
 - the original 68k code (Ghidra) is the reference for the game logic,
@@ -62,7 +62,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
         perfect) like the original (CODE 8 0x176c …); waiting for a key on the level screen
   - [x] Music: `SHAP 200` with a port of the original player (CODE 10), byte for byte like
         the original (`re/tools/emu_music.py`, test `music_matches_the_original`); rendered
-        by `scout-extract` into the pack (FLAC, fixed or original), played in a loop from the
+        by `ouro-scout-extract` into the pack (FLAC, fixed or original), played in a loop from the
         start (the original starts at order position 1, not to be heard), pauses in the
         background and goes on where it stopped (the original starts again)
   - [x] Logo, title, menu (Play, Resume, Password, Settings, About, Quit) in the style of the
@@ -100,7 +100,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 - [ ] Choice of the projectile colors: intended (default) or as on a real Mac / in
       Basilisk II (see re/BUGS.md)
 - [x] Music player with the bugs of the original corrected (`MusicPlayer::fixed`, re/BUGS.md):
-      chosen when the pack is made (`scout-extract --music fixed|original`, default fixed)
+      chosen when the pack is made (`ouro-scout-extract --music fixed|original`, default fixed)
 
 ### Level selection (new feature)
 
@@ -116,7 +116,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
 
 ### Data packs (later)
 
-- [x] Data pack: `scout-extract --only pack` writes `scout-data.zip` (PNG, WAV, FLAC, text,
+- [x] Data pack: `ouro-scout-extract --only pack` writes `ouro-scout-data.zip` (PNG, WAV, FLAC, text,
       GIMP palette; no original resource data); the game reads only that (`scout_data::pack`),
       the original is read by `scout-original`; identical game data, checked by
       `original_pack.rs`
@@ -133,7 +133,7 @@ S.C.Out gets a **new implementation in Rust**, based on the original Mac game (1
   the VM: from starting a sound to the device taking it ≈ 8 ms (max. 12; SDL's rate
   conversion ≈ 1 ms of it), the VM's sound device reports ≈ 13 ms; the way from the VM
   to the host's speakers is not measurable from inside. To compare: `afplay` a WAV from
-  `scout-extract` in the VM and on the host.
+  `ouro-scout-extract` in the VM and on the host.
 
 ### Lowest priority
 

@@ -12,9 +12,9 @@
 //! - `levels/`: each level as text (translated values the game uses and the
 //!   values of the level file) and/or as a picture of the whole level
 //! - `codes.txt`, `palette.txt`
-//! - `scout-data.zip`: the data pack the game reads (see `scout_data::pack`)
+//! - `ouro-scout-data.zip`: the data pack the game reads (see `scout_data::pack`)
 //!
-//! Usage: scout-extract [OPTIONS] [DISK] OUT_DIR, see `scout-extract --help`.
+//! Usage: ouro-scout-extract [OPTIONS] [DISK] OUT_DIR, see `ouro-scout-extract --help`.
 //! Install with `cargo install --path crates/scout-original`.
 
 use std::fs;
@@ -32,15 +32,15 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 const TILE: usize = 32;
 const PER_ROW: usize = 16;
 const GAP: usize = 2;
-const USAGE: &str = "usage: scout-extract [OPTIONS] [DISK] OUT_DIR (--help for more)";
+const USAGE: &str = "usage: ouro-scout-extract [OPTIONS] [DISK] OUT_DIR (--help for more)";
 const HELP: &str = "\
 Export graphics, sounds, music and levels of the original S.C.Out disk.
 
-usage: scout-extract [OPTIONS] [DISK] OUT_DIR
+usage: ouro-scout-extract [OPTIONS] [DISK] OUT_DIR
 
   --only LIST        what to export, comma separated (default: all):
                      graphics, sounds, music, levels, level-images, codes,
-                     palette, pack (scout-data.zip: everything the game
+                     palette, pack (ouro-scout-data.zip: everything the game
                      needs, in ordinary formats; the game reads it)
   --music VERSION    the music in the pack and the WAVs: fixed (the bugs
                      of the original player corrected, default) or
@@ -54,10 +54,10 @@ resource fork, e.g. version 1.3.1 unpacked from its archive). Without it:
 $SCOUT_DISK, then SCOUT_1_4.dsk in the current folder, then
 re/work/SCOUT_1_4.dsk.
 
-Examples: scout-extract --only pack ~/S.C.Out
-          scout-extract --only level-images ~/scout-levels";
+Examples: ouro-scout-extract --only pack ~/S.C.Out
+          ouro-scout-extract --only level-images ~/scout-levels";
 /// The file name of the data pack (the game looks for it too).
-const PACK: &str = "scout-data.zip";
+const PACK: &str = "ouro-scout-data.zip";
 
 const PARTS: [&str; 8] = [
     "pack",

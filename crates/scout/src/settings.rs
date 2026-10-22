@@ -56,10 +56,23 @@ impl Default for Settings {
 
 const FILE: &str = "settings.txt";
 
+/// The settings folder (SDL's preference folder, macOS:
+/// `~/Library/Application Support/Ouro S.C.Out`).
+const FOLDER: &str = "Ouro S.C.Out";
+/// Its name before 2026-10-22; settings found there are taken over.
+const OLD_FOLDER: &str = "S.C.Out";
+
 fn path() -> Option<PathBuf> {
-    sdl3::filesystem::get_pref_path("", "S.C.Out")
-        .ok()
-        .map(|dir| dir.join(FILE))
+    let path = sdl3::filesystem::get_pref_path("", FOLDER).ok()?.join(FILE);
+    if !path.exists()
+        && let Some(old) = sdl3::filesystem::get_pref_path("", OLD_FOLDER)
+            .ok()
+            .map(|d| d.join(FILE))
+            .filter(|p| p.exists())
+    {
+        let _ = std::fs::copy(old, &path);
+    }
+    Some(path)
 }
 
 impl Settings {

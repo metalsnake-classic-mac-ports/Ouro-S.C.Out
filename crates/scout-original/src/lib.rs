@@ -5,7 +5,7 @@
 //! 'pltt', pictures 'PICT', sounds 'snd ', the music player CODE 10.
 //!
 //! The game itself reads the data pack (`scout_data::pack`) that
-//! [`pack::write`] makes from this (tool `scout-extract`).
+//! [`pack::write`] makes from this (tool `ouro-scout-extract`).
 
 mod bytes;
 pub mod error;

@@ -67,7 +67,7 @@ pub struct Picture {
 }
 
 impl GameData {
-    /// Load a data pack (`scout-data.zip`).
+    /// Load a data pack (`ouro-scout-data.zip`).
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
         let bytes = std::fs::read(path).map_err(|source| Error::Io {
@@ -76,7 +76,7 @@ impl GameData {
         })?;
         if !pack::is_pack(&bytes) {
             return Err(error::corrupt(format!(
-                "{} is not a data pack (make one with scout-extract)",
+                "{} is not a data pack (make one with ouro-scout-extract)",
                 path.display()
             )));
         }

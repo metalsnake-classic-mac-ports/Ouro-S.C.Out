@@ -5,6 +5,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[[bin]]
+name = "ouro-scout"
+path = "src/main.rs"
+
 [dependencies]
 scout-core.workspace = true
 scout-data.workspace = true

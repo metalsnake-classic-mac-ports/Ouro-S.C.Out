@@ -1,5 +1,5 @@
 //! The data pack: a zip file of ordinary files (PNG, WAV, FLAC, text), made
-//! by `scout-extract` (crate `scout-original`) from the original and read by
+//! by `ouro-scout-extract` (crate `scout-original`) from the original and read by
 //! the game. It holds no original resource data, only what the game uses,
 //! converted:
 //!

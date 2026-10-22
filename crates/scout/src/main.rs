@@ -1,14 +1,14 @@
-//! S.C.Out for macOS, Windows and Linux (work in progress).
+//! Ouro S.C.Out: S.C.Out for macOS, Windows and Linux (work in progress).
 //!
 //! Usage:
-//!   scout [--dev] [DATA]                          play
-//!   scout [DATA] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]
-//!   scout [DATA] --export-menu PAGE OUT.bmp       a menu page (see --help)
+//!   ouro-scout [--dev] [DATA]                     play
+//!   ouro-scout [DATA] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]
+//!   ouro-scout [DATA] --export-menu PAGE OUT.bmp  a menu page
 //!
-//! DATA is the data pack `scout-data.zip` (made by `scout-extract` from the
+//! DATA is the data pack `ouro-scout-data.zip` (made by `ouro-scout-extract` from the
 //! original). Without it, `SCOUT_DATA` is used, then the one chosen before
-//! (saved in the settings), then `scout-data.zip` beside the program or in
-//! the current folder, then `re/work/scout-data.zip`; if there is none, the
+//! (saved in the settings), then `ouro-scout-data.zip` beside the program or in
+//! the current folder, then `re/work/ouro-scout-data.zip`; if there is none, the
 //! game asks for it.
 //!
 //! Keys (changeable in the settings): arrows move, Return takes / drops /
@@ -55,7 +55,7 @@ fn main() -> Result<()> {
         let rest: Vec<String> = args.drain(at..).skip(1).collect();
         if rest.len() < 2 {
             bail!(
-                "usage: scout [DATA] --export-menu PAGE OUT.bmp (PAGE: {})",
+                "usage: ouro-scout [DATA] --export-menu PAGE OUT.bmp (PAGE: {})",
                 MENU_PAGES.join(", ")
             );
         }
@@ -67,7 +67,9 @@ fn main() -> Result<()> {
         Some(at) => {
             let rest: Vec<String> = args.drain(at..).skip(1).collect();
             if rest.len() < 2 {
-                bail!("usage: scout [DATA] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]");
+                bail!(
+                    "usage: ouro-scout [DATA] --export LEVEL OUT.bmp [screen|map|level] [PALETTE]"
+                );
             }
             Some(rest)
         }
@@ -97,12 +99,12 @@ fn main() -> Result<()> {
     export_level(&data, level, view, palette, &PathBuf::from(&rest[1]))
 }
 
-/// The data pack `scout-extract` makes; the game looks for it beside the
+/// The data pack `ouro-scout-extract` makes; the game looks for it beside the
 /// program and in the current folder.
-const PACK: &str = "scout-data.zip";
+const PACK: &str = "ouro-scout-data.zip";
 
-/// Where `scout-extract --only pack re/work` puts it during development.
-const DEV_PACK: &str = "re/work/scout-data.zip";
+/// Where `ouro-scout-extract --only pack re/work` puts it during development.
+const DEV_PACK: &str = "re/work/ouro-scout-data.zip";
 
 /// A file in the folder of the program.
 fn beside_program(name: &str) -> Option<PathBuf> {
@@ -111,7 +113,7 @@ fn beside_program(name: &str) -> Option<PathBuf> {
 
 /// What the player sees when the game data is missing.
 const NEED_DATA: &str = "S.C.Out needs the data of the original game (Kalisto, 1993) \
-as a data pack, scout-data.zip. It is not included: make it with scout-extract from \
+as a data pack, ouro-scout-data.zip. It is not included: make it with ouro-scout-extract from \
 the original disk image SCOUT_1_4.dsk or the S.C.OUT application (version 1.4 or 1.3.1).\n\nPlease choose the file in the next window.";
 
 /// The game data: from the command line, `SCOUT_DISK`, the file chosen
