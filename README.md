@@ -80,3 +80,10 @@ affiliated with them.
 
 Paul Mercat's C++ port (2008, http://mercat.jean.free.fr/S.C.Out/) was the
 starting point of this project; it is in the git history before 2026-10-22.
+
+## License
+The code is free software under the GNU General Public License, version 3
+or later (see [LICENSE](LICENSE)); version 0.1.0 was published under the
+MIT license. The game data in `data/` (graphics, sounds, music, levels) is
+not covered by it: it belongs to the authors of the original game. The font
+of the website (Chakra Petch) is under the SIL Open Font License.

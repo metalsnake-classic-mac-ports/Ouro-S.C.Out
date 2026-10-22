@@ -12,9 +12,11 @@ options, off by default unless noted.
 
 - [ ] The block dissolve between screens (CODE 8 0x1354 / 0x1416)
 - [ ] No lives (decided 2026-10-22): a lost life only restarts from the last checkpoint, no
-      game over. Goes with it: LIVES on the level screen, the GAME OVER screen and
-      picture 1001, the lives in the core (`Player::lives`, `Exit::GameOver`); BUGS.md /
-      NOTES.md describe the original's lives
+      game over. Goes with it: LIVES on the level screen, the GAME OVER screen, the lives
+      in the core (`Player::lives`, `Exit::GameOver`); BUGS.md / NOTES.md describe the
+      original's lives
+- [ ] Keep the game over picture (PICT 1001): show it when the game quits (until a key or a
+      few seconds)
 
 ## Options
 
@@ -72,3 +74,4 @@ A place to share packs, free of charge for everyone. (Not to be called a
 - [ ] Homebrew bottles for Intel Macs (a `macos-15-intel` runner); macOS 14 has none because
       Homebrew's sdl3 has no bottle there
 - [ ] A release checklist: CHANGELOG.md, version, tag, formula pull request in the tap
+- [ ] Next release: `license "GPL-3.0-or-later"` in the Homebrew formula (0.1.0 was MIT)

@@ -5,7 +5,7 @@ members = ["crates/scout-core", "crates/scout-data", "crates/scout-original", "c
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-license = "MIT"
+license = "GPL-3.0-or-later"
 repository = "https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out"
 homepage = "https://metalsnake-classic-mac-ports.github.io/Ouro-S.C.Out/"
 
