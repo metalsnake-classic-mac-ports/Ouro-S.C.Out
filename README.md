@@ -16,6 +16,12 @@ name of these ports: the old game in a new skin.
 
 Work in progress, see [TODO.md](TODO.md).
 
+## Installing
+With [Homebrew](https://brew.sh) (macOS, Linux):
+
+    brew install metalsnake-classic-mac-ports/games/ouro-scout
+    ouro-scout
+
 ## Building
 You need Rust (via [rustup](https://rustup.rs)) and SDL3
 (macOS: `brew install sdl3`). Then:
