@@ -1,9 +1,15 @@
 # Running the original in an emulator
 
-Basilisk II emulates a 68040 Mac. It needs files that are not in this repo:
+Basilisk II emulates a 68040 Mac. It needs files that are not in this repo.
+The emulator, ROMs and system disks are shared by all Ouro ports in a
+folder next to the repositories, `ouro-tools` (or `$OURO_TOOLS`):
 
-- a Mac ROM: `re/work/emu/rom/PERFORMA.ROM` (Performa 630, 1 MB)
-- a System 7.0 boot disk: `re/work/emu/system70.dsk`
+- the emulator: `ouro-tools/basilisk` (`build.sh` builds it there)
+- a Mac ROM: `ouro-tools/roms/PERFORMA.ROM` (Performa 630, 1 MB)
+- a System 7.0 boot disk: `ouro-tools/systems/system70.dsk`
+
+and in this repository's work folder:
+
 - the game disk: `re/work/emu/scout.dsk` (writable copy of `SCOUT_1_4.dsk`)
 
 Then:
@@ -29,7 +35,7 @@ PERFECT / TRY AGAIN / GAME OVER, where it waits for the end of a sound.
 
     re/tools/emulator/make-sound-disk.sh MacOS75.ZIP Sound_Manager_3.1.sea_.hqx
 
-builds `re/work/emu/system75-sound.dsk` (needs `brew install unar
+builds `ouro-tools/systems/system75-sound.dsk` (needs `brew install unar
 hfsutils`): the System Folder of the System 7.5.0 "Disk Tools" floppy on a
 20 MB volume plus the Sound Manager 3.1 extension and Sound control panel
 (both free downloads from Apple), with the boot blocks of the floppy.

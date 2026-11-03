@@ -1,5 +1,6 @@
 #!/bin/sh
-# Build re/work/emu/system75-sound.dsk: the System Folder of the System 7.5
+# Build ouro-tools/systems/system75-sound.dsk (the shared tools, OURO_TOOLS,
+# default ../ouro-tools next to this repository): the System Folder of the System 7.5
 # "Disk Tools" floppy on a 20 MB volume with Sound Manager 3.1 added, so
 # Basilisk II can play sound (it needs a Sound Manager 3.x component; with
 # System 7.0 that does not work). run.sh uses it when it exists.
@@ -14,7 +15,9 @@ HQX="$2"
     echo "usage: $0 MacOS75.ZIP Sound_Manager_3.1.sea_.hqx" >&2
     exit 1
 }
-EMU="$(cd "$(dirname "$0")/../.." && pwd)/work/emu"
+REPO="$(cd "$(dirname "$0")/../.." && cd .. && pwd)"
+SYSTEMS="${OURO_TOOLS:-$(cd "$REPO/.." && pwd)/ouro-tools}/systems"
+mkdir -p "$SYSTEMS"
 TMP="$(mktemp -d)"
 trap 'humount >/dev/null 2>&1 || true; rm -rf "$TMP"' EXIT
 
@@ -84,5 +87,5 @@ src = open(sys.argv[1], 'rb').read(1024)
 with open(sys.argv[2], 'r+b') as f:
     f.write(src)
 " "$FLOPPY" "$OUT"
-cp "$OUT" "$EMU/system75-sound.dsk"
-echo "built $EMU/system75-sound.dsk"
+cp "$OUT" "$SYSTEMS/system75-sound.dsk"
+echo "built $SYSTEMS/system75-sound.dsk"
