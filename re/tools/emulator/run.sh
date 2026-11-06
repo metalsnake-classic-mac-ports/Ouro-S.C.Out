@@ -6,7 +6,7 @@
 # and in re/work/emu: scout.dsk (a writable copy of SCOUT_1_4.dsk).
 # In the emulated Finder: type "s", then cmd-O to start the game.
 # SCOUT_FPS=1 run.sh prints game frames and Mac ticks per second (needs the
-# patch scout-fps.patch, which build.sh applies).
+# frames-per-second counter, part of the `ouro` build that build.sh makes).
 set -e
 REPO="$(cd "$(dirname "$0")/../.." && cd .. && pwd)"
 EMU="$REPO/re/work/emu"

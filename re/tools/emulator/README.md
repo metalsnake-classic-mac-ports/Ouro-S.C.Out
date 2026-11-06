@@ -4,7 +4,9 @@ Basilisk II emulates a 68040 Mac. It needs files that are not in this repo.
 The emulator, ROMs and system disks are shared by all Ouro ports in a
 folder next to the repositories, `ouro-tools` (or `$OURO_TOOLS`):
 
-- the emulator: `ouro-tools/basilisk` (`build.sh` builds it there)
+- the emulator: `ouro-tools/basilisk` (`build.sh` builds it there: the
+  shared `ouro` build from the skill's `scripts/emulator/build-ouro.sh`,
+  which also has the emulator monitor for scripted runs without a window)
 - a Mac ROM: `ouro-tools/roms/PERFORMA.ROM` (Performa 630, 1 MB)
 - a System 7.0 boot disk: `ouro-tools/systems/system70.dsk`
 
