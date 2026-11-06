@@ -1,7 +1,8 @@
 #!/bin/sh
 # Start the original S.C.OUT in Basilisk II.
-# Expects the shared tools (OURO_TOOLS, default ../ouro-tools next to this
-# repository): basilisk/ (build.sh), roms/PERFORMA.ROM (Performa 630 ROM),
+# Expects Basilisk II in ouro-macemu (OURO_MACEMU, default ../ouro-macemu
+# next to this repository; build.sh builds it) and the shared tools
+# (OURO_TOOLS, default ../ouro-tools): roms/PERFORMA.ROM (Performa 630 ROM),
 # systems/system70.dsk (System 7.0 boot floppy) or system75-sound.dsk;
 # and in re/work/emu: scout.dsk (a writable copy of SCOUT_1_4.dsk).
 # In the emulated Finder: type "s", then cmd-O to start the game.
@@ -11,6 +12,7 @@ set -e
 REPO="$(cd "$(dirname "$0")/../.." && cd .. && pwd)"
 EMU="$REPO/re/work/emu"
 TOOLS="${OURO_TOOLS:-$(cd "$REPO/.." && pwd)/ouro-tools}"
+MACEMU="${OURO_MACEMU:-$(cd "$REPO/.." && pwd)/ouro-macemu}"
 mkdir -p "$EMU/shared"
 # boot disk: the one with Sound Manager 3.1 if present (ouro-tools/make-sound-disk.sh)
 BOOT="$TOOLS/systems/system70.dsk"
@@ -34,4 +36,4 @@ jit false
 idlewait true
 title S.C.Out (original)
 PREFS
-exec "$TOOLS/basilisk/BasiliskII/src/Unix/BasiliskII" --config "$EMU/basilisk.prefs"
+exec "$MACEMU/BasiliskII/src/Unix/BasiliskII" --config "$EMU/basilisk.prefs"

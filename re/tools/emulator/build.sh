@@ -1,8 +1,8 @@
 #!/bin/sh
-# Build Basilisk II into the shared tools (OURO_TOOLS, default ../ouro-tools
-# next to this repository) with ouro-tools' build-emulators.sh: ouro-macemu,
-# branch ouro (it contains the S.C.Out frames-per-second counter, active
-# only with SCOUT_FPS=1). Clones ouro-tools first if it is missing.
+# Build Basilisk II in ouro-macemu next to this repository (OURO_MACEMU) with
+# the shared tools' build-emulators.sh (OURO_TOOLS, default ../ouro-tools);
+# ouro-macemu contains the S.C.Out frames-per-second counter, active only
+# with SCOUT_FPS=1. Clones ouro-tools (and ouro-macemu) first if missing.
 # Needs: brew install autoconf automake libtool mpfr gmp sdl2-compat
 set -e
 REPO="$(cd "$(dirname "$0")/../../.." && pwd)"
