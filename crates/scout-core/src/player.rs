@@ -4,14 +4,15 @@
 //! (CODE 4 0x2054, 0x1fde).
 
 use crate::Level;
-use crate::game::{BOX, Dir, Game, NORMAL_SPEED};
+use crate::game::{BOX, Dir, Game, NORMAL_SPEED, command};
 use crate::sound::id as sound;
+use crate::tile::{CLOSED_HATCH, PLAIN_FLOOR};
+use crate::world::projectiles::cannon_dir;
 
 /// Frames of the accelerator (tile 0x10d) at double speed.
 const ACCELERATOR_FRAMES: u16 = 600;
 /// Frames of the magnifier (tile 0x10c).
 const MAGNIFIER_FRAMES: u16 = 300;
-const PLAIN_FLOOR: u16 = 13;
 /// From this tile value on, tiles are enemies that explode on contact.
 const FIRST_ENEMY: i32 = 0x124;
 
@@ -44,7 +45,8 @@ impl Game {
         )
     }
 
-    fn here(&self) -> (i32, i32) {
+    /// The player's box.
+    pub(crate) fn here(&self) -> (i32, i32) {
         (self.player.x as i32, self.player.y as i32)
     }
 
@@ -89,9 +91,7 @@ impl Game {
     fn player_at_rest(&mut self) -> bool {
         let (x, y) = self.here();
         if self.world.player_hit {
-            self.set(x, y, 0x150, true);
-            self.world.dying = 300;
-            self.world.player_visible = false;
+            self.kill_player(true);
             return false;
         }
         self.mines();
@@ -104,16 +104,15 @@ impl Game {
             self.world.picked_up = false;
         }
         if rail && self.player.command <= 3 {
-            self.player.command = -1;
+            self.player.command = command::NONE;
         }
         let mut rail_dir = -1;
         let (rx, ry) = self.rel();
-        let (vx, vy) = (self.view.0 as i32 * BOX, self.view.1 as i32 * BOX);
         match tile {
             232 if self.world.carried != 0 => self.explode(x, y),
             99..=103 => self.explode(x, y),
             // Conveyors keep the player going in its direction.
-            239..=242 if self.player.command != 4 => {
+            239..=242 if self.player.command != command::FIRE => {
                 let (dx, dy) = self.player.dir.delta();
                 if self.passable(rx + dx, ry + dy) {
                     self.player.command = self.player.dir as i32;
@@ -121,13 +120,7 @@ impl Game {
             }
             // Cannons under the player fire once per visit.
             223..=226 if !self.player.cannon_fired => {
-                let (ox, oy, vx_, vy_) = match tile {
-                    223 => (0, 16, -2, 0),
-                    224 => (16, 0, 0, -2),
-                    225 => (30, 16, 2, 0),
-                    _ => (16, 30, 0, 2),
-                };
-                let fired = self.spawn(vx + rx * BOX + ox, vy + ry * BOX + oy, vx_, vy_);
+                let fired = self.shoot(x * BOX, y * BOX, cannon_dir(tile));
                 self.player.cannon_fired = true;
                 if fired.is_some() {
                     self.request_sound(sound::CANNON);
@@ -135,7 +128,7 @@ impl Game {
             }
             // A hatch: closes and saves the state to restart from.
             266 => {
-                self.set(x, y, 0x10B, true);
+                self.set(x, y, CLOSED_HATCH, true);
                 self.checkpoint();
             }
             // Accelerator.
@@ -167,17 +160,18 @@ impl Game {
                 }
             }
         }
-        if self.world.forced_command != -1 {
-            self.player.command = self.world.forced_command as i32;
-            self.world.forced_command = -1;
+        if i32::from(self.world.forced_command) != command::NONE {
+            self.player.command = i32::from(self.world.forced_command);
+            self.world.forced_command = command::NONE as i16;
         }
-        match self.player.command {
-            0..=3 => self.try_start_move(Dir::from_index(self.player.command).unwrap(), tile),
-            7 => self.use_key(tile),
-            4 => self.fire(),
+        let move_dir = Dir::from_index(self.player.command);
+        match (move_dir, self.player.command) {
+            (Some(dir), _) => self.try_start_move(dir, tile),
+            (None, command::USE) => self.use_key(tile),
+            (None, command::FIRE) => self.fire(),
             _ => {}
         }
-        if !(0..=3).contains(&self.player.command)
+        if move_dir.is_none()
             && let Some(dir) = Dir::from_index(rail_dir)
         {
             self.start_move(dir);
@@ -359,14 +353,8 @@ impl Game {
             return;
         }
         let (px, py) = self.player_pixel();
-        let (vx, vy) = (self.view.0 as i32 * BOX + px, self.view.1 as i32 * BOX + py);
-        let fired = match self.player.turret {
-            Dir::Left => self.spawn(vx, vy + 16, -2, 0),
-            Dir::Up => self.spawn(vx + 16, vy, 0, -2),
-            Dir::Right => self.spawn(vx + 30, vy + 16, 2, 0),
-            Dir::Down => self.spawn(vx + 16, vy + 30, 0, 2),
-        };
-        if fired.is_some() {
+        let (x, y) = (self.view.0 as i32 * BOX + px, self.view.1 as i32 * BOX + py);
+        if self.shoot(x, y, self.player.turret).is_some() {
             self.player.turret_locked = false;
             self.player.turret = self.player.dir;
             self.world.carried = 0;
@@ -393,7 +381,7 @@ impl Game {
         let boxes = match dir {
             Dir::Left if rx == 1 && vx != 0 => vx.min(6),
             Dir::Up if ry == 1 && vy != 0 => vy.min(4),
-            Dir::Right if rx == 12 && vx != 26 => {
+            Dir::Right if rx == 12 && vx != Level::MAX_VIEW_X as i32 => {
                 if vx + rx + 1 + 6 > 39 {
                     38 - (vx + rx)
                 } else {
@@ -445,8 +433,9 @@ impl Game {
             None => Some(self.here()),
             Some(n) => (0..Level::CELLS)
                 .rev()
-                .find(|&i| self.level.tile(i % Level::WIDTH, i / Level::WIDTH) as i32 == n + 0x105)
-                .map(|i| ((i % Level::WIDTH) as i32, (i / Level::WIDTH) as i32)),
+                .map(Level::coords)
+                .find(|&(x, y)| self.level.tile(x, y) as i32 == n + 0x105)
+                .map(|(x, y)| (x as i32, y as i32)),
         };
         let Some((tx, ty)) = target else {
             return;
@@ -456,17 +445,18 @@ impl Game {
             self.stall.frames += 1;
         }
         let (vx, vy) = (self.view.0 as i32, self.view.1 as i32);
+        let (max_x, max_y) = (Level::MAX_VIEW_X as i32, Level::MAX_VIEW_Y as i32);
         let mut dx = tx - vx - 7;
         let mut dy = ty - vy - 5;
         if dx < 0 && vx + dx < 0 {
             dx = -vx;
-        } else if dx > 0 && vx + dx > 26 {
-            dx = 26 - vx;
+        } else if dx > 0 && vx + dx > max_x {
+            dx = max_x - vx;
         }
         if dy < 0 && vy + dy < 0 {
             dy = -vy;
-        } else if dy > 0 && vy + dy > 14 {
-            dy = 14 - vy;
+        } else if dy > 0 && vy + dy > max_y {
+            dy = max_y - vy;
         }
         self.stall.scroll = None;
         while dx != 0 || dy != 0 {
@@ -499,12 +489,15 @@ impl Game {
     /// view.
     pub(crate) fn magnifier_frame(&mut self) {
         let (vx, vy) = self.view;
-        match self.player.command {
-            0 if vx > 0 => self.scroll(Dir::Left, 1),
-            1 if vy > 0 => self.scroll(Dir::Up, 1),
-            2 if vx < 26 => self.scroll(Dir::Right, 1),
-            3 if vy < 14 => self.scroll(Dir::Down, 1),
-            _ => {}
+        if let Some(dir) = Dir::from_index(self.player.command)
+            && match dir {
+                Dir::Left => vx > 0,
+                Dir::Up => vy > 0,
+                Dir::Right => vx < Level::MAX_VIEW_X,
+                Dir::Down => vy < Level::MAX_VIEW_Y,
+            }
+        {
+            self.scroll(dir, 1);
         }
         self.stall.scroll = None;
     }

@@ -19,6 +19,7 @@ pub use random::MacRandom;
 
 use crate::Level;
 use crate::game::Game;
+use crate::tile::PLAIN_FLOOR;
 
 /// Boxes the original visits per frame (`-0x6d04`, from its initialized data).
 pub const BOXES_PER_FRAME: usize = 96;
@@ -27,8 +28,6 @@ pub const FRAMES_PER_PASS: usize = Level::CELLS / BOXES_PER_FRAME;
 /// The pulse counter (`-0x5390`) advances once per pass and wraps at 30;
 /// batteries fire when it is 0.
 pub const PULSE_PERIOD: u16 = 30;
-/// Floor the original puts under things that vanish.
-const PLAIN_FLOOR: u16 = 13;
 
 /// State of the world automaton.
 #[derive(Clone, Debug)]
@@ -90,7 +89,7 @@ impl Default for World {
 
 impl World {
     pub fn skip(&self, x: usize, y: usize) -> bool {
-        self.skip[y * Level::WIDTH + x]
+        self.skip[Level::index(x, y)]
     }
 }
 
@@ -104,9 +103,9 @@ impl Game {
                 self.world.skip[i] = false;
                 continue;
             }
-            let (x, y) = ((i % Level::WIDTH) as i32, (i / Level::WIDTH) as i32);
-            let tile = self.level.tile(x as usize, y as usize);
-            self.tick_box(x, y, tile);
+            let (x, y) = Level::coords(i);
+            let tile = self.level.tile(x, y);
+            self.tick_box(x as i32, y as i32, tile);
         }
     }
 
@@ -137,7 +136,7 @@ impl Game {
     }
 
     fn player_at(&self, x: i32, y: i32) -> bool {
-        self.player.x as i32 == x && self.player.y as i32 == y
+        self.here() == (x, y)
     }
 
     /// The thing on the box disappears, plain floor stays.
@@ -146,7 +145,7 @@ impl Game {
         self.set_floor(x, y, PLAIN_FLOOR, false);
     }
 
-    fn explode_around(&mut self, x: i32, y: i32) {
+    pub(super) fn explode_around(&mut self, x: i32, y: i32) {
         for (dx, dy) in AROUND {
             self.explode(x + dx, y + dy);
         }
@@ -157,7 +156,7 @@ impl Game {
             self.set(x, y, next, false);
             return;
         }
-        let (px, py) = (self.player.x as i32, self.player.y as i32);
+        let (px, py) = self.here();
         match tile {
             // Colored doors opening when their switch flag is set
             // (CODE 9 0x24c8 … 0x26c0); 61 opens when the flag is clear.

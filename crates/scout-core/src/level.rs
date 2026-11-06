@@ -24,6 +24,9 @@ impl Level {
     /// Size of the part of the level visible on screen, in boxes.
     pub const VIEW_WIDTH: usize = 14;
     pub const VIEW_HEIGHT: usize = 10;
+    /// The largest top left box of the view.
+    pub const MAX_VIEW_X: usize = Self::WIDTH - Self::VIEW_WIDTH;
+    pub const MAX_VIEW_Y: usize = Self::HEIGHT - Self::VIEW_HEIGHT;
     /// Tile values from here on cover the whole box, below are objects.
     pub const FIRST_SOLID_TILE: u16 = 40;
     /// The tile the original puts on the start box after loading.
@@ -41,14 +44,14 @@ impl Level {
         let mut start = None;
         for i in 0..Self::CELLS {
             if Self::START_VALUES.contains(&file_tiles[i]) {
-                start = Some((i % Self::WIDTH, i / Self::WIDTH));
+                start = Some(Self::coords(i));
             } else {
                 tiles[i] = translate::tile(file_tiles[i]);
             }
             floor[i] = translate::floor(file_floor[i]);
         }
         if let Some((x, y)) = start {
-            tiles[y * Self::WIDTH + x] = Self::START_TILE;
+            tiles[Self::index(x, y)] = Self::START_TILE;
         }
         Self {
             tiles,
@@ -146,12 +149,18 @@ impl Level {
         if y - vy == 9 {
             vy += 2;
         }
-        let max_x = (Self::WIDTH - Self::VIEW_WIDTH) as i32;
-        let max_y = (Self::HEIGHT - Self::VIEW_HEIGHT) as i32;
+        let max_x = Self::MAX_VIEW_X as i32;
+        let max_y = Self::MAX_VIEW_Y as i32;
         (vx.clamp(0, max_x) as usize, vy.clamp(0, max_y) as usize)
     }
 
-    fn index(x: usize, y: usize) -> usize {
+    /// The box of a cell index (row by row).
+    pub fn coords(i: usize) -> (usize, usize) {
+        (i % Self::WIDTH, i / Self::WIDTH)
+    }
+
+    /// The cell index of a box (row by row); panics outside the level.
+    pub fn index(x: usize, y: usize) -> usize {
         assert!(
             x < Self::WIDTH && y < Self::HEIGHT,
             "box ({x}, {y}) is outside the level"

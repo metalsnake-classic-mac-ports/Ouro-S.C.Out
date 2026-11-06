@@ -7,17 +7,21 @@
 
 use super::{AROUND, index};
 use crate::Level;
-use crate::game::{BOX, Game};
+use crate::game::{BOX, Dir, Game};
+use crate::tile::{EXPLOSION, SAFE};
 
 pub const SLOTS: usize = 40;
 /// Lifetime of a homing projectile in frames.
 const HOMING_LIFE: i16 = 0xE10;
 /// Hits a reinforced wall (tile 218) takes before it explodes.
 const WALL_HITS: u16 = 20;
-const EXPLOSION: u16 = 350;
 /// Right / bottom edge of the level in pixels where projectiles stop.
 const RIGHT_EDGE: i32 = 0x4FC;
 const BOTTOM_EDGE: i32 = 0x31C;
+/// The last position of a projectile inside the view, from its top left
+/// corner (the view minus the 4 pixels of a projectile).
+const VIEW_LAST_X: i32 = 0x1BC;
+const VIEW_LAST_Y: i32 = 0x13C;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Kind {
@@ -47,7 +51,8 @@ pub struct Projectile {
 }
 
 impl Projectile {
-    fn stop(&mut self) {
+    /// Inactive; still on screen it is erased next.
+    pub(crate) fn stop(&mut self) {
         self.active = false;
         if self.draw > 1 {
             self.draw = 1;
@@ -58,6 +63,16 @@ impl Projectile {
 /// Tile values between which projectiles hit a wall.
 fn is_wall_tile(tile: u16) -> bool {
     (40..=94).contains(&tile)
+}
+
+/// The pixel at the center of box `b` (on either axis).
+fn center(b: i32) -> i32 {
+    b * BOX + BOX / 2
+}
+
+/// The direction of a cannon tile 223 … 226 (left, up, right, down).
+pub(crate) fn cannon_dir(tile: i32) -> Dir {
+    Dir::from_index(tile - 223).expect("a cannon tile")
 }
 
 impl Game {
@@ -85,6 +100,19 @@ impl Game {
         Some(slot)
     }
 
+    /// Fire from the box with its top left corner at level pixel (x, y)
+    /// in direction `dir`, from the middle of that side of the box, as the
+    /// player and the cannons do.
+    pub(crate) fn shoot(&mut self, x: i32, y: i32, dir: Dir) -> Option<usize> {
+        let (ox, oy, vx, vy) = match dir {
+            Dir::Left => (0, 16, -2, 0),
+            Dir::Up => (16, 0, 0, -2),
+            Dir::Right => (30, 16, 2, 0),
+            Dir::Down => (16, 30, 0, 2),
+        };
+        self.spawn(x + ox, y + oy, vx, vy)
+    }
+
     /// Start a projectile at level pixel (x, y) (CODE 9 0x2132). Returns
     /// None when all slots are taken.
     pub(crate) fn spawn(&mut self, x: i32, y: i32, vx: i32, vy: i32) -> Option<usize> {
@@ -99,7 +127,7 @@ impl Game {
     /// direction (CODE 9 0x21ba). The random number is only drawn when a
     /// slot is free.
     fn spawn_random_diagonal(&mut self, bx: i32, by: i32) {
-        let Some(slot) = self.take_slot(bx * BOX + 16, by * BOX + 16, Kind::Ricochet) else {
+        let Some(slot) = self.take_slot(center(bx), center(by), Kind::Ricochet) else {
             return;
         };
         let (vx, vy) = match self.world.random.next_positive() % 4 {
@@ -116,7 +144,7 @@ impl Game {
     /// A homing projectile from the box center (CODE 9 0x229e); its
     /// velocity is set when it moves.
     fn spawn_homing(&mut self, bx: i32, by: i32) {
-        if let Some(slot) = self.take_slot(bx * BOX + 16, by * BOX + 16, Kind::Homing) {
+        if let Some(slot) = self.take_slot(center(bx), center(by), Kind::Homing) {
             self.world.projectiles[slot].life = HOMING_LIFE;
         }
     }
@@ -125,14 +153,14 @@ impl Game {
     /// projectiles free their slot, those outside the view are dropped
     /// from the screen, those inside are (re)drawn.
     pub(crate) fn update_draw_states(&mut self) {
-        let (left, top) = (self.view.0 as i32 * BOX, self.view.1 as i32 * BOX);
+        let view = self.view;
         for p in self.world.projectiles.iter_mut() {
             if !p.active {
                 if p.draw == 1 {
                     self.world.projectile_count -= 1;
                     p.draw = 0;
                 }
-            } else if p.x < left || left + 0x1BC < p.x || p.y < top || top + 0x13C < p.y {
+            } else if !in_view(view, p) {
                 p.draw = 0;
             } else {
                 p.draw = if p.draw == 0 { 3 } else { 2 };
@@ -168,10 +196,7 @@ impl Game {
 
     /// Move a homing projectile; returns its box and the tile there.
     fn move_homing(&mut self, i: usize) -> (i32, i32, u16) {
-        let (px, py) = (
-            self.player.x as i32 * BOX + 16,
-            self.player.y as i32 * BOX + 16,
-        );
+        let (px, py) = (center(self.player.x as i32), center(self.player.y as i32));
         let p = &mut self.world.projectiles[i];
         p.vx = if p.x < px { 2 } else { -2 };
         p.vy = if p.y < py { 2 } else { -2 };
@@ -285,9 +310,8 @@ impl Game {
     /// edge of the level, the lifetime of homing projectiles and hitting
     /// the player.
     fn projectile_common(&mut self, i: usize, (bx, by, tile): (i32, i32, u16)) {
-        let (left, top) = (self.view.0 as i32 * BOX, self.view.1 as i32 * BOX);
         let p = self.world.projectiles[i];
-        let visible = left <= p.x && p.x <= left + 0x1BC && top <= p.y && p.y <= top + 0x13C;
+        let visible = in_view(self.view, &p);
         let draw = match p.draw {
             0 if visible => 3,
             2 if !visible => 1,
@@ -342,7 +366,7 @@ impl Game {
         }
         if self.player_at(bx, by) && self.world.player_visible && self.world.dying == 0 {
             self.world.projectiles[i].stop();
-            if !self.world.no_death && tile != 0x10E {
+            if !self.world.no_death && tile != SAFE {
                 self.world.player_hit = true;
             }
         }
@@ -379,7 +403,7 @@ impl Game {
             }
             // Splitter: four projectiles from the center.
             34 => {
-                let (cx, cy) = (x * BOX + 16, y * BOX + 16);
+                let (cx, cy) = (center(x), center(y));
                 for (vx, vy) in [(-2, 0), (0, -2), (2, 0), (0, 2)] {
                     self.spawn(cx, cy, vx, vy);
                 }
@@ -406,9 +430,7 @@ impl Game {
                 self.set(x, y, 0, true);
                 self.world.no_death = true;
                 self.world.projectiles[i].stop();
-                for (dx, dy) in AROUND {
-                    self.explode(x + dx, y + dy);
-                }
+                self.explode_around(x, y);
                 self.explode(x, y);
             }
             32 => {
@@ -433,7 +455,7 @@ impl Game {
                     && p.kind != Kind::Ricochet
                     && p.vy >= 0
                 {
-                    self.spawn(x * BOX + 16, y * BOX + 30, 0, 2);
+                    self.shoot(x * BOX, y * BOX, Dir::Down);
                     self.world.projectiles[i].stop();
                 }
             }
@@ -480,8 +502,9 @@ impl Game {
             (false, true)
         };
         for n in 0..Level::CELLS {
-            let (bx, by) = ((n % Level::WIDTH) as i32, (n / Level::WIDTH) as i32);
-            match self.level.tile(bx as usize, by as usize) {
+            let (bx, by) = Level::coords(n);
+            let (bx, by, tile) = (bx as i32, by as i32, self.level.tile(bx, by));
+            match tile {
                 0xE7 if open => self.set(bx, by, 91, true),
                 0x56 if close => self.set(bx, by, 87, true),
                 _ => {}
@@ -541,19 +564,15 @@ impl Game {
             }
             // Cannons: a projectile passing the center fires them.
             223..=226 => {
-                let (ox, oy, vx, vy) = match tile {
-                    223 => (0, 16, -2, 0),
-                    224 => (16, 0, 0, -2),
-                    225 => (30, 16, 2, 0),
-                    _ => (16, 30, 0, 2),
-                };
                 // The original's view test reaches one box beyond the view
                 // (BUGS.md).
-                let (vx0, vy0) = (self.view.0 as i32, self.view.1 as i32);
-                if self.spawn(x * BOX + ox, y * BOX + oy, vx, vy).is_some()
+                let (vx, vy) = (self.view.0 as i32, self.view.1 as i32);
+                if self
+                    .shoot(x * BOX, y * BOX, cannon_dir(tile as i32))
+                    .is_some()
                     && self.sounds.on
-                    && (vx0..=vx0 + 14).contains(&x)
-                    && (vy0..=vy0 + 10).contains(&y)
+                    && (vx..=vx + Level::VIEW_WIDTH as i32).contains(&x)
+                    && (vy..=vy + Level::VIEW_HEIGHT as i32).contains(&y)
                 {
                     self.request_sound(crate::sound::id::CANNON);
                 }
@@ -564,8 +583,13 @@ impl Game {
     }
 
     fn hit_pair(&mut self, i: usize, x: i32, y: i32, dx: i32, dy: i32) {
-        self.set(x, y, EXPLOSION, true);
-        self.set(x + dx, y + dy, EXPLOSION, true);
+        self.explode_pair(x, y, dx, dy);
         self.world.projectiles[i].stop();
     }
+}
+
+/// Whether a projectile is inside the view (whose top left box is `view`).
+fn in_view(view: (usize, usize), p: &Projectile) -> bool {
+    let (left, top) = (view.0 as i32 * BOX, view.1 as i32 * BOX);
+    (left..=left + VIEW_LAST_X).contains(&p.x) && (top..=top + VIEW_LAST_Y).contains(&p.y)
 }

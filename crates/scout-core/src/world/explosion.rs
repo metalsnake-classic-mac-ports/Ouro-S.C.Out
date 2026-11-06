@@ -1,19 +1,13 @@
 //! Explosions (CODE 4 0x0 and the original's explosion handler table
 //! `-0x22d0`, CODE 4 0x0186 …).
 
-use super::AROUND;
 use crate::game::Game;
+use crate::tile::{BIG_EXPLOSION, EXPLOSION, SAFE};
 
-/// Explosion animation the original puts on exploding boxes.
-const EXPLOSION: u16 = 350;
-/// The big explosion animation (the player's death, the destroyed target).
-pub(crate) const BIG_EXPLOSION: u16 = 0x150;
 /// Frames between the player's death and the end of the level (`-0x5396`).
 pub(crate) const DEATH_FRAMES: u16 = 300;
 /// Frames between destroying the target and the end of the level (`-0x3a46`).
-pub(crate) const TARGET_FRAMES: u16 = 120;
-/// A tile on which the player survives explosions.
-const SAFE_TILE: u16 = 0x10E;
+const TARGET_FRAMES: u16 = 120;
 
 impl Game {
     /// An explosion on a box: the box's tile reacts, and a player standing
@@ -24,11 +18,18 @@ impl Game {
         }
         let tile = self.level.tile(x as usize, y as usize);
         self.explosion_handler(x, y, tile);
-        if !self.world.no_death && self.player_at(x, y) && tile != SAFE_TILE {
-            self.set(x, y, BIG_EXPLOSION, true);
-            self.world.dying = DEATH_FRAMES;
-            self.world.player_visible = false;
+        if !self.world.no_death && self.player_at(x, y) && tile != SAFE {
+            self.kill_player(true);
         }
+    }
+
+    /// The player turns into the big explosion and is gone; the level ends
+    /// after [`DEATH_FRAMES`].
+    pub(crate) fn kill_player(&mut self, skip: bool) {
+        let (x, y) = self.here();
+        self.set(x, y, BIG_EXPLOSION, skip);
+        self.world.dying = DEATH_FRAMES;
+        self.world.player_visible = false;
     }
 
     fn explosion_handler(&mut self, x: i32, y: i32, tile: u16) {
@@ -86,9 +87,7 @@ impl Game {
             33 => {
                 self.world.no_death = true;
                 self.set(x, y, EXPLOSION, true);
-                for (dx, dy) in AROUND {
-                    self.explode(x + dx, y + dy);
-                }
+                self.explode_around(x, y);
             }
             // Spreading into the free boxes around.
             32 => self.spread(x, y, 208),
@@ -97,7 +96,7 @@ impl Game {
         }
     }
 
-    fn explode_pair(&mut self, x: i32, y: i32, dx: i32, dy: i32) {
+    pub(super) fn explode_pair(&mut self, x: i32, y: i32, dx: i32, dy: i32) {
         self.set(x, y, EXPLOSION, true);
         self.set(x + dx, y + dy, EXPLOSION, true);
     }
@@ -106,7 +105,7 @@ impl Game {
     /// `tile` (CODE 4 0x0186, 0x04da).
     pub(super) fn spread(&mut self, x: i32, y: i32, tile: u16) {
         self.set(x, y, tile, true);
-        for (dx, dy) in AROUND {
+        for (dx, dy) in super::AROUND {
             let (nx, ny) = (x + dx, y + dy);
             if self.free(nx, ny) && !self.player_at(nx, ny) {
                 self.set(nx, ny, tile, true);

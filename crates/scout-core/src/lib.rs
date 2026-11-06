@@ -8,6 +8,7 @@ pub mod level;
 
 mod player;
 pub mod sound;
+pub mod tile;
 pub mod translate;
 pub mod world;
 

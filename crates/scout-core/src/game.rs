@@ -8,7 +8,8 @@
 
 use crate::Level;
 use crate::sound::{Sounds, id as sound};
-use crate::world::World;
+use crate::tile;
+use crate::world::{FRAMES_PER_PASS, PULSE_PERIOD, World};
 
 /// Size of a box in pixels.
 pub const BOX: i32 = 32;
@@ -20,13 +21,18 @@ pub const NORMAL_SPEED: i32 = 4;
 pub const INTRO_FRAMES: usize = 64;
 const INTRO_FIRST_TILE: u16 = 0xAB;
 /// The closed hatch the start box shows after the animation.
-pub const START_HATCH: u16 = 0x10B;
+pub const START_HATCH: u16 = tile::CLOSED_HATCH;
 /// Lives at the start of a game (CODE 2).
 pub const LIVES: i16 = 5;
-/// Frames between the player's death and the end of the level.
-const DEATH_FRAMES: u16 = 300;
-/// The big explosion the player turns into.
-const BIG_EXPLOSION: u16 = 0x150;
+
+/// The values of [`Player::command`] besides the move directions 0–3
+/// (numbered like [`Dir`]), as in the original.
+pub mod command {
+    pub const NONE: i32 = -1;
+    pub const FIRE: i32 = 4;
+    pub const USE: i32 = 7;
+    pub const SELF_DESTRUCT: i32 = 8;
+}
 
 /// A direction, numbered like in the original.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -161,6 +167,29 @@ pub(crate) struct RestartState {
     pub no_death: bool,
 }
 
+impl RestartState {
+    /// The state a freshly loaded level starts from (CODE 5 0x1a0a): the
+    /// player on the start box; switch 4 (door 61) starts set.
+    fn for_level(level: Level) -> Self {
+        let (x, y) = level.start().unwrap_or((1, 1));
+        Self {
+            view: level.start_view(),
+            level,
+            skip: [false; Level::CELLS],
+            x,
+            y,
+            speed: NORMAL_SPEED,
+            dir: Dir::Down,
+            remaining: 0,
+            carried: 0,
+            turret_locked: false,
+            turret: Dir::Down,
+            switches: [false, false, false, false, true],
+            no_death: false,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Game {
     pub level: Level,
@@ -198,34 +227,18 @@ impl Game {
     /// A new game on this level, with [`LIVES`] lives (the start
     /// animation is not running yet, see [`Game::start_intro`]).
     pub fn new(level: Level) -> Self {
-        let (x, y) = level.start().unwrap_or((1, 1));
-        let view = level.start_view();
+        let restart = Box::new(RestartState::for_level(level));
         let mut game = Self {
-            restart: Box::new(RestartState {
-                level: level.clone(),
-                skip: [false; Level::CELLS],
-                view,
-                x,
-                y,
-                speed: NORMAL_SPEED,
-                dir: Dir::Down,
-                remaining: 0,
-                carried: 0,
-                turret_locked: false,
-                turret: Dir::Down,
-                switches: [false; 5],
-                no_death: false,
-            }),
-            level,
+            level: restart.level.clone(),
             player: Player {
-                x,
-                y,
+                x: restart.x,
+                y: restart.y,
                 dir: Dir::Down,
                 turret: Dir::Down,
                 turret_locked: false,
                 remaining: 0,
                 speed: NORMAL_SPEED,
-                command: -1,
+                command: command::NONE,
                 cannon_fired: false,
                 accelerator: 0,
                 magnifier: 0,
@@ -234,7 +247,7 @@ impl Game {
                 use_held: false,
                 fire_held: false,
             },
-            view,
+            view: restart.view,
             world: World::default(),
             sounds: Sounds::default(),
             exit: None,
@@ -242,6 +255,7 @@ impl Game {
             clear_shots: false,
             intro: None,
             stall: Stall::default(),
+            restart,
         };
         game.load_level(game.level.clone());
         game.restart();
@@ -254,28 +268,18 @@ impl Game {
     /// world's frame counters, hits on reinforced walls, the accelerator
     /// countdown, the rail flag and the random numbers.
     pub fn load_level(&mut self, level: Level) {
-        let (x, y) = level.start().unwrap_or((1, 1));
-        *self.restart = RestartState {
-            view: level.start_view(),
-            level,
-            skip: [false; Level::CELLS],
-            x,
-            y,
-            speed: NORMAL_SPEED,
-            dir: Dir::Down,
-            remaining: 0,
-            carried: 0,
-            turret_locked: false,
-            turret: Dir::Down,
-            switches: [false, false, false, false, true],
-            no_death: false,
-        };
+        *self.restart = RestartState::for_level(level);
         self.world.no_death = false;
         self.player.cannon_fired = false;
+        self.player.magnifier = 0;
+        self.clear_countdowns();
+    }
+
+    /// No death, level end, forced command or hit pending.
+    fn clear_countdowns(&mut self) {
         self.world.dying = 0;
         self.world.level_end = 0;
-        self.player.magnifier = 0;
-        self.world.forced_command = -1;
+        self.world.forced_command = command::NONE as i16;
         self.world.player_hit = false;
     }
 
@@ -284,10 +288,7 @@ impl Game {
     /// projectiles are gone; the original then plays the start animation
     /// on the player's box ([`Game::start_intro`]).
     pub fn restart(&mut self) {
-        self.world.dying = 0;
-        self.world.level_end = 0;
-        self.world.forced_command = -1;
-        self.world.player_hit = false;
+        self.clear_countdowns();
         for p in self.world.projectiles.iter_mut() {
             p.active = false;
             p.draw = 0;
@@ -349,7 +350,7 @@ impl Game {
     /// loading) shows the opening animation for [`INTRO_FRAMES`] frames,
     /// then the closed hatch. Nothing else runs meanwhile.
     pub fn start_intro(&mut self) {
-        let (x, y) = (self.player.x as i32, self.player.y as i32);
+        let (x, y) = self.here();
         self.set(x, y, INTRO_FIRST_TILE, false);
         self.world.player_visible = false;
         self.intro = Some(1);
@@ -357,7 +358,7 @@ impl Game {
 
     /// The state right after the start animation.
     pub fn skip_intro(&mut self) {
-        let (x, y) = (self.player.x as i32, self.player.y as i32);
+        let (x, y) = self.here();
         self.set(x, y, START_HATCH, false);
         self.world.player_visible = true;
         self.intro = None;
@@ -395,7 +396,7 @@ impl Game {
     pub fn tick(&mut self, key: Key) {
         if let Some(step) = self.intro {
             if step < INTRO_FRAMES {
-                let (x, y) = (self.player.x as i32, self.player.y as i32);
+                let (x, y) = self.here();
                 self.set(x, y, INTRO_FIRST_TILE + (step / 8) as u16, false);
                 self.intro = Some(step + 1);
             } else {
@@ -418,10 +419,7 @@ impl Game {
         if self.exit.is_some() {
             return;
         }
-        self.world.frame = (self.world.frame + 1) % crate::world::FRAMES_PER_PASS;
-        if self.world.frame == 0 {
-            self.world.pulse = (self.world.pulse + 1) % crate::world::PULSE_PERIOD;
-        }
+        self.advance_world_counters();
         if self.player.accelerator != 0 {
             self.player.accelerator -= 1;
             if self.player.accelerator == 0 {
@@ -432,7 +430,7 @@ impl Game {
             if self.world.level_end == 0 {
                 self.read_key(key);
             } else {
-                self.player.command = -1;
+                self.player.command = command::NONE;
             }
         }
         if self.player.magnifier == 0 {
@@ -444,12 +442,7 @@ impl Game {
             self.world_frame();
             self.projectiles_frame();
             if self.clear_shots {
-                for p in self.world.projectiles.iter_mut() {
-                    p.active = false;
-                    if p.draw > 1 {
-                        p.draw = 1;
-                    }
-                }
+                self.world.projectiles.iter_mut().for_each(|p| p.stop());
                 self.clear_shots = false;
             }
         } else {
@@ -457,7 +450,7 @@ impl Game {
             if self.player.magnifier == 0 {
                 self.teleport(None);
                 self.request_sound(sound::MAGNIFIER);
-                self.player.command = -1;
+                self.player.command = command::NONE;
             } else {
                 self.magnifier_frame();
             }
@@ -483,14 +476,14 @@ impl Game {
                 Exit::Died
             });
         }
-        if self.player.command == 8 && !self.player.self_destructed && self.player.magnifier == 0 {
+        if self.player.command == command::SELF_DESTRUCT
+            && !self.player.self_destructed
+            && self.player.magnifier == 0
+        {
             self.player.self_destructed = true;
             if self.world.dying == 0 {
                 self.play_sound(sound::BIG_EXPLOSION);
-                self.world.dying = DEATH_FRAMES;
-                self.world.player_visible = false;
-                let (x, y) = (self.player.x as i32, self.player.y as i32);
-                self.set(x, y, BIG_EXPLOSION, false);
+                self.kill_player(false);
             }
         }
     }
@@ -501,12 +494,12 @@ impl Game {
         let p = &mut self.player;
         p.command = match key {
             Key::Move(dir) => dir as i32,
-            Key::SelfDestruct => 8,
-            _ => -1,
+            Key::SelfDestruct => command::SELF_DESTRUCT,
+            _ => command::NONE,
         };
         if key == Key::Use {
             if !p.use_held {
-                p.command = 7;
+                p.command = command::USE;
             }
             p.use_held = true;
         } else {
@@ -514,7 +507,7 @@ impl Game {
         }
         if key == Key::Fire {
             if !p.fire_held {
-                p.command = 4;
+                p.command = command::FIRE;
             }
             p.fire_held = true;
         } else {
@@ -526,12 +519,17 @@ impl Game {
     /// the world automaton were made (`re/tools/emu_world.py`).
     #[doc(hidden)]
     pub fn world_only_frame(&mut self) {
-        self.world.frame = (self.world.frame + 1) % crate::world::FRAMES_PER_PASS;
-        if self.world.frame == 0 {
-            self.world.pulse = (self.world.pulse + 1) % crate::world::PULSE_PERIOD;
-        }
+        self.advance_world_counters();
         self.world_frame();
         self.projectiles_frame();
+    }
+
+    /// The frame within the pass, and the pulse once per pass.
+    fn advance_world_counters(&mut self) {
+        self.world.frame = (self.world.frame + 1) % FRAMES_PER_PASS;
+        if self.world.frame == 0 {
+            self.world.pulse = (self.world.pulse + 1) % PULSE_PERIOD;
+        }
     }
 }
 
