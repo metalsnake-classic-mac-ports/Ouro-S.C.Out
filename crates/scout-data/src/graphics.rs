@@ -143,8 +143,7 @@ impl ObjectSet {
                 return Err(corrupt(format!("an object has {} pixels", pixels.len())));
             }
             for (p, pixel) in pixels.iter().enumerate() {
-                let (x, y) = (p % size, p / size);
-                let base = index * size * size * 2 + y * 2 * size + (x / 4) * 8 + x % 4;
+                let base = mask_offset(size, index, p % size, p / size);
                 data[base] = if pixel.is_some() { 0 } else { 0xFF };
                 data[base + 4] = pixel.unwrap_or(0);
             }
@@ -168,13 +167,19 @@ impl ObjectSet {
     pub fn pixel(&self, index: usize, x: usize, y: usize) -> Option<u8> {
         let size = self.size;
         assert!(x < size && y < size);
-        let base = index * size * size * 2 + y * 2 * size + (x / 4) * 8 + x % 4;
+        let base = mask_offset(size, index, x, y);
         let mask = *self.data.get(base)?;
         let value = *self.data.get(base + 4)?;
         // Partial masks do not occur in the game data; treat any set mask
         // bit as transparent like the full 0xFF.
         (mask == 0).then_some(value)
     }
+}
+
+/// Where the mask byte of a pixel is: each row holds groups of 4 mask
+/// bytes followed by the 4 pixel bytes they belong to.
+fn mask_offset(size: usize, index: usize, x: usize, y: usize) -> usize {
+    index * size * size * 2 + y * 2 * size + (x / 4) * 8 + x % 4
 }
 
 #[cfg(test)]

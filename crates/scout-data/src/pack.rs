@@ -24,14 +24,13 @@ use std::io::{Cursor, Read};
 use scout_core::Level;
 
 use crate::error::{Result, corrupt};
-use crate::graphics::{Bitmap, Frame, IndexedImage, ObjectSet, TileSet};
+use crate::graphics::{Bitmap, Frame, IndexedImage, ObjectSet, TILE_SIZE as TILE, TileSet};
 use crate::palette::{Palette, Rgb};
 use crate::sound::{Music, Sound};
 use crate::{GameData, NamedPalette, Picture};
 
 /// The first line of `pack.txt`.
 pub const FORMAT: &str = "S.C.Out data pack 1";
-pub const TILE: usize = 32;
 
 /// Whether these bytes look like a zip file.
 pub fn is_pack(bytes: &[u8]) -> bool {
@@ -43,6 +42,17 @@ impl GameData {
     pub fn from_pack(bytes: &[u8]) -> Result<Self> {
         let mut zip =
             zip::ZipArchive::new(Cursor::new(bytes)).map_err(|e| corrupt(format!("pack: {e}")))?;
+        let mut picture_ids: Vec<i16> = zip
+            .file_names()
+            .filter_map(|n| {
+                n.ok()?
+                    .strip_prefix("pictures/")?
+                    .strip_suffix(".png")?
+                    .parse()
+                    .ok()
+            })
+            .collect();
+        picture_ids.sort();
         let mut read = |name: &str| -> Result<Vec<u8>> {
             let mut file = zip
                 .by_name(name)
@@ -101,26 +111,6 @@ impl GameData {
             name: "game".into(),
             palette: game_palette.clone(),
         }];
-        let names: Vec<String> = zip_names(&mut zip);
-        let mut picture_ids: Vec<i16> = names
-            .iter()
-            .filter_map(|n| {
-                n.strip_prefix("pictures/")?
-                    .strip_suffix(".png")?
-                    .parse()
-                    .ok()
-            })
-            .collect();
-        picture_ids.sort();
-        let mut read = |name: &str| -> Result<Vec<u8>> {
-            let mut file = zip
-                .by_name(name)
-                .map_err(|_| corrupt(format!("pack: {name} missing")))?;
-            let mut data = Vec::new();
-            file.read_to_end(&mut data)
-                .map_err(|e| corrupt(format!("pack: {name}: {e}")))?;
-            Ok(data)
-        };
         for id in picture_ids {
             let image = picture(&decode_png_any(&read(&format!("pictures/{id}.png"))?)?)?;
             palettes.push(NamedPalette {
@@ -166,12 +156,6 @@ impl GameData {
             pictures,
         })
     }
-}
-
-fn zip_names(zip: &mut zip::ZipArchive<Cursor<&[u8]>>) -> Vec<String> {
-    zip.file_names()
-        .filter_map(|n| n.ok().map(|n| n.into_owned()))
-        .collect()
 }
 
 fn object_set(

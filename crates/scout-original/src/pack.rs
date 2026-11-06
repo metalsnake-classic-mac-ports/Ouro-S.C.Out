@@ -3,7 +3,8 @@
 use std::io::{Cursor, Write};
 
 use scout_core::Level;
-use scout_data::pack::{FORMAT, TILE};
+use scout_data::graphics::TILE_SIZE as TILE;
+use scout_data::pack::FORMAT;
 use scout_data::{Bitmap, GameData, Music, Palette};
 use zip::write::SimpleFileOptions;
 

@@ -82,6 +82,23 @@ impl GameData {
         }
         Self::from_pack(&bytes)
     }
+
+    /// A sound effect by number.
+    pub fn sound(&self, id: i16) -> Option<&Sound> {
+        self.sounds.iter().find(|s| s.id == id)
+    }
+
+    /// A picture by resource ID.
+    pub fn picture(&self, id: i16) -> Option<&Picture> {
+        self.pictures.iter().find(|p| p.id == id)
+    }
+
+    /// The index of a palette by name (case-insensitive).
+    pub fn palette_index(&self, name: &str) -> Option<usize> {
+        self.palettes
+            .iter()
+            .position(|p| p.name.eq_ignore_ascii_case(name))
+    }
 }
 
 /// Level codes: one per line.
