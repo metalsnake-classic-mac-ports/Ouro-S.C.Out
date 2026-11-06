@@ -8,7 +8,7 @@ use scout_data::GameData;
 use sdl3::keyboard::Scancode;
 
 use crate::render::{self, Canvas, Screen};
-use crate::settings::Settings;
+use crate::settings::{self, Settings};
 use crate::text::Line;
 
 /// The picture of the title (PICT 1000); after a lost game the original
@@ -143,11 +143,10 @@ impl Menu {
             }
             Page::Main => {
                 let items = self.items();
+                if move_selection(&mut self.selected, items.len(), code) {
+                    return Action::None;
+                }
                 match code {
-                    Scancode::Up => self.selected = (self.selected + items.len() - 1) % items.len(),
-                    Scancode::Down | Scancode::Tab => {
-                        self.selected = (self.selected + 1) % items.len()
-                    }
                     Scancode::Escape => self.page = Page::Closed,
                     Scancode::Return | Scancode::KpEnter | Scancode::Space => {
                         return self.choose(items[self.selected]);
@@ -157,14 +156,7 @@ impl Menu {
                 Action::None
             }
             Page::Settings => match code {
-                Scancode::Up => {
-                    self.selected = (self.selected + SETTING_ROWS - 1) % SETTING_ROWS;
-                    Action::None
-                }
-                Scancode::Down | Scancode::Tab => {
-                    self.selected = (self.selected + 1) % SETTING_ROWS;
-                    Action::None
-                }
+                _ if move_selection(&mut self.selected, SETTING_ROWS, code) => Action::None,
                 Scancode::Escape => self.back(Item::Settings),
                 Scancode::Return
                 | Scancode::KpEnter
@@ -196,11 +188,10 @@ impl Menu {
                 Action::None
             }
             Page::Keys { waiting: false } => {
+                if move_selection(&mut self.selected, KEY_ROWS, code) {
+                    return Action::None;
+                }
                 match code {
-                    Scancode::Up => self.selected = (self.selected + KEY_ROWS - 1) % KEY_ROWS,
-                    Scancode::Down | Scancode::Tab => {
-                        self.selected = (self.selected + 1) % KEY_ROWS
-                    }
                     Scancode::Escape => self.back_to_settings(),
                     Scancode::Return | Scancode::KpEnter | Scancode::Space => {
                         if self.selected < KEY_LABELS.len() {
@@ -230,9 +221,7 @@ impl Menu {
                         self.password(&code, data)
                     }
                     _ => {
-                        let name = code.name();
-                        let mut chars = name.chars();
-                        if let (Some(c), None) = (chars.next(), chars.next())
+                        if let Some(c) = key_char(code)
                             && c.is_ascii_alphanumeric()
                             && text.len() < 6
                         {
@@ -317,12 +306,7 @@ impl Menu {
         settings: &Settings,
         paused: Option<&Canvas>,
     ) -> (Screen, Vec<Line>) {
-        let palette = &data.palettes[0].palette;
-        let game_palette = data
-            .palettes
-            .iter()
-            .find(|p| p.name == "game")
-            .map_or(palette, |p| &p.palette);
+        let game_palette = &data.game_palette;
         let mut screen = match (self.background, paused) {
             // the settings cover the whole picture area
             _ if matches!(self.page, Page::Settings | Page::Keys { .. }) => Screen::black(),
@@ -344,11 +328,7 @@ impl Menu {
         let (ax, ay) = (ax as i32, ay as i32);
         match &self.page {
             Page::Closed => {
-                lines.push(
-                    Line::new(320.0, HINT_Y, "Press a key for the menu")
-                        .centered()
-                        .color(DIM),
-                );
+                lines.push(hint("Press a key for the menu"));
             }
             Page::Main => {
                 let items = self.items();
@@ -367,11 +347,7 @@ impl Menu {
                     }
                 }
                 screen.overlay(&canvas, game_palette, (bx, by, 12 * 32, rows * 32));
-                lines.push(
-                    Line::new(320.0, HINT_Y, "↑ ↓ choose    Return select    Esc close")
-                        .centered()
-                        .color(DIM),
-                );
+                lines.push(hint("↑ ↓ choose    Return select    Esc close"));
             }
             Page::Settings => {
                 let on = |b: bool| if b { "ON" } else { "OFF" };
@@ -412,11 +388,7 @@ impl Menu {
                     (48, 304),
                 );
                 screen.overlay(&canvas, game_palette, LIST_BOX);
-                lines.push(
-                    Line::new(320.0, HINT_Y, "↑ ↓ choose    Return change    Esc back")
-                        .centered()
-                        .color(DIM),
-                );
+                lines.push(hint("↑ ↓ choose    Return change    Esc back"));
             }
             Page::Keys { waiting } => {
                 let mut rows: Vec<(&str, Value, &str)> = KEY_LABELS
@@ -443,12 +415,12 @@ impl Menu {
                     (38, 352),
                 );
                 screen.overlay(&canvas, game_palette, LIST_BOX);
-                let hint = if *waiting {
+                let text = if *waiting {
                     "Press the new key"
                 } else {
                     "↑ ↓ choose    Return change    Esc back"
                 };
-                lines.push(Line::new(320.0, HINT_Y, hint).centered().color(DIM));
+                lines.push(hint(text));
             }
             Page::Password { text, wrong } => {
                 let (cols, rows) = (12, 6);
@@ -465,23 +437,19 @@ impl Menu {
                 };
                 canvas.block_text(&data.font, bx + 96, by + 112, &entry);
                 screen.overlay(&canvas, game_palette, (bx, by, cols * 32, rows * 32));
-                let hint = if *wrong {
+                let text = if *wrong {
                     "Wrong password    any key: try again"
                 } else {
                     "Type the code of a level    Return OK    Esc cancel"
                 };
-                lines.push(Line::new(320.0, HINT_Y, hint).centered().color(DIM));
+                lines.push(hint(text));
             }
             Page::About => {
                 let (w, h) = Screen::picture_size(data, ABOUT);
                 let x = ax as usize + (aw - w) / 2;
                 let y = ay as usize + (ah - h) / 2;
                 screen.picture(data, ABOUT, (x, y, w, h));
-                lines.push(
-                    Line::new(320.0, HINT_Y, "Press a key")
-                        .centered()
-                        .color(DIM),
-                );
+                lines.push(hint("Press a key"));
             }
         }
         (screen, lines)
@@ -496,7 +464,7 @@ const ABOUT_Y: f32 = 426.0;
 
 /// The labels of the keys on the keys page (at most 8 letters) and what
 /// they do.
-const KEY_LABELS: [(&str, &str); 7] = [
+const KEY_LABELS: [(&str, &str); settings::KEYS] = [
     ("RIGHT", "Move right"),
     ("LEFT", "Move left"),
     ("UP", "Move up"),
@@ -554,6 +522,32 @@ fn list_page(
             canvas.draw_object(data, cursor(), bx + 32, y);
             lines.push(Line::new(320.0, ABOUT_Y, *about).centered());
         }
+    }
+}
+
+/// A hint at the bottom of the screen.
+fn hint(text: &str) -> Line {
+    Line::new(320.0, HINT_Y, text).centered().color(DIM)
+}
+
+/// Up / down (or Tab) move the selection among `rows`, around at the
+/// ends; whether `code` was one of these keys.
+fn move_selection(selected: &mut usize, rows: usize, code: Scancode) -> bool {
+    match code {
+        Scancode::Up => *selected = (*selected + rows - 1) % rows,
+        Scancode::Down | Scancode::Tab => *selected = (*selected + 1) % rows,
+        _ => return false,
+    }
+    true
+}
+
+/// The character of a key whose name is one character (letters, digits).
+pub fn key_char(code: Scancode) -> Option<char> {
+    let name = code.name();
+    let mut chars = name.chars();
+    match (chars.next(), chars.next()) {
+        (Some(c), None) => Some(c),
+        _ => None,
     }
 }
 

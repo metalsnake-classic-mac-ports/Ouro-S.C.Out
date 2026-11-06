@@ -8,9 +8,12 @@ use std::path::PathBuf;
 
 use sdl3::keyboard::Scancode;
 
+/// The number of game keys.
+pub const KEYS: usize = 7;
+
 /// The game keys in the order of the original dialog, then self destruct
-/// (fixed to Esc in the original).
-pub const KEY_NAMES: [&str; 7] = [
+/// (fixed to Esc in the original); their names in the settings file.
+pub const KEY_NAMES: [&str; KEYS] = [
     "RIGHT",
     "LEFT",
     "UP",
@@ -25,7 +28,7 @@ pub struct Settings {
     pub music: bool,
     pub sounds: bool,
     /// Right, left, up, down, get / drop, fire, self destruct.
-    pub keys: [Scancode; 7],
+    pub keys: [Scancode; KEYS],
     pub fullscreen: bool,
 }
 

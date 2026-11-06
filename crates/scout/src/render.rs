@@ -385,7 +385,7 @@ impl Screen {
         id: i16,
         (x, y, w, h): (usize, usize, usize, usize),
     ) {
-        let Some(picture) = data.pictures.iter().find(|p| p.id == id) else {
+        let Some(picture) = data.picture(id) else {
             return;
         };
         let image = &picture.image;
@@ -402,9 +402,7 @@ impl Screen {
 
     /// The size of a picture.
     pub fn picture_size(data: &GameData, id: i16) -> (usize, usize) {
-        data.pictures
-            .iter()
-            .find(|p| p.id == id)
+        data.picture(id)
             .map_or((0, 0), |p| (p.image.width, p.image.height))
     }
 
