@@ -5,8 +5,10 @@ Usage: python3 tiles.py <tiles.bin> <pltt.bin> <out.png> [tiles_per_row] [tile_h
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from topng import read_pltt, write_png
+# the shared analysis library: ouro-tools/re (OURO_TOOLS, default ../ouro-tools)
+_tools = os.environ.get("OURO_TOOLS") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ouro-tools")
+sys.path.insert(0, os.path.join(_tools, "re"))
+from topng import read_pltt, write_png  # noqa: E402
 
 data = open(sys.argv[1], "rb").read()
 pal = read_pltt(open(sys.argv[2], "rb").read())

@@ -12,7 +12,7 @@ REPO="$(cd "$(dirname "$0")/../.." && cd .. && pwd)"
 EMU="$REPO/re/work/emu"
 TOOLS="${OURO_TOOLS:-$(cd "$REPO/.." && pwd)/ouro-tools}"
 mkdir -p "$EMU/shared"
-# boot disk: the one with Sound Manager 3.1 if present (make-sound-disk.sh)
+# boot disk: the one with Sound Manager 3.1 if present (ouro-tools/make-sound-disk.sh)
 BOOT="$TOOLS/systems/system70.dsk"
 [ -f "$TOOLS/systems/system75-sound.dsk" ] && BOOT="$TOOLS/systems/system75-sound.dsk"
 cat > "$EMU/basilisk.prefs" <<PREFS

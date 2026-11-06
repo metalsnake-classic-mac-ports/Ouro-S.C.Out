@@ -16,6 +16,7 @@ level_end s0 s1 s2 s3 s4" when these globals change.
 (needs unicorn; uses the translation tables of scout-core via loader_tables.json)
 """
 import json
+import os
 import struct
 import sys
 
@@ -23,6 +24,9 @@ from unicorn import UC_ARCH_M68K, UC_HOOK_CODE, UC_HOOK_INTR, UC_MODE_BIG_ENDIAN
 from unicorn.m68k_const import UC_CPU_M68K_M68020, UC_M68K_REG_A5, UC_M68K_REG_A7, UC_M68K_REG_PC
 
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
+# the shared analysis library: ouro-tools/re (OURO_TOOLS, default ../ouro-tools)
+_tools = os.environ.get("OURO_TOOLS") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "ouro-tools")
+sys.path.insert(0, os.path.join(_tools, "re"))
 from thinkc_globals import expand  # noqa: E402
 
 A5 = 0x800000

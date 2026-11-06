@@ -36,7 +36,7 @@ Sound: Basilisk II only plays sound through a Sound Manager 3.x component
 with the plain boot floppy the emulator is silent, and the game hangs after
 PERFECT / TRY AGAIN / GAME OVER, where it waits for the end of a sound.
 
-    re/tools/emulator/make-sound-disk.sh MacOS75.ZIP Sound_Manager_3.1.sea_.hqx
+    ../ouro-tools/make-sound-disk.sh MacOS75.ZIP Sound_Manager_3.1.sea_.hqx
 
 builds `ouro-tools/systems/system75-sound.dsk` (needs `brew install unar
 hfsutils`): the System Folder of the System 7.5.0 "Disk Tools" floppy on a

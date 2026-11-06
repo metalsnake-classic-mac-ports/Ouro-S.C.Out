@@ -32,15 +32,20 @@ Graphics, sounds, codes and the other CODE segments are identical.
 
 ## Tools
 
-- `re/tools/macres.py`, `lzrw1a.py`: read resources, unpack `SHAP`
-- `re/tools/ghidra/patch_traps.py`: replace Toolbox A-line traps by TRAP #15
-  (Ghidra stops decoding at A-line traps); writes `re/work/code_patched/`
-- `re/tools/ghidra/decompile_all.sh`: Ghidra headless, 68020, function starts
-  from the jump table; writes `re/work/decomp/segNN.c`
+The general ones are shared by the Ouro ports in
+[ouro-tools](https://github.com/metalsnake-classic-mac-ports/ouro-tools)
+`re/` (next to this repository, or `OURO_TOOLS`); the scripts here find it.
+
+- `ouro-tools/re/macres.py`, `re/tools/lzrw1a.py`: read resources, unpack `SHAP`
+- `ouro-tools/re/ghidra/patch_traps.py re/work`: replace Toolbox A-line
+  traps by TRAP #15 (Ghidra stops decoding at A-line traps); writes
+  `re/work/code_patched/`
+- `ouro-tools/re/ghidra/decompile_all.sh re/work`: Ghidra headless, 68020,
+  function starts from the jump table; writes `re/work/decomp/segNN.c`
 - REA (MCP) works on the patched segments: `open_binary` with
   `format: raw-binary`, `architecture: m68k`, `entry_point: 0x0`
-- `re/tools/xref.py`: callers through the jump table
-- `re/tools/disasm.py`: disassembles a range of a segment with the Toolbox
+- `ouro-tools/re/xref.py`: callers through the jump table
+- `ouro-tools/re/disasm.py`: disassembles a range of a segment with the Toolbox
   traps by name and jump table calls as "CODE n 0xoffset" (the decompiler
   shows every trap as `trap(0xf)`)
 - `re/tools/emulate_level_loader.py`: runs original code in Unicorn (68020)
@@ -131,7 +136,7 @@ box becomes 0x191 and the right box 0x192 with skip flag; otherwise 0x19f
 
 THINK C: CODE 1 copies `DATA` word by word below A5 and inserts `ZERO[i]`
 zero bytes after every zero word; `DREL` relocates pointers.
-`re/tools/thinkc_globals.py` rebuilds the 0x6e48 bytes of globals.
+`ouro-tools/re/thinkc_globals.py` rebuilds the 0x6e48 bytes of globals.
 
 Explosion CODE 4 0x0 `(x, y)`: `explosion[tile]`, and if the player is at
 (x, y), not protected (`-0x5392`) and the tile is not 0x10e: player death
