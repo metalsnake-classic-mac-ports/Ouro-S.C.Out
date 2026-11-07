@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The code is now under the GNU General Public License, version 3 or later (was MIT).
+- The code is under the GNU General Public License, version 3 or later. This applies to
+  version 0.1.0 as well: the MIT license file it was published with was a mistake.
 
 ## [0.1.0] - 2026-10-22
 

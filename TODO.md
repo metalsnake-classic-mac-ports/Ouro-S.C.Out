@@ -74,4 +74,3 @@ A place to share packs, free of charge for everyone. (Not to be called a
 - [ ] Homebrew bottles for Intel Macs (a `macos-15-intel` runner); macOS 14 has none because
       Homebrew's sdl3 has no bottle there
 - [ ] A release checklist: CHANGELOG.md, version, tag, formula pull request in the tap
-- [ ] Next release: `license "GPL-3.0-or-later"` in the Homebrew formula (0.1.0 was MIT)
