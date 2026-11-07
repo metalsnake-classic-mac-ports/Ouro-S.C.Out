@@ -383,7 +383,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "scout"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ab_glyph",
  "anyhow",
@@ -395,11 +395,11 @@ dependencies = [
 
 [[package]]
 name = "scout-core"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "scout-data"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "claxon",
  "png",
@@ -410,7 +410,7 @@ dependencies = [
 
 [[package]]
 name = "scout-original"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "flacenc",
  "png",

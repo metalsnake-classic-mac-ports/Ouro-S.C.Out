@@ -7,16 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-07
+
 ### Changed
 
-- The code is under the GNU General Public License, version 3 or later. This applies to
-  version 0.1.0 as well: the MIT license file it was published with was a mistake.
+- The code is under the GNU General Public License, version 3 or later. This release
+  replaces 0.1.0, which was withdrawn because it named the MIT license by mistake (in its
+  package metadata and on the website); otherwise the game is the same.
 
-## [0.1.0] - 2026-10-22
-
-### Added
-
-- Initial release.
-
-[unreleased]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/releases/tag/v0.1.0
+[unreleased]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/releases/tag/v0.1.1
