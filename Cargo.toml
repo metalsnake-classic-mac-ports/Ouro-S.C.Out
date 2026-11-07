@@ -3,9 +3,9 @@ resolver = "3"
 members = ["crates/scout-core", "crates/scout-data", "crates/scout-original", "crates/scout"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
-license = "MIT"
+license = "GPL-3.0-or-later"
 repository = "https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out"
 homepage = "https://metalsnake-classic-mac-ports.github.io/Ouro-S.C.Out/"
 
