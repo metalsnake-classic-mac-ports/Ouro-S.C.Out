@@ -29,6 +29,9 @@ options, off by default unless noted.
 
 ## Options
 
+- [ ] Gamepad (`../CLAUDE.md` rule 10, decided 2026-11-12): d-pad / stick for the four
+      directions, buttons for get-drop, fire and self destruct, set on the keys page; the
+      menus by gamepad too. Maybe later shared by all ports in a common Ouro framework
 - [ ] Turn off the sound that plays when the player starts moving (101 / 108)
 
 ## Level selection
