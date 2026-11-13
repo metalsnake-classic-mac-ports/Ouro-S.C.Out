@@ -109,6 +109,12 @@ update): 64 rounds of set_tile(start, 0xab + i/8, no skip) + redraw, then
 The player code turns 0x10a (file values 288/297) into 0x10b when the
 player stands on it.
 
+Checked in the running original (MAME, Quadra 700, System 7.5,
+2026-11-13; `ouro-tools` README, "MAME"): after Game → Play the level copy
+`-0x481a` of level 1 equals `re/work/emu_level1.json` frame 0 (all 960
+words); the map `-0x6546` differs only at the start box (2, 2): 0xac
+during the start animation, then 0x10b, as above.
+
 Set a tile: CODE 9 0x2046 `(x, y, (tile << 16) | (skip << 8))` writes the
 map and the visible view buffer, sets the skip flag `-0x5780[cell]` and
 `-0x5791` if the player's box changed.
@@ -308,7 +314,11 @@ the frame graphics (`SHAP 5104`); the game never changes them.
   0x24c reads `SHAP` 1 (21 longs: sound, music, two arrays of six longs
   the game does not use otherwise, the six keys, display) and, if there is
   none, `SHAP` 0, the factory settings (music and sound off, system
-  display). When the program quits, CODE 5 0x16ce removes `SHAP` 1 from
+  display). The display is the last long: 0 system, 1 custom (1.4 ships
+  with 1). In MAME's Quadra 700 (System 7.5) custom display crashes when a
+  level starts (black or garbage screen, the system dies); with 0 the
+  game plays. The dialog's own warning names Quadras with built-in video
+  as working, so whether this is the emulation or the original is open. When the program quits, CODE 5 0x16ce removes `SHAP` 1 from
   the current resource file (the application), adds a new one with the
   current values and writes it (`AddResource`, `WriteResource`; a
   `SysBeep` on an error, e.g. a locked disk). So every copy of the program
