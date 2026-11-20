@@ -13,8 +13,9 @@ options, off by default unless noted.
 - [ ] The block dissolve between screens (CODE 8 0x1354 / 0x1416)
 - [ ] Game speed apart from the frame rate: the picture at the display's rate (60 / 120 Hz),
       the game at the original's speed; the ball drawn between game frames
-- [ ] Keep the game over picture (PICT 1001): show it when the game quits (until a key or a
-      few seconds)
+- [ ] The game over picture (PICT 1001) when the program quits (until a key or a few
+      seconds): with deaths instead of lives (since 2026-11-20) there is no game over, so
+      the picture is never seen otherwise
 
 ## Options
 
