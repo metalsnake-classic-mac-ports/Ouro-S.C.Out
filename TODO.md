@@ -65,9 +65,10 @@ A place to share packs, free of charge for everyone. (Not to be called a
 
 ## Release
 
-- [ ] ouro-ui / ouro-play come by path from `../ouro-framework` (since 2026-11-20): the
-      Homebrew build from the tarball fails until they come as a git dependency (see
-      ouro-framework's TODO); the next release waits for that
+- [ ] Next release: ouro-ui / ouro-play come by path from `../ouro-framework` (since
+      2026-11-20); the Homebrew formula brings the framework's archive as a resource
+      (ouro-framework's RELEASING.md, tried with S.C.Out's archive); needs ouro-framework
+      on GitHub with its tag first
 - [ ] Build and test on Windows and Linux (so far built only on macOS; the Homebrew bottle
       also builds on Linux) - e.g. GitHub Actions for all three systems
 - [ ] Downloads on GitHub Releases: a macOS app (`.app`, signed and notarized), a Windows
