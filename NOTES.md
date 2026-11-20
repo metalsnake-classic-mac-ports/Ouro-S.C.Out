@@ -532,7 +532,7 @@ Deliberate differences from the original (the rules for all Ouro ports,
   state and the port's counters, format 1); Continue plays on exactly
   there (or from the level screen when it was left between levels).
 - **Rewind** (rule 5): a snapshot every 5 seconds of play (the core's
-  state, the screen at half size as PNG), at most 720 kept whole; in play
+  state as deflated JSON, the screen at half size as PNG), at most 720 kept whole; in play
   Backspace, or Timeline in the paused menu, shows them as a tree
   (ouro-ui's timeline); Return plays on from one (a fork). Kept with
   Continue in `continue/`.

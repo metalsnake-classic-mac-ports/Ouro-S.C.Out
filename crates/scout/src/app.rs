@@ -656,7 +656,7 @@ impl<'a> App<'a> {
                         self.deaths,
                         if self.deaths == 1 { "death" } else { "deaths" }
                     );
-                    self.rewind.take(self.frames, self.snap(), picture, info);
+                    self.rewind.take(self.frames, &self.snap(), picture, info);
                 }
             }
         }
