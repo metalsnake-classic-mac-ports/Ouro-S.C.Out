@@ -24,8 +24,13 @@ With [Homebrew](https://brew.sh) (macOS, Linux):
 
 ## Building
 You need Rust (via [rustup](https://rustup.rs)) and SDL3
-(macOS: `brew install sdl3`). Then:
+(macOS: `brew install sdl3`). The port takes the screens shared by all
+Ouro ports from [ouro-framework](https://github.com/metalsnake-classic-mac-ports/ouro-framework),
+which must sit next to it:
 
+    git clone https://github.com/metalsnake-classic-mac-ports/ouro-framework
+    git clone https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out
+    cd Ouro-S.C.Out
     cargo test
     cargo run --release -p scout
 

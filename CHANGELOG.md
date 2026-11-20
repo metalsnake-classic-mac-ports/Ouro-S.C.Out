@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-20
+
+Built with [ouro-framework](https://github.com/metalsnake-classic-mac-ports/ouro-framework)
+0.1.0, the screens shared by all Ouro ports; building from source needs it next to
+the port (see the README).
+
 ### Added
 
 - A level selection: every level with its name, a preview and your best, first and
@@ -30,5 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   replaces 0.1.0, which was withdrawn because it named the MIT license by mistake (in its
   package metadata and on the website); otherwise the game is the same.
 
-[unreleased]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/compare/v0.1.1...HEAD
+[unreleased]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/releases/tag/v0.1.1

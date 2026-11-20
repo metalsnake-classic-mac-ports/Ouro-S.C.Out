@@ -92,8 +92,9 @@ ouro-scout</code></pre>
   <ol>
     <li>Install <a href="https://rustup.rs">Rust</a> and SDL3. On a Mac with Homebrew:
       <pre><code>brew install sdl3</code></pre></li>
-    <li>Get the source:
-      <pre><code>git clone https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out
+    <li>Get the source, and next to it the screens all Ouro ports share:
+      <pre><code>git clone https://github.com/metalsnake-classic-mac-ports/ouro-framework
+git clone https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out
 cd Ouro-S.C.Out</code></pre></li>
     <li>Build and start the game:
       <pre><code>cargo run --release -p scout</code></pre></li>
@@ -108,12 +109,13 @@ cd Ouro-S.C.Out</code></pre></li>
       <tr><th scope="row">Return</th><td>Take, drop or swap an object; use a teleporter</td></tr>
       <tr><th scope="row">Space</th><td>Fire a missile</td></tr>
       <tr><th scope="row">Esc</th><td>Self destruct</td></tr>
+      <tr><th scope="row">Backspace</th><td>Rewind: the timeline of snapshots</td></tr>
       <tr><th scope="row">Command&nbsp;P / Ctrl&nbsp;P</th><td>Pause and open the menu</td></tr>
       <tr><th scope="row">Command&nbsp;Q / Ctrl&nbsp;Q</th><td>Quit</td></tr>
       <tr><th scope="row">F11</th><td>Full screen</td></tr>
     </tbody>
   </table>
-  <p>The game keys can be changed in Settings → Keys.</p>
+  <p>The game keys can be changed in Options → Keys.</p>
 </section>
 
 <section class="box credits" aria-labelledby="credits">
