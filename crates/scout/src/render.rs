@@ -269,11 +269,12 @@ const EMPTY_ICON: usize = 23;
 
 /// The screens between the levels (CODE 8 0x176c, 0x1b3a …).
 pub enum Message<'a> {
-    /// Level number (from 1), its code (none for the first level), lives.
-    Level(usize, Option<&'a str>, i16),
+    /// Level number (from 1), its name, the deaths so far (the Ouro
+    /// ports' rules 1 and 2: deaths instead of lives, no password; the
+    /// original shows LIVES and, from level 2 on, PASSWORD: and the code).
+    Level(usize, &'a str, u32),
     TryAgain,
     Aborted,
-    GameOver,
     Perfect,
 }
 
@@ -287,30 +288,17 @@ type Text = (i32, i32, String);
 pub fn message_screen(data: &GameData, message: &Message) -> Canvas {
     let mut canvas = Canvas::new(SCREEN_WIDTH, SCREEN_HEIGHT, BLACK);
     let (frame, texts): (BoxPlace, Vec<Text>) = match *message {
-        Message::Level(number, code, lives) => {
-            let n = number - 1;
-            let level = format!("LEVEL {:03}", n);
-            let lives = format!("{} : {}", if lives == 1 { "LIFE " } else { "LIVES" }, lives);
-            match code {
-                // The first level shows no code, in a smaller box.
-                None => (
-                    (0x20, 0x36, 12, 6),
-                    vec![(0x50, 0x66, level), (0x50, 0xA6, lives)],
-                ),
-                Some(code) => (
-                    (0x20, -10, 12, 10),
-                    vec![
-                        (0x50, 0x26, level),
-                        (0x50, 0x66, "PASSWORD:".into()),
-                        (0x70, 0x96, code.into()),
-                        (0x50, 0xE6, lives),
-                    ],
-                ),
-            }
+        Message::Level(number, name, deaths) => {
+            // the box of the original's level screen with the code, the
+            // lines centred in it (0xe0 its middle)
+            let centred = |y: i32, text: String| (0xE0 - 16 * text.chars().count() as i32, y, text);
+            (
+                (0x20, 0x16, 12, 8),
+                vec![centred(0x46, format!("LEVEL {:03}", number - 1)), centred(0x86, name.to_string()), centred(0xC6, format!("DEATHS {deaths}"))],
+            )
         }
         Message::TryAgain => ((0x30, 0x66, 11, 3), vec![(0x50, 0x86, "TRY AGAIN".into())]),
         Message::Aborted => ((0x30, 0x66, 11, 3), vec![(0x50, 0x86, " ABORTED ".into())]),
-        Message::GameOver => ((0x30, 0x66, 11, 3), vec![(0x50, 0x86, "GAME OVER".into())]),
         Message::Perfect => ((0x50, 0x66, 9, 3), vec![(0x70, 0x86, "PERFECT".into())]),
     };
     let (ox, oy) = (VIEW_X as i32, VIEW_Y as i32);
@@ -347,11 +335,6 @@ fn glyph(c: char) -> Option<usize> {
         '-' => Some(44),
         _ => None,
     }
-}
-
-/// Whether the block letters can show this text (spaces included).
-pub fn in_block_font(text: &str) -> bool {
-    text.chars().all(|c| c == ' ' || glyph(c).is_some())
 }
 
 /// Where the original shows its pictures: the 512 × 364 area of the frame
@@ -404,26 +387,6 @@ impl Screen {
     pub fn picture_size(data: &GameData, id: i16) -> (usize, usize) {
         data.picture(id)
             .map_or((0, 0), |p| (p.image.width, p.image.height))
-    }
-
-    /// Copy a rectangle of a canvas (in the game's colors) on top.
-    pub fn overlay(
-        &mut self,
-        canvas: &Canvas,
-        palette: &Palette,
-        (x, y, w, h): (i32, i32, usize, usize),
-    ) {
-        for row in 0..h as i32 {
-            for col in 0..w as i32 {
-                let (px, py) = (x + col, y + row);
-                if px < 0 || py < 0 || px as usize >= SCREEN_WIDTH || py as usize >= SCREEN_HEIGHT {
-                    continue;
-                }
-                let at = py as usize * SCREEN_WIDTH + px as usize;
-                let c = palette.colors[canvas.pixels[at] as usize];
-                self.rgb[at * 3..at * 3 + 3].copy_from_slice(&[c.r, c.g, c.b]);
-            }
-        }
     }
 }
 

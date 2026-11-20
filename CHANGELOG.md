@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A level selection: every level with its name, a preview and your best, first and
+  latest time.
+- Continue: quitting keeps the game, the menu offers to play on.
+- Rewind: Backspace shows a timeline of snapshots (one every 5 seconds) to play on from.
+- Options: scaling by whole multiples or filling the window.
+
+### Changed
+
+- The menus are the pages shared by all Ouro ports, in S.C.Out's look.
+- Dying costs no lives and there is no game over; the level screen counts your deaths.
+- No passwords: the level screen names the level; the cheat NOWALL is typed on the main
+  menu.
+
 ## [0.1.1] - 2026-11-07
 
 ### Changed

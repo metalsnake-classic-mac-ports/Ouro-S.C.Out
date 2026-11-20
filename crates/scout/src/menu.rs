@@ -1,29 +1,35 @@
-//! Title, menu and the dialogs of the original (Game → Play, Resume,
-//! Setting, Enter Password; About; File → Quit), drawn in the style of the
-//! game: marble boxes and block letters instead of the Mac menu bar and
-//! dialogs. Hints and key names are in the system font.
+//! The title and the menus: the Ouro ports' shared screens (ouro-ui's
+//! `menu`, `levels`, `options`, `keys`) in S.C.Out's look
+//! ([`crate::theme::Look`]). They replace the original's menu bar and
+//! dialogs (Game → Play, Resume, Setting, Enter Password; About; File →
+//! Quit) by the ports' rules: Continue or Resume first, a level selection
+//! instead of the password dialog (rule 2: no passwords; its cheat NOWALL
+//! is typed on the main menu instead), the settings and keys on modern
+//! pages (rule 9). The title, the About box and the paused game's PAUSE
+//! box stay the original's.
 
-use scout_core::Dir;
+use ouro_ui::{Ink, Key, Rect};
 use scout_data::GameData;
 use sdl3::keyboard::Scancode;
 
 use crate::render::{self, Canvas, Screen};
 use crate::settings::{self, Settings};
 use crate::text::Line;
+use crate::theme::Look;
 
-/// The picture of the title (PICT 1000); after a lost game the original
-/// leaves the game over picture (1001) instead.
+/// The picture of the title (PICT 1000). After a lost game the original
+/// leaves the game over picture (1001) instead; the port has no game over.
 pub const TITLE: i16 = 1000;
-pub const GAME_OVER_PICTURE: i16 = 1001;
 /// After the last level (PICT 1002).
 pub const END_PICTURE: i16 = 1002;
 /// Before the title (PICT 2000).
 pub const LOGO: i16 = 2000;
 const ABOUT: i16 = 256;
-/// The cheat code of the password dialog (CODE 2 0x4a8).
+/// The cheat code of the original's password dialog (CODE 2 0x4a8).
 const NOWALL: &str = "NOWALL";
 const HINT_Y: f32 = 446.0;
 const DIM: [u8; 3] = [0x99, 0x99, 0x99];
+const SCREEN: Rect = Rect::new(0, 0, render::SCREEN_WIDTH as i32, render::SCREEN_HEIGHT as i32);
 
 /// What is behind the menu.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -33,29 +39,25 @@ pub enum Background {
     Paused,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Page {
     /// Only the background; any key opens the menu.
     Closed,
     Main,
-    Settings,
-    /// The keys, a part of the settings; `waiting` for the new key.
-    Keys {
-        waiting: bool,
-    },
-    Password {
-        text: String,
-        wrong: bool,
-    },
+    Levels,
+    Options,
+    Keys,
     About,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Item {
     Resume,
-    Play,
-    Password,
-    Settings,
+    Continue,
+    Timeline,
+    NewGame,
+    Levels,
+    Options,
     About,
     Quit,
 }
@@ -63,28 +65,45 @@ pub enum Item {
 impl Item {
     fn label(self) -> &'static str {
         match self {
-            Item::Resume => "RESUME",
-            Item::Play => "PLAY",
-            Item::Password => "PASSWORD",
-            Item::Settings => "SETTINGS",
-            Item::About => "ABOUT",
-            Item::Quit => "QUIT",
+            Item::Resume => "Resume",
+            Item::Continue => "Continue",
+            Item::Timeline => "Timeline",
+            Item::NewGame => "New Game",
+            Item::Levels => "Levels",
+            Item::Options => "Options",
+            Item::About => "About S.C.Out",
+            Item::Quit => "Quit",
         }
     }
 }
+
+/// The rows of the options page.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Opt {
+    Music,
+    Sounds,
+    Scaling,
+    Fullscreen,
+    Keys,
+    Defaults,
+}
+
+const OPTIONS: [Opt; 6] = [Opt::Music, Opt::Sounds, Opt::Scaling, Opt::Fullscreen, Opt::Keys, Opt::Defaults];
 
 /// What the menu asks the program to do.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
     None,
     Resume,
+    Continue,
+    Timeline,
     /// A new game from the first level.
-    Play,
-    /// A new game from this level (from 0), by its code.
+    NewGame,
+    /// A game from this level (from 0), chosen in the level selection.
     Level(usize),
-    /// The code NOWALL was entered.
+    /// The code NOWALL was typed.
     NoWalls,
-    /// Music, sound or the music player changed.
+    /// A setting changed (saved): apply it.
     SettingsChanged,
     Quit,
 }
@@ -92,175 +111,267 @@ pub enum Action {
 pub struct Menu {
     pub background: Background,
     pub page: Page,
-    pub selected: usize,
-    /// A paused game can be resumed (Game → Resume is enabled).
+    /// A paused game can be resumed.
     pub resumable: bool,
+    /// A game was kept when the program or the game was left.
+    pub saved: bool,
+    main: ouro_ui::menu::Menu,
+    levels: ouro_ui::levels::Levels,
+    options: ouro_ui::options::Options,
+    keys: ouro_ui::keys::Keys,
+    /// The letters typed on the main page (for NOWALL).
+    typed: String,
 }
 
-/// Rows of the settings page: music, sound effects, screen, the keys, back.
-const SETTING_ROWS: usize = 5;
-/// The row of the keys on the settings page.
-const KEYS_ROW: usize = 3;
-/// Rows of the keys page: the keys, back.
-const KEY_ROWS: usize = KEY_LABELS.len() + 1;
+/// The labels of the keys on the keys page and what they do.
+const KEY_LABELS: [(&str, &str); settings::KEYS] = [
+    ("Right", "Move right"),
+    ("Left", "Move left"),
+    ("Up", "Move up"),
+    ("Down", "Move down"),
+    ("Get / Drop", "Take, drop or swap an object; use a teleporter"),
+    ("Fire", "Fire a missile"),
+    ("Self Destruct", "Blow yourself up: the level is ABORTED (the original: Esc)"),
+];
+const KEY_NOTES: [&str; 1] = ["Only one key counts at a time, as in the original"];
+
+/// The main box: over the title's picture area, centred.
+fn main_area(rows: usize) -> Rect {
+    let (ax, ay, aw, ah) = render::PICTURE_AREA;
+    let h = ouro_ui::menu::height(rows, false);
+    let w = 240;
+    let (left, top) = (ax as i32 + (aw as i32 - w) / 2, ay as i32 + (ah as i32 - h) / 2);
+    Rect::new(left, top, left + w, top + h)
+}
+
+/// The shared screens' key for a key of the keyboard.
+pub fn ui_key(code: Scancode) -> Option<Key> {
+    Some(match code {
+        Scancode::Up => Key::Up,
+        Scancode::Down | Scancode::Tab => Key::Down,
+        Scancode::Left => Key::Left,
+        Scancode::Right => Key::Right,
+        Scancode::PageUp => Key::PageUp,
+        Scancode::PageDown => Key::PageDown,
+        Scancode::Home => Key::Home,
+        Scancode::End => Key::End,
+        Scancode::Return | Scancode::KpEnter => Key::Accept,
+        Scancode::Escape => Key::Back,
+        Scancode::Space => Key::Toggle,
+        _ => return None,
+    })
+}
+
+/// The levels' names: the first is START (it has no code), the others are
+/// named after their code (rule 3; the original names none).
+pub fn level_name(data: &GameData, level: usize) -> String {
+    match level.checked_sub(1) {
+        None => "START".into(),
+        Some(k) => data.level_codes.get(k).cloned().unwrap_or_else(|| format!("LEVEL {}", level + 1)),
+    }
+}
 
 impl Menu {
     pub fn new(background: Background, resumable: bool) -> Self {
         Self {
             background,
             page: Page::Closed,
-            selected: 0,
             resumable,
+            saved: false,
+            main: Default::default(),
+            levels: Default::default(),
+            options: Default::default(),
+            keys: Default::default(),
+            typed: String::new(),
         }
     }
 
     pub fn items(&self) -> Vec<Item> {
         let mut items = vec![];
         if self.resumable {
-            items.push(Item::Resume);
+            items.extend([Item::Resume, Item::Timeline]);
+        } else if self.saved {
+            items.push(Item::Continue);
         }
-        items.extend([
-            Item::Play,
-            Item::Password,
-            Item::Settings,
-            Item::About,
-            Item::Quit,
-        ]);
+        items.extend([Item::NewGame, Item::Levels, Item::Options, Item::About, Item::Quit]);
         items
     }
 
     pub fn open(&mut self, page: Page) {
         self.page = page;
-        self.selected = 0;
+        match page {
+            Page::Main => self.main.select(0),
+            Page::Options => self.options = Default::default(),
+            Page::Keys => self.keys = Default::default(),
+            _ => {}
+        }
+    }
+
+    /// Open the level selection on `level` (from 0).
+    pub fn open_levels(&mut self, level: usize) {
+        self.page = Page::Levels;
+        self.levels.select(level, SCREEN);
+    }
+
+    /// Waiting for a new key on the keys page.
+    pub fn waiting(&self) -> bool {
+        self.page == Page::Keys && self.keys.waiting
     }
 
     /// A key on the menu (not the Command / Ctrl shortcuts).
-    pub fn key(&mut self, code: Scancode, settings: &mut Settings, data: &GameData) -> Action {
-        match &mut self.page {
+    pub fn key(&mut self, code: Scancode, settings: &mut Settings, levels: usize) -> Action {
+        match self.page {
             Page::Closed => {
                 self.open(Page::Main);
                 Action::None
             }
-            Page::Main => {
-                let items = self.items();
-                if move_selection(&mut self.selected, items.len(), code) {
-                    return Action::None;
-                }
-                match code {
-                    Scancode::Escape => self.page = Page::Closed,
-                    Scancode::Return | Scancode::KpEnter | Scancode::Space => {
-                        return self.choose(items[self.selected]);
-                    }
-                    _ => {}
-                }
-                Action::None
-            }
-            Page::Settings => match code {
-                _ if move_selection(&mut self.selected, SETTING_ROWS, code) => Action::None,
-                Scancode::Escape => self.back(Item::Settings),
-                Scancode::Return
-                | Scancode::KpEnter
-                | Scancode::Space
-                | Scancode::Left
-                | Scancode::Right => {
-                    match self.selected {
-                        0 => settings.music = !settings.music,
-                        1 => settings.sounds = !settings.sounds,
-                        2 => settings.fullscreen = !settings.fullscreen,
-                        KEYS_ROW => {
-                            if !matches!(code, Scancode::Left | Scancode::Right) {
-                                self.open(Page::Keys { waiting: false });
-                            }
-                            return Action::None;
-                        }
-                        _ => return self.back(Item::Settings),
-                    }
-                    settings.save();
-                    Action::SettingsChanged
-                }
-                _ => Action::None,
-            },
-            Page::Keys { waiting: true } => {
-                // any key, Esc included (it is the default for self destruct)
-                settings.set_key(self.selected, code);
-                settings.save();
-                self.page = Page::Keys { waiting: false };
-                Action::None
-            }
-            Page::Keys { waiting: false } => {
-                if move_selection(&mut self.selected, KEY_ROWS, code) {
-                    return Action::None;
-                }
-                match code {
-                    Scancode::Escape => self.back_to_settings(),
-                    Scancode::Return | Scancode::KpEnter | Scancode::Space => {
-                        if self.selected < KEY_LABELS.len() {
-                            self.page = Page::Keys { waiting: true };
-                        } else {
-                            self.back_to_settings();
-                        }
-                    }
-                    _ => {}
-                }
-                Action::None
-            }
-            Page::Password { text, wrong } => {
-                if *wrong {
-                    *wrong = false;
-                    text.clear();
-                    return Action::None;
-                }
-                match code {
-                    Scancode::Escape => self.back(Item::Password),
-                    Scancode::Backspace => {
-                        text.pop();
-                        Action::None
-                    }
-                    Scancode::Return | Scancode::KpEnter => {
-                        let code = text.clone();
-                        self.password(&code, data)
-                    }
-                    _ => {
-                        if let Some(c) = key_char(code)
-                            && c.is_ascii_alphanumeric()
-                            && text.len() < 6
-                        {
-                            text.push(c.to_ascii_uppercase());
-                        }
-                        Action::None
-                    }
-                }
-            }
             Page::About => self.back(Item::About),
+            Page::Main => {
+                if let Some(c) = crate::menu::key_char(code).filter(char::is_ascii_alphabetic) {
+                    self.typed.push(c.to_ascii_uppercase());
+                    if self.typed.len() > NOWALL.len() {
+                        self.typed.remove(0);
+                    }
+                    if self.typed == NOWALL {
+                        self.typed.clear();
+                        return Action::NoWalls;
+                    }
+                    return Action::None;
+                }
+                let items = self.items();
+                let entries: Vec<_> = items.iter().map(|_| ouro_ui::menu::Entry::new("")).collect();
+                match ui_key(code).and_then(|k| self.main.key(k, &entries)) {
+                    Some(ouro_ui::menu::Choice::Take(k)) => self.choose(items[k]),
+                    Some(ouro_ui::menu::Choice::Back) if self.resumable => Action::Resume,
+                    Some(ouro_ui::menu::Choice::Back) => {
+                        self.page = Page::Closed;
+                        Action::None
+                    }
+                    None => Action::None,
+                }
+            }
+            Page::Levels => match ui_key(code).and_then(|k| self.levels.key(k, levels, SCREEN)) {
+                Some(ouro_ui::levels::Choice::Take(k)) => Action::Level(k),
+                Some(ouro_ui::levels::Choice::Back) => self.back(Item::Levels),
+                None => Action::None,
+            },
+            Page::Options => match ui_key(code).and_then(|k| self.options.key(k, &option_rows(settings))) {
+                Some(choice) => self.options_choice(choice, settings),
+                None => Action::None,
+            },
+            Page::Keys if self.keys.waiting => {
+                // Escape keeps the old key (Defaults gives it back to self
+                // destruct); the shortcuts' modifiers and F11 cannot be taken
+                if code != Scancode::Escape && !settings::reserved(code) {
+                    settings.set_key(self.keys.selected, code);
+                    settings.save();
+                }
+                self.keys.done();
+                Action::None
+            }
+            Page::Keys => match ui_key(code).and_then(|k| self.keys.key(k, settings::KEYS)) {
+                Some(choice) => self.keys_choice(choice, settings),
+                None => Action::None,
+            },
         }
     }
 
-    /// From the keys back to the settings, with KEYS selected.
-    fn back_to_settings(&mut self) {
-        self.page = Page::Settings;
-        self.selected = KEYS_ROW;
+    /// The mouse at (x, y) of the 640 × 480 screen; `click`: its button
+    /// was pressed.
+    pub fn mouse(&mut self, x: i32, y: i32, click: bool, settings: &mut Settings, levels: usize) -> Action {
+        match self.page {
+            Page::Closed | Page::About if click => self.key(Scancode::Space, settings, levels),
+            Page::Closed | Page::About => Action::None,
+            Page::Main => {
+                let items = self.items();
+                let entries: Vec<_> = items.iter().map(|_| ouro_ui::menu::Entry::new("")).collect();
+                match self.main.mouse(x, y, click, &entries, main_area(items.len()), false) {
+                    Some(ouro_ui::menu::Choice::Take(k)) => self.choose(items[k]),
+                    _ => Action::None,
+                }
+            }
+            Page::Levels => match self.levels.mouse(x, y, click, levels, SCREEN) {
+                Some(ouro_ui::levels::Choice::Take(k)) => Action::Level(k),
+                Some(ouro_ui::levels::Choice::Back) => self.back(Item::Levels),
+                None => Action::None,
+            },
+            Page::Options => match self.options.mouse(x, y, click, &option_rows(settings), 0, SCREEN) {
+                Some(choice) => self.options_choice(choice, settings),
+                None => Action::None,
+            },
+            Page::Keys => match self.keys.mouse(x, y, click, settings::KEYS, KEY_NOTES.len(), SCREEN) {
+                Some(choice) => self.keys_choice(choice, settings),
+                None => Action::None,
+            },
+        }
     }
 
-    /// Back to the main menu with `item` selected.
+    /// The mouse wheel on the level list.
+    pub fn wheel(&mut self, dy: f32, levels: usize) {
+        if self.page == Page::Levels {
+            self.levels.wheel(dy.round() as i32, levels, SCREEN);
+        }
+    }
+
+    fn options_choice(&mut self, choice: ouro_ui::options::Choice, settings: &mut Settings) -> Action {
+        use ouro_ui::options::Choice;
+        let row = match choice {
+            Choice::Back => return self.back(Item::Options),
+            Choice::Change(k, _) | Choice::Take(k) => OPTIONS[k],
+        };
+        match row {
+            Opt::Music => settings.music = !settings.music,
+            Opt::Sounds => settings.sounds = !settings.sounds,
+            Opt::Scaling => settings.integer_scaling = !settings.integer_scaling,
+            Opt::Fullscreen => settings.fullscreen = !settings.fullscreen,
+            Opt::Keys => {
+                self.open(Page::Keys);
+                return Action::None;
+            }
+            Opt::Defaults => {
+                let d = Settings::default();
+                *settings = Settings { keys: settings.keys, ..d };
+            }
+        }
+        settings.save();
+        Action::SettingsChanged
+    }
+
+    fn keys_choice(&mut self, choice: ouro_ui::keys::Choice, settings: &mut Settings) -> Action {
+        match choice {
+            // the page waits for the key now
+            ouro_ui::keys::Choice::Change(_) => {}
+            ouro_ui::keys::Choice::Defaults => {
+                settings.keys = Settings::default().keys;
+                settings.save();
+            }
+            ouro_ui::keys::Choice::Back => {
+                self.page = Page::Options;
+                self.options.selected = OPTIONS.iter().position(|&o| o == Opt::Keys).unwrap_or(0);
+            }
+        }
+        Action::None
+    }
+
+    /// Back to the main menu with `item` chosen.
     fn back(&mut self, item: Item) -> Action {
         self.page = Page::Main;
-        self.selected = self.items().iter().position(|&i| i == item).unwrap_or(0);
+        self.main.select(self.items().iter().position(|&i| i == item).unwrap_or(0));
         Action::None
     }
 
     pub fn choose(&mut self, item: Item) -> Action {
         match item {
             Item::Resume => Action::Resume,
-            Item::Play => Action::Play,
-            Item::Password => {
-                self.open(Page::Password {
-                    text: String::new(),
-                    wrong: false,
-                });
+            Item::Continue => Action::Continue,
+            Item::Timeline => Action::Timeline,
+            Item::NewGame => Action::NewGame,
+            Item::Levels => {
+                self.open_levels(0);
                 Action::None
             }
-            Item::Settings => {
-                self.open(Page::Settings);
+            Item::Options => {
+                self.open(Page::Options);
                 Action::None
             }
             Item::About => {
@@ -271,49 +382,30 @@ impl Menu {
         }
     }
 
-    /// OK in the password dialog (CODE 2 0x46e): a level code starts its
-    /// level; NOWALL switches the cheat on (and, like the original, is
-    /// still a wrong code).
-    fn password(&mut self, code: &str, data: &GameData) -> Action {
-        if let Some(level) = Self::level_of(data, code) {
-            return Action::Level(level);
-        }
-        let action = if code == NOWALL {
-            Action::NoWalls
-        } else {
-            Action::None
-        };
-        self.page = Page::Password {
-            text: code.to_string(),
-            wrong: true,
-        };
-        action
+    /// The level chosen in the level selection (from 0).
+    pub fn chosen_level(&self) -> Option<usize> {
+        (self.page == Page::Levels).then_some(self.levels.selected)
     }
 
-    /// The level (from 0) of an entered code (CODE 2 0x63e: the code of
-    /// entry i starts level i + 1; the first level has none).
-    pub fn level_of(data: &GameData, code: &str) -> Option<usize> {
-        data.level_codes
-            .iter()
-            .position(|c| c.eq_ignore_ascii_case(code))
-            .map(|i| i + 1)
-    }
-
-    /// The menu over its background, and the lines in the system font.
+    /// The menu over its background, and its lines in the system font.
+    /// `levels`: each level's name and whether it was done; `details`
+    /// the chosen one's records; `preview` its start view.
+    #[allow(clippy::too_many_arguments)]
     pub fn draw(
         &self,
-        data: &GameData,
+        look: &Look,
         settings: &Settings,
         paused: Option<&Canvas>,
+        levels: &[(String, bool)],
+        details: &[(String, Ink)],
+        preview: Option<&ouro_play::picture::Picture>,
     ) -> (Screen, Vec<Line>) {
-        let game_palette = &data.game_palette;
+        let data = look.data;
         let mut screen = match (self.background, paused) {
-            // the settings cover the whole picture area
-            _ if matches!(self.page, Page::Settings | Page::Keys { .. }) => Screen::black(),
             (Background::Paused, Some(canvas)) => {
                 let mut canvas = canvas.clone();
                 render::pause_box(data, &mut canvas);
-                Screen::from_canvas(&canvas, game_palette)
+                Screen::from_canvas(&canvas, &data.game_palette)
             }
             (Background::Picture(id), _) => {
                 let mut screen = Screen::black();
@@ -323,132 +415,30 @@ impl Menu {
             (Background::Paused, None) => Screen::black(),
         };
         let mut lines = vec![];
-        let mut canvas = Canvas::new(render::SCREEN_WIDTH, render::SCREEN_HEIGHT, 0);
-        let (ax, ay, aw, ah) = render::PICTURE_AREA;
-        let (ax, ay) = (ax as i32, ay as i32);
-        match &self.page {
-            Page::Closed => {
-                lines.push(hint("Press a key for the menu"));
-            }
+        match self.page {
+            Page::Closed => lines.push(hint("Press a key for the menu")),
             Page::Main => {
-                let items = self.items();
-                let rows = (24 + items.len() * 40 + 8).div_ceil(32);
-                let (bx, by) = (
-                    ax + (aw as i32 - 12 * 32) / 2,
-                    ay + (ah as i32 - rows as i32 * 32) / 2,
-                );
-                canvas.marble_box(data, bx, by, 12, rows);
-                let top = by + (rows as i32 * 32 - (items.len() as i32 * 40 - 8)) / 2;
-                for (i, item) in items.iter().enumerate() {
-                    let y = top + 40 * i as i32;
-                    canvas.block_text(&data.font, bx + 80, y, item.label());
-                    if i == self.selected {
-                        canvas.draw_object(data, cursor(), bx + 32, y);
-                    }
-                }
-                screen.overlay(&canvas, game_palette, (bx, by, 12 * 32, rows * 32));
-                lines.push(hint("↑ ↓ choose    Return select    Esc close"));
+                let entries: Vec<_> = self.items().iter().map(|i| ouro_ui::menu::Entry::new(i.label())).collect();
+                lines.extend(self.main.draw(look, &mut screen, main_area(entries.len()), None, &entries));
+                lines.push(hint(if self.resumable { "↑ ↓ choose    Return select    Esc back to the game" } else { "↑ ↓ choose    Return select    Esc close" }));
             }
-            Page::Settings => {
-                let on = |b: bool| if b { "ON" } else { "OFF" };
-
-                let rows = [
-                    (
-                        "MUSIC",
-                        Value::Text(on(settings.music).into()),
-                        "Music on or off",
-                    ),
-                    (
-                        "SFX",
-                        Value::Text(on(settings.sounds).into()),
-                        "Sound effects on or off",
-                    ),
-                    (
-                        "SCREEN",
-                        Value::Text(
-                            if settings.fullscreen {
-                                "FULL"
-                            } else {
-                                "WINDOW"
-                            }
-                            .into(),
-                        ),
-                        "In a window or full screen (also F11 or Command / Ctrl + F)",
-                    ),
-                    ("KEYS", Value::None, "The keys of the game"),
-                    ("BACK", Value::None, "Back to the menu"),
-                ];
-                list_page(
-                    data,
-                    &mut canvas,
-                    &mut lines,
-                    "SETTINGS",
-                    &rows,
-                    self.selected,
-                    (48, 304),
-                );
-                screen.overlay(&canvas, game_palette, LIST_BOX);
-                lines.push(hint("↑ ↓ choose    Return change    Esc back"));
-            }
-            Page::Keys { waiting } => {
-                let mut rows: Vec<(&str, Value, &str)> = KEY_LABELS
+            Page::Levels => {
+                let rows: Vec<_> = levels
                     .iter()
-                    .zip(settings.keys)
                     .enumerate()
-                    .map(|(i, ((label, about), key))| {
-                        let value = if *waiting && i == self.selected {
-                            Value::Text("?".into())
-                        } else {
-                            Value::Key(key)
-                        };
-                        (*label, value, *about)
-                    })
+                    .map(|(k, (name, done))| ouro_ui::levels::Row { number: Some(k as i32 + 1), name: name.clone(), done: *done, locked: false })
                     .collect();
-                rows.push(("BACK", Value::None, "Back to the settings"));
-                list_page(
-                    data,
-                    &mut canvas,
-                    &mut lines,
-                    "KEYS",
-                    &rows,
-                    self.selected,
-                    (38, 352),
-                );
-                screen.overlay(&canvas, game_palette, LIST_BOX);
-                let text = if *waiting {
-                    "Press the new key"
-                } else {
-                    "↑ ↓ choose    Return change    Esc back"
-                };
-                lines.push(hint(text));
+                lines.extend(self.levels.draw(look, &mut screen, SCREEN, "Levels", &rows, details, |s, r| match preview {
+                    Some(p) => crate::theme::scaled_into(s, r, p),
+                    None => crate::theme::fill(s, r, [0; 3]),
+                }));
             }
-            Page::Password { text, wrong } => {
-                let (cols, rows) = (12, 6);
-                let (bx, by) = (
-                    ax + (aw as i32 - cols as i32 * 32) / 2,
-                    ay + (ah as i32 - rows as i32 * 32) / 2,
-                );
-                canvas.marble_box(data, bx, by, cols, rows);
-                canvas.block_text(&data.font, bx + 48, by + 40, "PASSWORD:");
-                let entry = if *wrong {
-                    "WRONG!".to_string()
-                } else {
-                    format!("{:.<6}", text)
-                };
-                canvas.block_text(&data.font, bx + 96, by + 112, &entry);
-                screen.overlay(&canvas, game_palette, (bx, by, cols * 32, rows * 32));
-                let text = if *wrong {
-                    "Wrong password    any key: try again"
-                } else {
-                    "Type the code of a level    Return OK    Esc cancel"
-                };
-                lines.push(hint(text));
-            }
+            Page::Options => lines.extend(self.options.draw(look, &mut screen, SCREEN, "Options", &option_rows(settings), &[])),
+            Page::Keys => lines.extend(self.keys.draw(look, &mut screen, SCREEN, &bindings(settings), &KEY_NOTES)),
             Page::About => {
+                let (ax, ay, aw, ah) = render::PICTURE_AREA;
                 let (w, h) = Screen::picture_size(data, ABOUT);
-                let x = ax as usize + (aw - w) / 2;
-                let y = ay as usize + (ah - h) / 2;
-                screen.picture(data, ABOUT, (x, y, w, h));
+                screen.picture(data, ABOUT, (ax + (aw - w) / 2, ay + (ah - h) / 2, w, h));
                 lines.push(hint("Press a key"));
             }
         }
@@ -456,89 +446,36 @@ impl Menu {
     }
 }
 
-/// The box of the settings and the keys: the width of the screen (they
-/// are shown on black), room for the hints below.
-const LIST_BOX: (i32, i32, usize, usize) = (0, 8, 20 * 32, 13 * 32);
-/// Where the description of the selected row goes.
-const ABOUT_Y: f32 = 426.0;
-
-/// The labels of the keys on the keys page (at most 8 letters) and what
-/// they do.
-const KEY_LABELS: [(&str, &str); settings::KEYS] = [
-    ("RIGHT", "Move right"),
-    ("LEFT", "Move left"),
-    ("UP", "Move up"),
-    ("DOWN", "Move down"),
-    ("GET-DROP", "Take, drop or swap an object; use a teleporter"),
-    ("FIRE", "Fire a missile"),
-    ("ABORT", "Blow yourself up, the level is ABORTED"),
-];
-
-/// The value column of a row on a list page.
-enum Value {
-    None,
-    Text(String),
-    Key(Scancode),
+fn option_rows(s: &Settings) -> Vec<ouro_ui::options::Row> {
+    use ouro_ui::options::{Row, on_off};
+    OPTIONS
+        .iter()
+        .map(|o| match o {
+            Opt::Music => Row::setting("Music", on_off(s.music), "The title music, on or off"),
+            Opt::Sounds => Row::setting("Sound Effects", on_off(s.sounds), "The game's sounds, on or off"),
+            Opt::Scaling => Row::setting(
+                "Scaling",
+                if s.integer_scaling { "Whole multiples (sharp)" } else { "Fill the window" },
+                "The picture scaled by whole multiples, or as large as the window allows",
+            ),
+            Opt::Fullscreen => Row::setting("Full Screen", on_off(s.fullscreen), "The whole screen or a window (also F11 or Command / Ctrl + F)"),
+            Opt::Keys => Row::action("Keys...", "The keys of the game"),
+            Opt::Defaults => Row::action("Defaults", "Music, sounds, scaling and full screen as at first (the keys stay)"),
+        })
+        .collect()
 }
 
-/// A page of the settings: a title and rows of block letters with a value
-/// column, the selected row marked by the player and described below in
-/// the system font. `(pitch, value_x)`: rows apart, x of the values.
-fn list_page(
-    data: &GameData,
-    canvas: &mut Canvas,
-    lines: &mut Vec<Line>,
-    title: &str,
-    rows: &[(&str, Value, &str)],
-    selected: usize,
-    (pitch, value_x): (i32, i32),
-) {
-    let (bx, by, w, h) = LIST_BOX;
-    canvas.marble_box(data, bx, by, w / 32, h / 32);
-    let title_x = bx + (w as i32 - 32 * title.len() as i32) / 2;
-    canvas.block_text(&data.font, title_x, by + 28, title);
-    let font = &data.font;
-    let (label_x, value_x) = (bx + 72, bx + value_x);
-    for (row, (label, value, about)) in rows.iter().enumerate() {
-        let y = by + 84 + pitch * row as i32;
-        canvas.block_text(font, label_x, y, label);
-        match value {
-            Value::None => {}
-            Value::Text(text) => canvas.block_text(font, value_x, y, text),
-            Value::Key(key) => {
-                let text = key_label(*key);
-                if text.chars().count() <= 8 && render::in_block_font(&text) {
-                    canvas.block_text(font, value_x, y, &text);
-                } else {
-                    // a key whose name the block letters cannot show
-                    let mut line = Line::new(value_x as f32, y as f32 + 3.0, key.name())
-                        .color([0xFF, 0xFF, 0xFF]);
-                    line.size = 24.0;
-                    lines.push(line);
-                }
-            }
-        }
-        if row == selected {
-            canvas.draw_object(data, cursor(), bx + 32, y);
-            lines.push(Line::new(320.0, ABOUT_Y, *about).centered());
-        }
-    }
+fn bindings(s: &Settings) -> Vec<ouro_ui::keys::Binding> {
+    KEY_LABELS
+        .iter()
+        .zip(s.keys)
+        .map(|((action, about), key)| ouro_ui::keys::Binding { action: (*action).into(), key: key.name().to_string(), pad: String::new(), about: (*about).into() })
+        .collect()
 }
 
 /// A hint at the bottom of the screen.
 fn hint(text: &str) -> Line {
     Line::new(320.0, HINT_Y, text).centered().color(DIM)
-}
-
-/// Up / down (or Tab) move the selection among `rows`, around at the
-/// ends; whether `code` was one of these keys.
-fn move_selection(selected: &mut usize, rows: usize, code: Scancode) -> bool {
-    match code {
-        Scancode::Up => *selected = (*selected + rows - 1) % rows,
-        Scancode::Down | Scancode::Tab => *selected = (*selected + 1) % rows,
-        _ => return false,
-    }
-    true
 }
 
 /// The character of a key whose name is one character (letters, digits).
@@ -551,26 +488,73 @@ pub fn key_char(code: Scancode) -> Option<char> {
     }
 }
 
-/// The name of a key for the block letters: upper case, "Keypad" as "KP".
-fn key_label(code: Scancode) -> String {
-    code.name().to_uppercase().replace("KEYPAD", "KP")
-}
-
-/// The player facing right, as the menu cursor.
-fn cursor() -> usize {
-    4 * Dir::Right as usize + Dir::Right as usize
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn resume_is_offered_only_for_a_paused_game() {
-        assert_eq!(
-            Menu::new(Background::Picture(TITLE), false).items()[0],
-            Item::Play
-        );
-        assert_eq!(Menu::new(Background::Paused, true).items()[0], Item::Resume);
+    fn continue_and_resume() {
+        assert_eq!(Menu::new(Background::Picture(TITLE), false).items()[0], Item::NewGame);
+        let mut m = Menu::new(Background::Picture(TITLE), false);
+        m.saved = true;
+        assert_eq!(m.items()[0], Item::Continue);
+        assert_eq!(&Menu::new(Background::Paused, true).items()[..2], &[Item::Resume, Item::Timeline]);
+    }
+
+    #[test]
+    fn nowall_typed_on_the_main_page() {
+        let mut m = Menu::new(Background::Picture(TITLE), false);
+        let mut s = Settings::default();
+        m.open(Page::Main);
+        let mut last = Action::None;
+        for c in [Scancode::X, Scancode::N, Scancode::O, Scancode::W, Scancode::A, Scancode::L, Scancode::L] {
+            last = m.key(c, &mut s, 10);
+        }
+        assert_eq!(last, Action::NoWalls);
+    }
+
+    #[test]
+    fn options_and_keys() {
+        let mut m = Menu::new(Background::Picture(TITLE), false);
+        let mut s = Settings::default();
+        m.open(Page::Main);
+        // New Game, Levels, Options
+        m.key(Scancode::Down, &mut s, 10);
+        m.key(Scancode::Down, &mut s, 10);
+        m.key(Scancode::Return, &mut s, 10);
+        assert_eq!(m.page, Page::Options);
+        // Scaling off (tests never save the settings)
+        m.key(Scancode::Down, &mut s, 10);
+        m.key(Scancode::Down, &mut s, 10);
+        assert_eq!(m.key(Scancode::Right, &mut s, 10), Action::SettingsChanged);
+        assert!(!s.integer_scaling);
+        m.key(Scancode::Down, &mut s, 10);
+        m.key(Scancode::Down, &mut s, 10);
+        m.key(Scancode::Return, &mut s, 10);
+        assert_eq!(m.page, Page::Keys);
+        // fire on F; Escape keeps the old key
+        for _ in 0..5 {
+            m.key(Scancode::Down, &mut s, 10);
+        }
+        m.key(Scancode::Return, &mut s, 10);
+        assert!(m.waiting());
+        m.key(Scancode::Escape, &mut s, 10);
+        assert_eq!(s.keys[5], Scancode::Space);
+        m.key(Scancode::Escape, &mut s, 10);
+        assert_eq!(m.page, Page::Options);
+        m.key(Scancode::Escape, &mut s, 10);
+        assert_eq!(m.page, Page::Main);
+    }
+
+    #[test]
+    fn levels_take_a_level() {
+        let mut m = Menu::new(Background::Picture(TITLE), false);
+        let mut s = Settings::default();
+        m.open_levels(0);
+        m.key(Scancode::Down, &mut s, 10);
+        assert_eq!(m.chosen_level(), Some(1));
+        assert_eq!(m.key(Scancode::Return, &mut s, 10), Action::Level(1));
+        m.key(Scancode::Escape, &mut s, 10);
+        assert_eq!(m.page, Page::Main);
     }
 }

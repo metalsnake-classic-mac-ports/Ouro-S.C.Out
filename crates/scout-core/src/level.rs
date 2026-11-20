@@ -8,11 +8,15 @@ use crate::translate;
 /// a tile value below [`Level::FIRST_SOLID_TILE`] is an object (or nothing)
 /// on the floor, a value from 40 up is a tile that covers the whole box.
 /// Both are indices into the Mac graphics.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Level {
+    #[serde(with = "crate::big")]
     tiles: [u16; Self::CELLS],
+    #[serde(with = "crate::big")]
     floor: [u16; Self::CELLS],
+    #[serde(with = "crate::big")]
     file_tiles: [u16; Self::CELLS],
+    #[serde(with = "crate::big")]
     file_floor: [u8; Self::CELLS],
     start: Option<(usize, usize)>,
 }

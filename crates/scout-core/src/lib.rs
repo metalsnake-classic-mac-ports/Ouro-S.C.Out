@@ -3,6 +3,7 @@
 //! This crate does no I/O. The game data is loaded by `scout-data` and the
 //! frontend draws the state and feeds in the input.
 
+mod big;
 pub mod game;
 pub mod level;
 

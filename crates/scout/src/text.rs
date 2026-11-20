@@ -83,6 +83,30 @@ impl SystemFont {
         Self { font }
     }
 
+    /// The width of `text` at `size` (screen pixels).
+    pub fn width(&self, size: f32, text: &str) -> f32 {
+        let Some(font) = &self.font else {
+            return 0.0;
+        };
+        let scaled = font.as_scaled(PxScale::from(size));
+        let mut caret = 0.0;
+        let mut last = None;
+        for c in text.chars() {
+            let id = font.glyph_id(c);
+            if let Some(prev) = last {
+                caret += scaled.kern(prev, id);
+            }
+            caret += scaled.h_advance(id);
+            last = Some(id);
+        }
+        caret
+    }
+
+    /// How far the font reaches above the baseline at `size`.
+    pub fn ascent(&self, size: f32) -> f32 {
+        self.font.as_ref().map_or(size * 0.8, |f| f.as_scaled(PxScale::from(size)).ascent())
+    }
+
     /// Draw the lines into an RGBA image of `width` × `height` pixels that
     /// covers the 640 × 480 screen.
     pub fn draw(&self, lines: &[Line], width: usize, height: usize) -> Vec<u8> {

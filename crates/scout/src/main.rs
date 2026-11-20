@@ -9,12 +9,12 @@
 //! pack made by `ouro-scout-extract`, replaces it; so does `SCOUT_DATA` or a
 //! file `ouro-scout-data.zip` beside the program or in the current folder.
 //!
-//! Keys (changeable in the settings): arrows move, Return takes / drops /
-//! teleports, Space fires, Esc blows yourself up. Command (or Ctrl) and P
-//! pauses, Q quits; on the title G plays, R resumes, I opens the settings
-//! and E the password, as in the original. F11 or Command (or Ctrl) and F
-//! switches to full screen. The game pauses when its window loses the
-//! focus.
+//! Keys (changeable on the keys page): arrows move, Return takes / drops /
+//! teleports, Space fires, Esc blows yourself up; Backspace shows the
+//! timeline (rewind). Command (or Ctrl) and P pauses, Q quits; on the
+//! title G plays, R resumes and I opens the options, as in the original.
+//! F11 or Command (or Ctrl) and F switches to full screen. The game pauses
+//! when its window loses the focus.
 //!
 //! With `--dev`, keys for development: N/P next/previous level, R restart
 //! the level, Tab game screen / level map, F1 palette.
@@ -25,6 +25,7 @@ mod menu;
 mod render;
 mod settings;
 mod text;
+mod theme;
 
 use std::path::{Path, PathBuf};
 
@@ -50,8 +51,8 @@ replaces it (so do SCOUT_DATA and ouro-scout-data.zip beside the program
 or in the current folder).
 
 Keys: arrows move, Return takes / drops, Space fires, Esc blows yourself
-up; Command (or Ctrl) + P pauses, + Q quits; F11 full screen. The keys can
-be changed in the settings.";
+up, Backspace shows the timeline; Command (or Ctrl) + P pauses, + Q quits;
+F11 full screen. The keys can be changed in the options.";
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
@@ -176,7 +177,7 @@ fn export_level(
     let mut game = Game::new(data.levels[level - 1].clone());
     game.skip_intro();
     let canvas = match view {
-        View::Level => message_canvas(data, &game, level - 1, Shown::Level),
+        View::Level => message_canvas(data, level - 1, 0, Shown::Level),
         _ => draw(data, &game, view),
     };
     let mut rgb = vec![0; canvas.width * canvas.height * 3];
@@ -185,53 +186,65 @@ fn export_level(
         .with_context(|| format!("writing {}", out.display()))
 }
 
-const MENU_PAGES: [&str; 9] = [
-    "logo", "title", "menu", "pause", "settings", "keys", "password", "wrong", "about",
-];
+const MENU_PAGES: [&str; 8] = ["logo", "title", "menu", "pause", "options", "keys", "levels", "about"];
 
 /// A menu page as the window shows it at twice the size, with the system
 /// font (for looking at them without playing).
 fn export_menu(data: &GameData, page: &str, out: &Path) -> Result<()> {
-    let settings = Settings::default();
+    let mut settings = Settings::default();
+    let font = text::SystemFont::load();
+    let look = theme::Look { data, font: &font };
     let mut game = Game::new(data.levels[0].clone());
     game.skip_intro();
     let paused = draw(data, &game, View::Screen);
+    let to_rgb = |c: &render::Canvas| {
+        let mut p = ouro_play::picture::Picture::new(c.width, c.height);
+        c.to_rgb24(&data.game_palette, &mut p.rgb, c.width * 3);
+        p
+    };
     let (screen, lines) = if page == "logo" {
         let mut screen = render::Screen::black();
         screen.picture(data, menu::LOGO, render::PICTURE_AREA);
         (screen, vec![])
     } else {
         let mut m = Menu::new(Background::Picture(menu::TITLE), false);
+        let n = data.levels.len();
         match page {
             "title" => {}
-            "menu" => m.open(menu::Page::Main),
+            "menu" => {
+                m.saved = true;
+                m.open(menu::Page::Main);
+            }
             "pause" => {
                 m = Menu::new(Background::Paused, true);
                 m.open(menu::Page::Main);
             }
-            "settings" => {
-                m.open(menu::Page::Settings);
-                m.selected = 3;
+            "options" => {
+                m.open(menu::Page::Options);
+                m.key(sdl3::keyboard::Scancode::Down, &mut settings, n);
+                m.key(sdl3::keyboard::Scancode::Down, &mut settings, n);
             }
             "keys" => {
-                m.open(menu::Page::Keys { waiting: false });
-                m.selected = 4;
+                m.open(menu::Page::Keys);
+                for _ in 0..4 {
+                    m.key(sdl3::keyboard::Scancode::Down, &mut settings, n);
+                }
             }
-            "password" => m.open(menu::Page::Password {
-                text: "ABC".into(),
-                wrong: false,
-            }),
-            "wrong" => m.open(menu::Page::Password {
-                text: "ABCDEF".into(),
-                wrong: true,
-            }),
+            "levels" => m.open_levels(4),
             "about" => m.page = menu::Page::About,
             _ => bail!("unknown page {page:?}; pages: {}", MENU_PAGES.join(", ")),
         }
-        m.draw(data, &settings, Some(&paused))
+        let levels: Vec<_> = (0..n).map(|k| (menu::level_name(data, k), k < 3)).collect();
+        let preview = m.chosen_level().map(|k| {
+            let mut g = Game::new(data.levels[k].clone());
+            g.skip_intro();
+            to_rgb(&draw(data, &g, View::Screen))
+        });
+        let details = [("Not done yet".to_string(), ouro_ui::Ink::Dim)];
+        m.draw(&look, &settings, Some(&paused), &levels, &details, preview.as_ref())
     };
     let (w, h) = (2 * render::SCREEN_WIDTH, 2 * render::SCREEN_HEIGHT);
-    let text = text::SystemFont::load().draw(&lines, w, h);
+    let text = font.draw(&lines, w, h);
     let mut rgb = vec![0; w * h * 3];
     for y in 0..h {
         for x in 0..w {
@@ -252,20 +265,17 @@ enum Shown {
     Level,
     TryAgain,
     Aborted,
-    GameOver,
     Perfect,
 }
 
-fn message_canvas(data: &GameData, game: &Game, level: usize, shown: Shown) -> render::Canvas {
+/// A screen between levels: level `level` (from 0) with the game's
+/// `deaths` so far, or a message.
+fn message_canvas(data: &GameData, level: usize, deaths: u32, shown: Shown) -> render::Canvas {
+    let name = menu::level_name(data, level);
     let message = match shown {
-        Shown::Level => render::Message::Level(
-            level + 1,
-            level.checked_sub(1).map(|i| data.level_codes[i].as_str()),
-            game.player.lives,
-        ),
+        Shown::Level => render::Message::Level(level + 1, &name, deaths),
         Shown::TryAgain => render::Message::TryAgain,
         Shown::Aborted => render::Message::Aborted,
-        Shown::GameOver => render::Message::GameOver,
         Shown::Perfect => render::Message::Perfect,
     };
     render::message_screen(data, &message)

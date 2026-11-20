@@ -44,7 +44,7 @@ pub mod id {
 
 /// Sound state of a game; the frontend sets `busy` before each frame and
 /// takes the sounds to start from `start`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Sounds {
     /// Sound effects are on (`-0x6dc0`, Game → Setting).
     pub on: bool,

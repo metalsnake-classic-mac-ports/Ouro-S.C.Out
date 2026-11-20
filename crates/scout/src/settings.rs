@@ -30,6 +30,9 @@ pub struct Settings {
     /// Right, left, up, down, get / drop, fire, self destruct.
     pub keys: [Scancode; KEYS],
     pub fullscreen: bool,
+    /// The picture scaled by whole multiples (sharp), else as large as the
+    /// window allows (`scaling = whole | fill`).
+    pub integer_scaling: bool,
 }
 
 impl Default for Settings {
@@ -50,6 +53,7 @@ impl Default for Settings {
                 Scancode::Escape,
             ],
             fullscreen: false,
+            integer_scaling: true,
         }
     }
 }
@@ -61,6 +65,15 @@ const FILE: &str = "settings.txt";
 const FOLDER: &str = "Ouro S.C.Out";
 /// Its name before 2026-10-22; settings found there are taken over.
 const OLD_FOLDER: &str = "S.C.Out";
+
+/// The settings folder, where the records and Continue's game are kept
+/// too (none in tests: they never touch the player's files).
+pub fn folder() -> Option<PathBuf> {
+    if cfg!(test) {
+        return None;
+    }
+    sdl3::filesystem::get_pref_path("", FOLDER).ok()
+}
 
 fn path() -> Option<PathBuf> {
     let path = sdl3::filesystem::get_pref_path("", FOLDER).ok()?.join(FILE);
@@ -92,6 +105,7 @@ impl Settings {
                 "music" => settings.music = on,
                 "sounds" => settings.sounds = on,
                 "screen" => settings.fullscreen = value == "full",
+                "scaling" => settings.integer_scaling = value != "fill",
                 _ => {
                     if let Some(i) = KEY_NAMES.iter().position(|k| k.eq_ignore_ascii_case(name))
                         && let Some(code) = Scancode::from_name(value)
@@ -105,6 +119,10 @@ impl Settings {
     }
 
     pub fn save(&self) {
+        // the tests change settings: never the player's file
+        if cfg!(test) {
+            return;
+        }
         let Some(path) = path() else { return };
         let on = |b: bool| if b { "on" } else { "off" };
         let mut text = format!("music = {}\nsounds = {}\n", on(self.music), on(self.sounds));
@@ -112,6 +130,7 @@ impl Settings {
             "screen = {}\n",
             if self.fullscreen { "full" } else { "window" }
         );
+        text += &format!("scaling = {}\n", if self.integer_scaling { "whole" } else { "fill" });
         for (name, key) in KEY_NAMES.iter().zip(self.keys) {
             text += &format!("{} = {}\n", name.to_lowercase(), key.name());
         }
@@ -129,6 +148,12 @@ impl Settings {
         }
         self.keys[action] = code;
     }
+}
+
+/// Keys a game action cannot have: the shortcuts' modifiers (Command /
+/// Ctrl), full screen (F11) and the timeline (Backspace).
+pub fn reserved(code: Scancode) -> bool {
+    matches!(code, Scancode::LGui | Scancode::RGui | Scancode::LCtrl | Scancode::RCtrl | Scancode::F11 | Scancode::Backspace)
 }
 
 #[cfg(test)]

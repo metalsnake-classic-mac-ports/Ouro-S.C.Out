@@ -11,17 +11,6 @@ options, off by default unless noted.
 ## Game
 
 - [ ] The block dissolve between screens (CODE 8 0x1354 / 0x1416)
-- [ ] No lives (decided 2026-10-22): a lost life only restarts from the last checkpoint, no
-      game over. Goes with it: LIVES on the level screen, the GAME OVER screen, the lives
-      in the core (`Player::lives`, `Exit::GameOver`); BUGS.md / NOTES.md describe the
-      original's lives. Instead a death counter where the lives were shown ("DEATHS : n"
-      on the level screen; the rules for all ports, `../CLAUDE.md`, 2026-11-12)
-- [ ] No passwords (`../CLAUDE.md` rule 2): Game → Enter Password (⌘E) and "PASSWORD:" on
-      the level screen go; the level selection replaces them
-- [ ] Continue: the exact state saved when quitting the program or the game; "Continue" as
-      the main menu's first entry
-- [ ] Rewind: a snapshot every few seconds; playing on from an earlier one makes a fork; a
-      timeline of the forks with screenshots (or a live render) and when each was
 - [ ] Game speed apart from the frame rate: the picture at the display's rate (60 / 120 Hz),
       the game at the original's speed; the ball drawn between game frames
 - [ ] Keep the game over picture (PICT 1001): show it when the game quits (until a key or a
@@ -36,18 +25,9 @@ options, off by default unless noted.
 
 ## Level selection
 
-- [ ] A level selection in the menu: every level with its name and a thumbnail (the part of
-      the level that is visible when it starts, i.e. the start view)
-- [ ] Levels get names; the original levels are named after their password, level 1 (which
-      has none; the original has no name for it either, only "LEVEL 000") is START
-- [ ] Save per level whether it was completed and the times of three successful runs: the
-      first, the fastest and the latest; mark completed levels in the selection; the deaths
-      per level too
-- [ ] The selection looks the same in every Ouro port (layout, behaviour), with the game's
-      decoration (`../CLAUDE.md` rule 3)
-- [ ] Decide: what counts as the time of a run (from the start animation to the target,
-      over lost lives / restarts at checkpoints?), and how a level started from the
-      selection relates to lives and the normal game
+- [ ] What counts as a run's time: for now from the level's start to its target, deaths
+      included, the game's frames while playing (NOTES.md, "Port improvements"); confirm
+      or change
 
 ## Level editor
 

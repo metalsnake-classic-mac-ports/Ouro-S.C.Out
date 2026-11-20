@@ -30,12 +30,13 @@ pub const FRAMES_PER_PASS: usize = Level::CELLS / BOXES_PER_FRAME;
 pub const PULSE_PERIOD: u16 = 30;
 
 /// State of the world automaton.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct World {
     /// Frame within the pass (`-0x6d08`).
     pub frame: usize,
     /// Pass counter for batteries (`-0x5390`).
     pub pulse: u16,
+    #[serde(with = "crate::big")]
     pub(crate) skip: [bool; Level::CELLS],
     /// Switch flags (`-0x53b8` … `-0x53b4`) that open colored doors.
     pub switches: [bool; 5],
@@ -50,6 +51,7 @@ pub struct World {
     /// Frames left until the level ends after the target was destroyed
     /// (`-0x3a46`), 0 = not destroyed.
     pub level_end: u16,
+    #[serde(with = "crate::big")]
     pub projectiles: [Projectile; projectiles::SLOTS],
     /// Active projectiles plus those still to be erased (`-0x57ca`).
     pub projectile_count: i32,
@@ -60,6 +62,7 @@ pub struct World {
     /// The player is on screen and can be hit (`-0x184`).
     pub player_visible: bool,
     /// Hits on reinforced walls per box (`-0x1ae8`).
+    #[serde(with = "crate::big")]
     pub wall_hits: [u16; Level::CELLS],
     pub random: MacRandom,
 }

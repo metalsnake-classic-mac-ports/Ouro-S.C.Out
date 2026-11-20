@@ -6,7 +6,7 @@
 //! to 1 and the game never changes it. (Not yet checked number for number
 //! against a real Mac.)
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MacRandom {
     pub seed: u32,
 }

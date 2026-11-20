@@ -18,3 +18,7 @@ anyhow.workspace = true
 sdl3.workspace = true
 fontdb = "0.24.0"
 ab_glyph = "0.2.32"
+ouro-ui.workspace = true
+ouro-play.workspace = true
+serde.workspace = true
+serde_json.workspace = true

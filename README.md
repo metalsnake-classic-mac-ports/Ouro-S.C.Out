@@ -29,13 +29,19 @@ You need Rust (via [rustup](https://rustup.rs)) and SDL3
     cargo test
     cargo run --release -p scout
 
-`ouro-scout` plays the game: logo, title and menu (Play, Password, Settings,
-About, Quit), levels, music and sound. Default keys: arrows move, Return
-takes / drops, Space fires, Esc blows yourself up (as in the original);
-Command (or Ctrl) + P pauses, + Q quits, F11 or Command (or Ctrl) + F
-switches to full screen. The game pauses when its window loses the focus.
-The keys can be changed in the settings, which are saved in SDL's
-preference folder (macOS: `~/Library/Application Support/Ouro S.C.Out`).
+`ouro-scout` plays the game: logo, title and menu (Continue, New Game,
+Levels, Options, About, Quit), levels, music and sound. As in every Ouro
+port, dying costs no lives (the level screen counts your deaths), any level
+can be chosen in the level selection (with your best, first and latest
+time), quitting keeps the game for Continue, and Backspace rewinds: it shows
+the last snapshots (one every 5 seconds) as a timeline to play on from.
+Default keys: arrows move, Return takes / drops, Space fires, Esc blows
+yourself up (as in the original); Command (or Ctrl) + P pauses, + Q quits,
+F11 or Command (or Ctrl) + F switches to full screen. The game pauses when
+its window loses the focus. Keys, sound, scaling and full screen are set in
+the options, which are saved in SDL's preference folder (macOS:
+`~/Library/Application Support/Ouro S.C.Out`), with the records and the kept
+game.
 A data pack on the command line, in `SCOUT_DATA`, or as
 `ouro-scout-data.zip` beside the program or in the current folder replaces
 the built-in one. `--dev` adds keys for

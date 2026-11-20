@@ -35,7 +35,7 @@ pub mod command {
 }
 
 /// A direction, numbered like in the original.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Dir {
     Left = 0,
     Up = 1,
@@ -62,7 +62,7 @@ impl Dir {
 
 /// The key held in a frame. The original only looks at the first pressed
 /// key, so there is at most one per frame.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Key {
     #[default]
     None,
@@ -76,7 +76,7 @@ pub enum Key {
 }
 
 /// How a level ended (`-0x6d0c`).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Exit {
     /// Lost a life (2).
     Died,
@@ -88,7 +88,7 @@ pub enum Exit {
     GameOver,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Player {
     /// Box position in the level (`-0x579a`, `-0x5796`).
     pub x: usize,
@@ -150,9 +150,10 @@ impl Player {
 /// The state a life starts from: set when a level is loaded (CODE 5
 /// 0x1a0a), replaced at checkpoints (CODE 5 0x301e), restored after a death
 /// (CODE 5 0x2b7e). Globals `-0x3e5e` …, `-0x3a54` …, map `-0x481a`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct RestartState {
     pub level: Level,
+    #[serde(with = "crate::big")]
     pub skip: [bool; Level::CELLS],
     pub view: (usize, usize),
     pub x: usize,
@@ -190,7 +191,7 @@ impl RestartState {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Game {
     pub level: Level,
     pub player: Player,
@@ -216,7 +217,7 @@ pub struct Game {
 
 /// The view moving to its new position for the frontend: the logic has
 /// moved it at once, the original showed one box per frame.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct Stall {
     pub frames: usize,
     /// View before the move and boxes per frame towards the new one.

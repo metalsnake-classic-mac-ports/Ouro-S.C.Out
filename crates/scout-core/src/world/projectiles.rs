@@ -23,7 +23,7 @@ const BOTTOM_EDGE: i32 = 0x31C;
 const VIEW_LAST_X: i32 = 0x1BC;
 const VIEW_LAST_Y: i32 = 0x13C;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Kind {
     #[default]
     Normal = 1,
@@ -33,7 +33,7 @@ pub enum Kind {
     Homing = 3,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Projectile {
     pub active: bool,
     /// Drawing state of the original: 0 off screen, 3 just drawn, 2 on

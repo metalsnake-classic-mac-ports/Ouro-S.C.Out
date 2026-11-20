@@ -491,14 +491,59 @@ Other alerts (`ALRT` 666 via CODE 2 0x1780): problem during resource
 loading, memory exhausted, system error, 256 colors only.
 
 The rewrite does not copy the Mac interface: the title shows the pictures
-like the original, the menu and the dialogs are marble boxes with block
-letters (`crates/scout/src/menu.rs`), with hints and key names in the
-system font. The shortcuts work with Command or Ctrl. Settings are saved
-in a text file (SDL's preference folder) instead of the application.
-The game pauses (the PAUSE box and the menu) when its window loses the
-focus. The keys are a page of their own under Settings. Assigning a key that is in
-use swaps the two keys. Self destruct, fixed to
-Esc in the original, is a seventh key in the settings (default Esc).
+like the original; the menus are the Ouro ports' shared screens
+(ouro-framework's ouro-ui) in S.C.Out's look (`crates/scout/src/theme.rs`:
+boxes with a rim of the marble tiles and their grey grid inside, the
+chosen row in the block letters' cyan, text in the system font). The
+shortcuts work with Command or Ctrl. Settings are saved in a text file
+(SDL's preference folder) instead of the application. The game pauses
+(the PAUSE box and the menu) when its window loses the focus.
+
+## Port improvements
+
+Deliberate differences from the original (the rules for all Ouro ports,
+`../CLAUDE.md`, "How every port plays", and the frontend's own):
+
+- **Menus** (rules 3, 4, 9; 2026-11-20): Continue (a kept game) or Resume
+  and Timeline (a paused game) first, New Game, Levels, Options, About
+  S.C.Out, Quit, instead of the menu bar (Play, Resume, Setting, Enter
+  Password, About, Quit). Esc on the paused menu resumes.
+- **Deaths, not lives** (rule 1): a death restarts from the last
+  checkpoint as in the original, but the lives are set back after each
+  one (the core's `Player::lives` stays the original's), so GAME OVER
+  and its picture (1001) never come. The level screen shows `DEATHS n`
+  (the game's deaths) where the original shows `LIVES : n`.
+- **No passwords** (rule 2): no password dialog; the level screen shows
+  the level's name (START for level 1, else its code, the original's
+  password) centred where the original shows `PASSWORD:` and the code.
+  The cheat NOWALL is typed on the main menu instead (letters only; it is
+  on until the program ends, as in the original).
+- **Level selection** (rule 3): every level with its number, name, a
+  tick when done and its start view (the screen after the start
+  animation); the records under it (`records.json`, ouro-framework's
+  `ouro-play`): first, best and latest done run with their deaths. A
+  run is from the level's start (the level screen's key) to its target
+  destroyed; deaths and restarts at checkpoints do not reset it; its time
+  counts the game's frames (60 a second) while playing, not the screens
+  between (decided for S.C.Out 2026-11-20; open to change). A level
+  chosen there starts a game from it.
+- **Continue** (rule 4): quitting the program (⌘Q, the window's close
+  box, Quit) keeps the game under way in `continue.json` (the core's
+  state and the port's counters, format 1); Continue plays on exactly
+  there (or from the level screen when it was left between levels).
+- **Rewind** (rule 5): a snapshot every 5 seconds of play (the core's
+  state, the screen at half size as PNG), at most 720 kept whole; in play
+  Backspace, or Timeline in the paused menu, shows them as a tree
+  (ouro-ui's timeline); Return plays on from one (a fork). Kept with
+  Continue in `continue/`.
+- **Options** (rule 9): Music, Sound Effects, Scaling (whole multiples,
+  the default, or fill the window; new), Full Screen, Keys..., Defaults;
+  saved at once.
+- **Keys** (rule 9): ouro-ui's keys page; any key but Escape (it keeps
+  the old key; Defaults gives self destruct its Esc back), Command /
+  Ctrl, F11 and Backspace. Assigning a key that is in use swaps the two
+  keys. Self destruct, fixed to Esc in the original, is a seventh key
+  (default Esc).
 
 ## Pink frames
 
