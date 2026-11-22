@@ -1,13 +1,17 @@
 # Builds the game for Windows (x64): one .exe with SDL3 and the data pack
-# built in. On a version tag the zip goes to that tag's GitHub release;
-# otherwise it is kept as a workflow artifact for testing.
+# built in. On a version tag (pushed, or given when the workflow is started
+# by hand) the zip goes to that tag's GitHub release; otherwise it is kept
+# as a workflow artifact for testing.
 name: windows
 
 on:
   push:
     tags: ["v*"]
-    branches: [windows-build]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build and attach to (e.g. v0.2.0); empty = test build only
+        required: false
 
 permissions: {}
 
@@ -30,6 +34,7 @@ jobs:
       - name: Check out the game
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref }}
           path: game
           persist-credentials: false
 
@@ -73,6 +78,8 @@ jobs:
         run: |
           version=$(./target/release/$BINARY.exe --version | awk '{print $2}')
           name="$BINARY-$version-windows-x64"
+          # the zip's name stays the same in every release, so the website
+          # can link to .../releases/latest/download/<zip>
           mkdir "$name"
           cp "target/release/$BINARY.exe" README.md LICENSE CHANGELOG.md "$name/"
           # the Visual C++ runtime DLLs the .exe imports, from the installed
@@ -84,8 +91,8 @@ jobs:
             cp "$crt/$dll" "$name/"
           done
           ls -l "$name"
-          7z a "../$name.zip" "$name" > /dev/null
-          echo "ZIP=$name.zip" >> "$GITHUB_ENV"
+          7z a "../$BINARY-windows-x64.zip" "$name" > /dev/null
+          echo "ZIP=$BINARY-windows-x64.zip" >> "$GITHUB_ENV"
 
       - name: Keep as artifact
         uses: actions/upload-artifact@v4
@@ -94,11 +101,14 @@ jobs:
           path: ${{ env.ZIP }}
 
       - name: Attach to the release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: inputs.tag != '' || startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1 \
-            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "$TAG" --notes "See CHANGELOG.md."
+          # a new release gets the version's section of the changelog
+          if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            awk -v head="## [${TAG#v}]" 'index($0, head) == 1 {f = 1; next} /^## \[/ {f = 0} f' game/CHANGELOG.md > notes.md
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --verify-tag --title "$TAG" --notes-file notes.md
+          fi
           gh release upload "$TAG" "$ZIP" -R "$GITHUB_REPOSITORY" --clobber
