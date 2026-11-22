@@ -40,10 +40,9 @@
   <h2 id="game"><img class="pixel" src="site/heading-game.png" alt="The game" width="244" height="32"></h2>
   <p>You steer a small armoured scout through a hostile base, one screen of boxes at a time. Open
   doors with keys and switches, ride rails and teleporters, push your way past conveyors, dodge
-  cannons and mines - and destroy the target that ends each level. Every level has a six-letter
-  password that brings you back to it.</p>
-  <p>The puzzles get mean quickly. Five lives, checkpoints on the way, and a self destruct button for
-  the moments you have locked yourself in.</p>
+  cannons and mines - and destroy the target that ends each level.</p>
+  <p>The puzzles get mean quickly. Checkpoints on the way, and a self destruct button for the moments
+  you have locked yourself in.</p>
   <figure>
     <img class="pixel" src="site/screen-level68.png" width="1024" height="728" loading="lazy"
          alt="Level 68: the scout on its start box, a jungle, mirrors, cannons and doors">
@@ -62,8 +61,11 @@
       that player fixed.</li>
     <li>Bugs of the original game are written down, and where fixing one would change how the game
       plays, it stays.</li>
-    <li>New: keys you can change, full screen, pixels scaled by whole numbers, and the game pauses
-      when you switch to another window.</li>
+    <li>New: dying costs nothing (the game counts your deaths instead of taking lives), any level
+      from the level selection with your best times, Continue where you quit, and a rewind button
+      (Backspace) that shows the last minutes as a timeline to play on from.</li>
+    <li>Also new: keys you can change, full screen, pixels scaled by whole numbers or filling the
+      window, and the game pauses when you switch to another window.</li>
   </ul>
 </section>
 
@@ -71,14 +73,19 @@
   <h2 id="screens"><img class="pixel" src="site/heading-screens.png" alt="Screens" width="224" height="32"></h2>
   <div class="gallery">
     <figure>
-      <img class="pixel" src="site/screen-levelscreen.png" width="1024" height="728" loading="lazy"
-           alt="The screen before level 17: level number, password and lives in a marble box">
-      <figcaption>Before each level: its number, its password and your lives.</figcaption>
+      <img class="pixel" src="site/screen-levelscreen.png" width="640" height="480" loading="lazy"
+           alt="The screen before level 16 in a marble box: its number, its name VOXOLI and the deaths so far">
+      <figcaption>Before each level: its number, its name and how often you died.</figcaption>
     </figure>
     <figure>
-      <img class="pixel" src="site/screen-menu.png" width="1024" height="728" loading="lazy"
-           alt="The menu over the title picture: Play, Password, Settings, About, Quit">
+      <img class="pixel" src="site/screen-menu.png" width="1280" height="960" loading="lazy"
+           alt="The menu over the title picture: Continue, New Game, Levels, Options, About S.C.Out, Quit">
       <figcaption>The menu, in the style of the game's own screens.</figcaption>
+    </figure>
+    <figure>
+      <img class="pixel" src="site/screen-levels.png" width="1280" height="960" loading="lazy"
+           alt="The level selection: a list of the levels with their names, ticks for the ones done, and a picture of the chosen level">
+      <figcaption>The level selection: any level, with its picture and your times.</figcaption>
     </figure>
   </div>
 </section>
@@ -88,9 +95,18 @@
   <p>With <a href="https://brew.sh">Homebrew</a> on a Mac or on Linux, install the game and start it:</p>
   <pre><code>brew install metalsnake-classic-mac-ports/games/ouro-scout
 ouro-scout</code></pre>
-  <p>Or build it from its source code; it takes a few minutes, and the game data is included.</p>
-  <ol>
-    <li>Install <a href="https://rustup.rs">Rust</a> and SDL3. On a Mac with Homebrew:
+  <p>Or build it from its source code; it takes a few minutes, and the game data is included.
+  Pick your system:</p>
+  <div class="tabs" role="tablist" aria-label="Your system" hidden>
+    <button type="button" class="tab" role="tab" id="tab-mac-brew" aria-controls="build-mac-brew" aria-selected="false" tabindex="-1">macOS + Homebrew</button>
+    <button type="button" class="tab" role="tab" id="tab-mac" aria-controls="build-mac" aria-selected="false" tabindex="-1">macOS</button>
+    <button type="button" class="tab" role="tab" id="tab-linux" aria-controls="build-linux" aria-selected="false" tabindex="-1">Linux</button>
+    <button type="button" class="tab" role="tab" id="tab-windows" aria-controls="build-windows" aria-selected="false" tabindex="-1">Windows</button>
+  </div>
+  <div class="system" id="build-mac-brew" role="tabpanel" aria-labelledby="tab-mac-brew" tabindex="0">
+    <h3>macOS with Homebrew</h3>
+    <ol>
+    <li>Install <a href="https://rustup.rs">Rust</a> and SDL3:
       <pre><code>brew install sdl3</code></pre></li>
     <li>Get the source, and next to it the screens all Ouro ports share:
       <pre><code>git clone https://github.com/metalsnake-classic-mac-ports/ouro-framework
@@ -98,7 +114,77 @@ git clone https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out
 cd Ouro-S.C.Out</code></pre></li>
     <li>Build and start the game:
       <pre><code>cargo run --release -p scout</code></pre></li>
-  </ol>
+    </ol>
+  </div>
+  <div class="system" id="build-mac" role="tabpanel" aria-labelledby="tab-mac" tabindex="0">
+    <h3>macOS without Homebrew</h3>
+    <p>For Macs too old for Homebrew (macOS 11 or newer). Cargo builds SDL3 itself and puts it into the game; it needs CMake for that.</p>
+    <ol>
+    <li>Apple's command line tools (the compiler and git):
+      <pre><code>xcode-select --install</code></pre></li>
+    <li><a href="https://rustup.rs">Rust</a>, then open a new Terminal window:
+      <pre><code>curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh</code></pre></li>
+    <li><a href="https://cmake.org/download/">CMake</a>: the macOS <code>.dmg</code>; move
+      CMake.app into Applications and make it known to the Terminal:
+      <pre><code>export PATH="/Applications/CMake.app/Contents/bin:$PATH"</code></pre></li>
+    <li>Get the source, and next to it the screens all Ouro ports share:
+      <pre><code>git clone https://github.com/metalsnake-classic-mac-ports/ouro-framework
+git clone https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out
+cd Ouro-S.C.Out</code></pre></li>
+    <li>Build and start the game:
+      <pre><code>cargo run --release -p scout --features sdl3/build-from-source-static</code></pre>
+      The first build also compiles SDL and takes a few minutes longer. The game ends up in <code>target/release/ouro-scout</code> and needs nothing else installed.</li>
+    </ol>
+  </div>
+  <div class="system" id="build-linux" role="tabpanel" aria-labelledby="tab-linux" tabindex="0">
+    <h3>Linux</h3>
+    <p>Cargo builds SDL3 itself and puts it into the game; it needs a compiler, CMake and the development files of the graphics, sound and input libraries. Not tried on Linux yet (the Homebrew version above builds there): if something fails, please <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/issues">tell us</a>.</p>
+    <ol>
+    <li>The tools and libraries. Debian, Ubuntu:
+      <pre><code>sudo apt install build-essential git cmake pkg-config \
+  libasound2-dev libpulse-dev libpipewire-0.3-dev \
+  libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
+  libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+  libxkbcommon-dev libwayland-dev libdecor-0-dev \
+  libdrm-dev libgbm-dev libgl1-mesa-dev libegl1-mesa-dev \
+  libdbus-1-dev libudev-dev</code></pre>
+      Fedora:
+      <pre><code>sudo dnf install gcc gcc-c++ git cmake \
+  alsa-lib-devel pulseaudio-libs-devel pipewire-devel \
+  libX11-devel libXext-devel libXrandr-devel \
+  libXcursor-devel libXfixes-devel libXi-devel \
+  libXScrnSaver-devel libXtst-devel libxkbcommon-devel \
+  wayland-devel wayland-protocols-devel libdecor-devel \
+  libdrm-devel mesa-libgbm-devel mesa-libGL-devel \
+  mesa-libEGL-devel dbus-devel systemd-devel</code></pre></li>
+    <li><a href="https://rustup.rs">Rust</a>, then open a new terminal:
+      <pre><code>curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh</code></pre></li>
+    <li>Get the source, and next to it the screens all Ouro ports share:
+      <pre><code>git clone https://github.com/metalsnake-classic-mac-ports/ouro-framework
+git clone https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out
+cd Ouro-S.C.Out</code></pre></li>
+    <li>Build and start the game:
+      <pre><code>cargo run --release -p scout --features sdl3/build-from-source-static</code></pre>
+      The first build also compiles SDL and takes a few minutes longer. The game ends up in <code>target/release/ouro-scout</code> and needs nothing else installed.</li>
+    </ol>
+  </div>
+  <div class="system" id="build-windows" role="tabpanel" aria-labelledby="tab-windows" tabindex="0">
+    <h3>Windows</h3>
+    <p>Cargo builds SDL3 itself and puts it into the game. Not tried on Windows yet: if something fails, please <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/issues">tell us</a>.</p>
+    <ol>
+    <li><a href="https://rustup.rs">Rust</a>: download and run <code>rustup-init.exe</code>;
+      let it install the Visual Studio C++ build tools it asks for.</li>
+    <li>Git and CMake, in PowerShell; then open a new PowerShell window:
+      <pre><code>winget install Git.Git Kitware.CMake</code></pre></li>
+    <li>Get the source, and next to it the screens all Ouro ports share:
+      <pre><code>git clone https://github.com/metalsnake-classic-mac-ports/ouro-framework
+git clone https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out
+cd Ouro-S.C.Out</code></pre></li>
+    <li>Build and start the game:
+      <pre><code>cargo run --release -p scout --features sdl3/build-from-source-static</code></pre>
+      The first build also compiles SDL and takes a few minutes longer. The game ends up in <code>target\release\ouro-scout.exe</code>.</li>
+    </ol>
+  </div>
 </section>
 
 <section class="box" aria-labelledby="keys">
@@ -147,5 +233,41 @@ cd Ouro-S.C.Out</code></pre></li>
   Code under the GNU GPL, version 3 or later; the game data belongs to its authors.</p>
 </footer>
 
+<script>
+// The build instructions: one system at a time, picked by the tabs (all
+// of them one below the other without JavaScript).
+(function () {
+  var list = document.querySelector('#play .tabs');
+  if (!list) return;
+  var tabs = Array.prototype.slice.call(list.querySelectorAll('[role="tab"]'));
+  document.documentElement.classList.add('tabbed');
+  list.hidden = false;
+  function choose(tab, focus) {
+    tabs.forEach(function (other) {
+      var chosen = other === tab;
+      other.setAttribute('aria-selected', chosen ? 'true' : 'false');
+      other.tabIndex = chosen ? 0 : -1;
+      document.getElementById(other.getAttribute('aria-controls')).hidden = !chosen;
+    });
+    if (focus) tab.focus();
+  }
+  tabs.forEach(function (tab, index) {
+    tab.addEventListener('click', function () { choose(tab, false); });
+    tab.addEventListener('keydown', function (event) {
+      var step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (event.key === 'Home') choose(tabs[0], true);
+      else if (event.key === 'End') choose(tabs[tabs.length - 1], true);
+      else if (step) choose(tabs[(index + step + tabs.length) % tabs.length], true);
+      else return;
+      event.preventDefault();
+    });
+  });
+  // start with the visitor's own system
+  var agent = navigator.userAgent;
+  var key = /Windows/.test(agent) ? 'windows'
+          : /Linux/.test(agent) && !/Android/.test(agent) ? 'linux' : 'mac-brew';
+  choose(document.getElementById('tab-' + key), false);
+})();
+</script>
 </body>
 </html>

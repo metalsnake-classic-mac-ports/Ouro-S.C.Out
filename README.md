@@ -34,6 +34,13 @@ which must sit next to it:
     cargo test
     cargo run --release -p scout
 
+Without Homebrew (older Macs, Linux, Windows) Cargo can build SDL3 itself and
+link it into the game; it needs CMake and a C compiler (on Linux also the
+development files of X11/Wayland, ALSA/PulseAudio/PipeWire; the website lists
+the packages):
+
+    cargo run --release -p scout --features sdl3/build-from-source-static
+
 `ouro-scout` plays the game: logo, title and menu (Continue, New Game,
 Levels, Options, About, Quit), levels, music and sound. As in every Ouro
 port, dying costs no lives (the level screen counts your deaths), any level

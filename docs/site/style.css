@@ -172,7 +172,7 @@ figcaption {
 .box ol li::marker { color: var(--cyan); font-weight: 600; }
 
 pre {
-  margin: 0.5rem 0 0;
+  margin: 0.5rem 0 0.75rem;
   padding: 0.75rem 1rem;
   background: var(--code-bg);
   border-left: 4px solid var(--cyan);
@@ -182,6 +182,31 @@ code {
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.9em;
 }
+
+/* the build instructions per system: tabs like the buttons, the chosen
+   one pressed in */
+.tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem; }
+.tab {
+  font: inherit;
+  font-size: var(--size-small);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.4rem 0.9rem;
+  background: var(--marble-dark);
+  color: var(--marble-ink);
+  border: 3px solid;
+  border-color: var(--marble-light) var(--marble-ink) var(--marble-ink) var(--marble-light);
+}
+.tab:hover { background: var(--marble); }
+.tab[aria-selected="true"] {
+  background: var(--marble-light);
+  border-color: var(--marble-dark) var(--marble-light) var(--marble-light) var(--marble-dark);
+}
+.tab:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
+.system h3 { margin: 1.5rem 0 0.75rem; font-size: 1.1rem; color: var(--cyan-light); }
+.tabbed .system h3 { display: none; }
+.system > p { margin-bottom: 1rem; }
+.system:focus-visible { outline: 3px solid var(--cyan); outline-offset: 6px; }
 
 /* --- keys --------------------------------------------------------- */
 
