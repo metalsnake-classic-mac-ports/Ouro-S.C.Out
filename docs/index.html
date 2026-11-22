@@ -97,11 +97,18 @@
   <pre><code>brew install metalsnake-classic-mac-ports/games/ouro-scout
 ouro-scout</code></pre>
   <p class="note">Ready to play at once on Macs with Apple silicon and macOS 15 or 26, and on
-  Linux on 64-bit Intel or AMD; elsewhere (Intel Macs, Linux on ARM) Homebrew builds the
-  game first, which takes a few minutes. No Homebrew, or on Windows? Build it from source, below.</p>
+  64-bit Linux (Intel, AMD or ARM); on Intel Macs Homebrew builds the game first, which takes
+  a few minutes.</p>
+  <p>On Windows (10 or newer, 64-bit), download
+  <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/releases/latest/download/ouro-scout-windows-x64.zip">ouro-scout-windows-x64.zip</a>,
+  unpack it and start <code>ouro-scout.exe</code>.</p>
+  <p class="note">The program is not signed, so Windows warns the first time: click
+  <em>More info</em>, then <em>Run anyway</em>. The Windows version is new and little tried
+  yet: if something does not work, please <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/issues">tell us</a>.
+  No Homebrew on your Mac? Build the game from source, below.</p>
   <details class="build" id="build">
   <summary><h3 class="way">Build from source</h3></summary>
-  <p>For Windows, for Macs without Homebrew, and for working on the code. It takes a few
+  <p>For Macs without Homebrew, for other systems, and for working on the code. It takes a few
   minutes, and the game data is included. Pick your system:</p>
   <div class="tabs" role="tablist" aria-label="Your system" hidden>
     <button type="button" class="tab" role="tab" id="tab-mac" aria-controls="build-mac" aria-selected="false" tabindex="-1">macOS</button>
@@ -181,8 +188,8 @@ cd Ouro-S.C.Out</code></pre></li>
   </div>
   <div class="system" id="build-windows" role="tabpanel" aria-labelledby="tab-windows" tabindex="0">
     <h4>Windows</h4>
-    <p>There is no ready-made Windows version yet. Cargo builds SDL3 itself and puts it into
-    the game. Not tried on Windows yet: if something fails, please <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/issues">tell us</a>.</p>
+    <p>The ready-made version above is built this way: Cargo builds SDL3 itself and puts it
+    into the game. If something fails, please <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/issues">tell us</a>.</p>
     <ol>
     <li><a href="https://rustup.rs">Rust</a>: download and run <code>rustup-init.exe</code>;
       let it install the Visual Studio C++ build tools it asks for.</li>
@@ -279,15 +286,14 @@ cd Ouro-S.C.Out</code></pre></li>
     });
     choose(document.getElementById('tab-' + start), false);
   }
-  // start with the visitor's own system; on Windows building is the only
-  // way, so the section opens by itself
+  // start with the visitor's own system
   var agent = navigator.userAgent;
   var system = /Windows/.test(agent) ? 'windows'
              : /Linux/.test(agent) && !/Android/.test(agent) ? 'linux' : 'mac';
   var lists = build.querySelectorAll('.tabs');
   setUp(lists[0], system);
   setUp(build.querySelector('.variants'), 'mac-brew');
-  if (system === 'windows' || location.hash === '#build') build.open = true;
+  if (location.hash === '#build') build.open = true;
 })();
 </script>
 </body>
