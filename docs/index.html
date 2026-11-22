@@ -92,19 +92,30 @@
 
 <section class="box" id="play" aria-labelledby="play-heading">
   <h2 id="play-heading"><img class="pixel" src="site/heading-play.png" alt="Play" width="128" height="32"></h2>
+  <h3 class="way">Install</h3>
   <p>With <a href="https://brew.sh">Homebrew</a> on a Mac or on Linux, install the game and start it:</p>
   <pre><code>brew install metalsnake-classic-mac-ports/games/ouro-scout
 ouro-scout</code></pre>
-  <p>Or build it from its source code; it takes a few minutes, and the game data is included.
-  Pick your system:</p>
+  <p class="note">Ready to play at once on Macs with Apple silicon and macOS 15 or 26, and on
+  Linux on 64-bit Intel or AMD; elsewhere (Intel Macs, Linux on ARM) Homebrew builds the
+  game first, which takes a few minutes. No Homebrew, or on Windows? Build it from source, below.</p>
+  <details class="build" id="build">
+  <summary><h3 class="way">Build from source</h3></summary>
+  <p>For Windows, for Macs without Homebrew, and for working on the code. It takes a few
+  minutes, and the game data is included. Pick your system:</p>
   <div class="tabs" role="tablist" aria-label="Your system" hidden>
-    <button type="button" class="tab" role="tab" id="tab-mac-brew" aria-controls="build-mac-brew" aria-selected="false" tabindex="-1">macOS + Homebrew</button>
     <button type="button" class="tab" role="tab" id="tab-mac" aria-controls="build-mac" aria-selected="false" tabindex="-1">macOS</button>
     <button type="button" class="tab" role="tab" id="tab-linux" aria-controls="build-linux" aria-selected="false" tabindex="-1">Linux</button>
     <button type="button" class="tab" role="tab" id="tab-windows" aria-controls="build-windows" aria-selected="false" tabindex="-1">Windows</button>
   </div>
+  <div class="system" id="build-mac" role="tabpanel" aria-labelledby="tab-mac" tabindex="0">
+    <h4>macOS</h4>
+  <div class="tabs variants" role="tablist" aria-label="With or without Homebrew" hidden>
+    <button type="button" class="tab" role="tab" id="tab-mac-brew" aria-controls="build-mac-brew" aria-selected="false" tabindex="-1">With Homebrew</button>
+    <button type="button" class="tab" role="tab" id="tab-mac-plain" aria-controls="build-mac-plain" aria-selected="false" tabindex="-1">Without Homebrew</button>
+  </div>
   <div class="system" id="build-mac-brew" role="tabpanel" aria-labelledby="tab-mac-brew" tabindex="0">
-    <h3>macOS with Homebrew</h3>
+    <h5>With Homebrew</h5>
     <ol>
     <li>Install <a href="https://rustup.rs">Rust</a> and SDL3:
       <pre><code>brew install sdl3</code></pre></li>
@@ -116,9 +127,10 @@ cd Ouro-S.C.Out</code></pre></li>
       <pre><code>cargo run --release -p scout</code></pre></li>
     </ol>
   </div>
-  <div class="system" id="build-mac" role="tabpanel" aria-labelledby="tab-mac" tabindex="0">
-    <h3>macOS without Homebrew</h3>
-    <p>For Macs too old for Homebrew (macOS 11 or newer). Cargo builds SDL3 itself and puts it into the game; it needs CMake for that.</p>
+  <div class="system" id="build-mac-plain" role="tabpanel" aria-labelledby="tab-mac-plain" tabindex="0">
+    <h5>Without Homebrew</h5>
+    <p>For Macs too old for Homebrew (macOS 11 or newer). Cargo builds SDL3 itself and puts
+    it into the game; it needs CMake for that.</p>
     <ol>
     <li>Apple's command line tools (the compiler and git):
       <pre><code>xcode-select --install</code></pre></li>
@@ -136,27 +148,26 @@ cd Ouro-S.C.Out</code></pre></li>
       The first build also compiles SDL and takes a few minutes longer. The game ends up in <code>target/release/ouro-scout</code> and needs nothing else installed.</li>
     </ol>
   </div>
+  </div>
   <div class="system" id="build-linux" role="tabpanel" aria-labelledby="tab-linux" tabindex="0">
-    <h3>Linux</h3>
-    <p>Cargo builds SDL3 itself and puts it into the game; it needs a compiler, CMake and the development files of the graphics, sound and input libraries. Not tried on Linux yet (the Homebrew version above builds there): if something fails, please <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/issues">tell us</a>.</p>
+    <h4>Linux</h4>
+    <p>Cargo builds SDL3 itself and puts it into the game; it needs a compiler, CMake and the
+    development files of the graphics, sound and input libraries. Not tried on Linux yet
+    (the Homebrew version above works there): if something fails, please <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/issues">tell us</a>.</p>
     <ol>
     <li>The tools and libraries. Debian, Ubuntu:
       <pre><code>sudo apt install build-essential git cmake pkg-config \
-  libasound2-dev libpulse-dev libpipewire-0.3-dev \
-  libx11-dev libxext-dev libxrandr-dev libxcursor-dev \
-  libxfixes-dev libxi-dev libxss-dev libxtst-dev \
-  libxkbcommon-dev libwayland-dev libdecor-0-dev \
-  libdrm-dev libgbm-dev libgl1-mesa-dev libegl1-mesa-dev \
-  libdbus-1-dev libudev-dev</code></pre>
+  libasound2-dev libpulse-dev libpipewire-0.3-dev libx11-dev libxext-dev \
+  libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+  libxkbcommon-dev libwayland-dev libdecor-0-dev libdrm-dev libgbm-dev \
+  libgl1-mesa-dev libegl1-mesa-dev libdbus-1-dev libudev-dev</code></pre>
       Fedora:
-      <pre><code>sudo dnf install gcc gcc-c++ git cmake \
-  alsa-lib-devel pulseaudio-libs-devel pipewire-devel \
-  libX11-devel libXext-devel libXrandr-devel \
-  libXcursor-devel libXfixes-devel libXi-devel \
-  libXScrnSaver-devel libXtst-devel libxkbcommon-devel \
-  wayland-devel wayland-protocols-devel libdecor-devel \
-  libdrm-devel mesa-libgbm-devel mesa-libGL-devel \
-  mesa-libEGL-devel dbus-devel systemd-devel</code></pre></li>
+      <pre><code>sudo dnf install gcc gcc-c++ git cmake alsa-lib-devel \
+  pulseaudio-libs-devel pipewire-devel libX11-devel libXext-devel libXrandr-devel \
+  libXcursor-devel libXfixes-devel libXi-devel libXScrnSaver-devel libXtst-devel \
+  libxkbcommon-devel wayland-devel wayland-protocols-devel libdecor-devel \
+  libdrm-devel mesa-libgbm-devel mesa-libGL-devel mesa-libEGL-devel dbus-devel \
+  systemd-devel</code></pre></li>
     <li><a href="https://rustup.rs">Rust</a>, then open a new terminal:
       <pre><code>curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh</code></pre></li>
     <li>Get the source, and next to it the screens all Ouro ports share:
@@ -169,8 +180,9 @@ cd Ouro-S.C.Out</code></pre></li>
     </ol>
   </div>
   <div class="system" id="build-windows" role="tabpanel" aria-labelledby="tab-windows" tabindex="0">
-    <h3>Windows</h3>
-    <p>Cargo builds SDL3 itself and puts it into the game. Not tried on Windows yet: if something fails, please <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/issues">tell us</a>.</p>
+    <h4>Windows</h4>
+    <p>There is no ready-made Windows version yet. Cargo builds SDL3 itself and puts it into
+    the game. Not tried on Windows yet: if something fails, please <a href="https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/issues">tell us</a>.</p>
     <ol>
     <li><a href="https://rustup.rs">Rust</a>: download and run <code>rustup-init.exe</code>;
       let it install the Visual Studio C++ build tools it asks for.</li>
@@ -185,6 +197,7 @@ cd Ouro-S.C.Out</code></pre></li>
       The first build also compiles SDL and takes a few minutes longer. The game ends up in <code>target\release\ouro-scout.exe</code>.</li>
     </ol>
   </div>
+  </details>
 </section>
 
 <section class="box" aria-labelledby="keys">
@@ -234,39 +247,47 @@ cd Ouro-S.C.Out</code></pre></li>
 </footer>
 
 <script>
-// The build instructions: one system at a time, picked by the tabs (all
-// of them one below the other without JavaScript).
+// Build from source: one system at a time, picked by tabs (on macOS a
+// second, smaller choice: with or without Homebrew). Without JavaScript
+// everything is shown one below the other.
 (function () {
-  var list = document.querySelector('#play .tabs');
-  if (!list) return;
-  var tabs = Array.prototype.slice.call(list.querySelectorAll('[role="tab"]'));
+  var build = document.getElementById('build');
+  if (!build) return;
   document.documentElement.classList.add('tabbed');
-  list.hidden = false;
-  function choose(tab, focus) {
-    tabs.forEach(function (other) {
-      var chosen = other === tab;
-      other.setAttribute('aria-selected', chosen ? 'true' : 'false');
-      other.tabIndex = chosen ? 0 : -1;
-      document.getElementById(other.getAttribute('aria-controls')).hidden = !chosen;
+  function setUp(list, start) {
+    var tabs = Array.prototype.slice.call(list.querySelectorAll(':scope > [role="tab"]'));
+    list.hidden = false;
+    function choose(tab, focus) {
+      tabs.forEach(function (other) {
+        var chosen = other === tab;
+        other.setAttribute('aria-selected', chosen ? 'true' : 'false');
+        other.tabIndex = chosen ? 0 : -1;
+        document.getElementById(other.getAttribute('aria-controls')).hidden = !chosen;
+      });
+      if (focus) tab.focus();
+    }
+    tabs.forEach(function (tab, index) {
+      tab.addEventListener('click', function () { choose(tab, false); });
+      tab.addEventListener('keydown', function (event) {
+        var step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+        if (event.key === 'Home') choose(tabs[0], true);
+        else if (event.key === 'End') choose(tabs[tabs.length - 1], true);
+        else if (step) choose(tabs[(index + step + tabs.length) % tabs.length], true);
+        else return;
+        event.preventDefault();
+      });
     });
-    if (focus) tab.focus();
+    choose(document.getElementById('tab-' + start), false);
   }
-  tabs.forEach(function (tab, index) {
-    tab.addEventListener('click', function () { choose(tab, false); });
-    tab.addEventListener('keydown', function (event) {
-      var step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-      if (event.key === 'Home') choose(tabs[0], true);
-      else if (event.key === 'End') choose(tabs[tabs.length - 1], true);
-      else if (step) choose(tabs[(index + step + tabs.length) % tabs.length], true);
-      else return;
-      event.preventDefault();
-    });
-  });
-  // start with the visitor's own system
+  // start with the visitor's own system; on Windows building is the only
+  // way, so the section opens by itself
   var agent = navigator.userAgent;
-  var key = /Windows/.test(agent) ? 'windows'
-          : /Linux/.test(agent) && !/Android/.test(agent) ? 'linux' : 'mac-brew';
-  choose(document.getElementById('tab-' + key), false);
+  var system = /Windows/.test(agent) ? 'windows'
+             : /Linux/.test(agent) && !/Android/.test(agent) ? 'linux' : 'mac';
+  var lists = build.querySelectorAll('.tabs');
+  setUp(lists[0], system);
+  setUp(build.querySelector('.variants'), 'mac-brew');
+  if (system === 'windows' || location.hash === '#build') build.open = true;
 })();
 </script>
 </body>

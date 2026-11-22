@@ -183,18 +183,31 @@ code {
   font-size: 0.9em;
 }
 
-/* the build instructions per system: tabs like the buttons, the chosen
-   one pressed in */
+/* Play: Install, then Build from source folded away; tabs per system
+   like the game's buttons, the chosen one pressed in */
+.way { margin: 1.75rem 0 0.75rem; font-size: 1.2rem; }
+#play > .way:first-of-type { margin-top: 0.5rem; }
+.note { font-size: var(--size-small); color: var(--text-dim); }
+.build { margin-top: 1.5rem; }
+.build > summary { cursor: pointer; list-style: none; }
+.build > summary::-webkit-details-marker { display: none; }
+.build > summary .way { display: inline; margin: 0; }
+.build > summary::before { content: "\25B8\00A0"; }
+.build[open] > summary::before { content: "\25BE\00A0"; }
+.build > summary + p { margin-top: 1rem; }
 .tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 1.25rem; }
+.tabs[hidden] { display: none; }
+.tabs.variants { gap: 0.4rem; margin-bottom: 1rem; }
+.tabs.variants .tab { font-size: 0.85rem; padding: 0.25rem 0.7rem; border-width: 2px; }
+.tab { font: inherit; font-size: var(--size-small); cursor: pointer; padding: 0.4rem 0.9rem; border: 3px solid; }
+.system h4, .system h5 { margin: 1.5rem 0 0.75rem; font-size: 1.05rem; }
+.tabbed .system h4, .tabbed .system h5 { display: none; }
+.system > p { margin-bottom: 1rem; }
+.way, .build > summary, .system h4, .system h5 { color: var(--cyan-light); }
 .tab {
-  font: inherit;
-  font-size: var(--size-small);
   font-weight: 600;
-  cursor: pointer;
-  padding: 0.4rem 0.9rem;
   background: var(--marble-dark);
   color: var(--marble-ink);
-  border: 3px solid;
   border-color: var(--marble-light) var(--marble-ink) var(--marble-ink) var(--marble-light);
 }
 .tab:hover { background: var(--marble); }
@@ -202,10 +215,7 @@ code {
   background: var(--marble-light);
   border-color: var(--marble-dark) var(--marble-light) var(--marble-light) var(--marble-dark);
 }
-.tab:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
-.system h3 { margin: 1.5rem 0 0.75rem; font-size: 1.1rem; color: var(--cyan-light); }
-.tabbed .system h3 { display: none; }
-.system > p { margin-bottom: 1rem; }
+.tab:focus-visible, .build > summary:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
 .system:focus-visible { outline: 3px solid var(--cyan); outline-offset: 6px; }
 
 /* --- keys --------------------------------------------------------- */
