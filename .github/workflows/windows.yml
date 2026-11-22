@@ -1,0 +1,104 @@
+# Builds the game for Windows (x64): one .exe with SDL3 and the data pack
+# built in. On a version tag the zip goes to that tag's GitHub release;
+# otherwise it is kept as a workflow artifact for testing.
+name: windows
+
+on:
+  push:
+    tags: ["v*"]
+    branches: [windows-build]
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  # the ouro-framework version this game version is built with (as in the
+  # Homebrew formula); raise it together with the game's release
+  FRAMEWORK_REF: v0.1.0
+  CRATE: scout
+  BINARY: ouro-scout
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write # to attach the zip to the release
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the game
+        uses: actions/checkout@v4
+        with:
+          path: game
+          persist-credentials: false
+
+      - name: Check out ouro-framework next to it
+        uses: actions/checkout@v4
+        with:
+          repository: metalsnake-classic-mac-ports/ouro-framework
+          ref: ${{ env.FRAMEWORK_REF }}
+          path: ouro-framework
+          persist-credentials: false
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            game/target
+          key: windows-cargo-${{ hashFiles('game/Cargo.lock') }}
+
+      # SDL3 is built from source (needs CMake, which the runner has) and
+      # linked statically. The C runtime stays a DLL: sdl3-sys builds SDL
+      # against it (/MD), so +crt-static does not link. Its vcruntime DLLs
+      # go next to the .exe instead (Microsoft's "app-local" deployment).
+      - name: Build
+        working-directory: game
+        run: cargo build --release --locked -p "$CRATE" --features sdl3/build-from-source-static
+
+      - name: Smoke test
+        working-directory: game
+        run: ./target/release/$BINARY.exe --version
+
+      - name: List the DLLs it needs
+        working-directory: game
+        run: |
+          python -m pip install --quiet pefile
+          python -c "import pefile,sys; pe=pefile.PE(sys.argv[1]); print('\n'.join(sorted(e.dll.decode().lower() for e in pe.DIRECTORY_ENTRY_IMPORT)))" "target/release/$BINARY.exe" | tee dlls.txt
+
+      - name: Pack
+        working-directory: game
+        run: |
+          version=$(./target/release/$BINARY.exe --version | awk '{print $2}')
+          name="$BINARY-$version-windows-x64"
+          mkdir "$name"
+          cp "target/release/$BINARY.exe" README.md LICENSE CHANGELOG.md "$name/"
+          # the Visual C++ runtime DLLs the .exe imports, from the installed
+          # Visual Studio's redistributable folder (the UCRT is part of
+          # Windows 10 and later)
+          crt=$(ls -d "/c/Program Files/Microsoft Visual Studio"/*/*/VC/Redist/MSVC/*/x64/Microsoft.VC*.CRT | sort | tail -1)
+          echo "runtime from: $crt"
+          for dll in $(grep -E '^(vcruntime|msvcp)' dlls.txt); do
+            cp "$crt/$dll" "$name/"
+          done
+          ls -l "$name"
+          7z a "../$name.zip" "$name" > /dev/null
+          echo "ZIP=$name.zip" >> "$GITHUB_ENV"
+
+      - name: Keep as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BINARY }}-windows-x64
+          path: ${{ env.ZIP }}
+
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1 \
+            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "$TAG" --notes "See CHANGELOG.md."
+          gh release upload "$TAG" "$ZIP" -R "$GITHUB_REPOSITORY" --clobber
