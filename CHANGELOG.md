@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-23
+
+Built with [ouro-framework](https://github.com/metalsnake-classic-mac-ports/ouro-framework)
+0.1.0, as 0.2.0.
+
 ### Added
 
 - A ready-made Windows version (x64): `ouro-scout-windows-x64.zip` on the release page,
@@ -51,6 +56,7 @@ the port (see the README).
   replaces 0.1.0, which was withdrawn because it named the MIT license by mistake (in its
   package metadata and on the website); otherwise the game is the same.
 
-[unreleased]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/metalsnake-classic-mac-ports/Ouro-S.C.Out/releases/tag/v0.1.1
