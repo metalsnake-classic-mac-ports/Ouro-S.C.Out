@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::menu::{self, Action, Background, Item, Menu};
 use crate::render::{self, Canvas};
-use crate::settings::{self, Settings};
+use crate::settings::{self, Scaling, Settings};
 use crate::text::{self, Line, SystemFont};
 use crate::theme::Look;
 use crate::{DEFAULT_PALETTE, Shown, View, audio, draw, message_canvas};
@@ -872,8 +872,24 @@ pub fn run(data: &GameData, dev: bool) -> Result<()> {
         let (w, h) = (picture.width as u32, picture.height as u32);
         let mut texture = upload_texture(&creator, PixelFormat::RGB24, (w, h), &picture.rgb)?;
         texture.set_scale_mode(ScaleMode::Nearest);
-        let mode = if app.settings.integer_scaling { SDL_LOGICAL_PRESENTATION_INTEGER_SCALE } else { SDL_LOGICAL_PRESENTATION_LETTERBOX };
-        canvas.set_logical_size(w, h, mode)?;
+        // whole multiples and filling: SDL scales the picture. The original
+        // size: the logical size is the window's in points (one point one
+        // unit) and the picture a viewport of its size in the middle; SDL
+        // then also takes the mouse relative to it.
+        match app.settings.scaling {
+            Scaling::Whole => canvas.set_logical_size(w, h, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE)?,
+            Scaling::Fill => canvas.set_logical_size(w, h, SDL_LOGICAL_PRESENTATION_LETTERBOX)?,
+            Scaling::Original => {
+                let (ww, wh) = canvas.window().size();
+                canvas.set_logical_size(ww.max(1), wh.max(1), SDL_LOGICAL_PRESENTATION_LETTERBOX)?;
+            }
+        }
+        let at = |window: u32, picture: u32| (window as i32 - picture as i32) / 2;
+        let (ww, wh) = canvas.window().size();
+        canvas.set_viewport(match app.settings.scaling {
+            Scaling::Original => Some(sdl3::rect::Rect::new(at(ww, w), at(wh, h), w, h)),
+            _ => None,
+        });
 
         // the system font at the resolution of the window
         if picture.lines.is_empty() {
@@ -883,7 +899,12 @@ pub fn run(data: &GameData, dev: bool) -> Result<()> {
             // the picture's size in the window: whole multiples, or as
             // large as it fits
             let scale = (ow as f32 / w as f32).min(oh as f32 / h as f32);
-            let scale = if app.settings.integer_scaling { scale.floor().max(1.0) } else { scale.max(0.25) };
+            let scale = match app.settings.scaling {
+                Scaling::Whole => scale.floor().max(1.0),
+                Scaling::Fill => scale.max(0.25),
+                // pixels per point (2 on a Retina screen)
+                Scaling::Original => ow as f32 / canvas.window().size().0.max(1) as f32,
+            };
             let size = ((w as f32 * scale) as u32, (h as f32 * scale) as u32);
             if !text
                 .as_ref()

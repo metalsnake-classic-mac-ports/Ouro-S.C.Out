@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A ready-made Windows version (x64): `ouro-scout-windows-x64.zip` on the release page,
   with the 0.2.0 release as the first.
 - Homebrew installs ready-made on Linux on ARM64 too.
+- Scaling can be off: "Original size" shows the picture at its size in the middle of the
+  window or the screen.
 
 ## [0.2.0] - 2026-11-20
 

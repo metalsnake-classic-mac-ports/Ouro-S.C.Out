@@ -30,9 +30,48 @@ pub struct Settings {
     /// Right, left, up, down, get / drop, fire, self destruct.
     pub keys: [Scancode; KEYS],
     pub fullscreen: bool,
-    /// The picture scaled by whole multiples (sharp), else as large as the
-    /// window allows (`scaling = whole | fill`).
-    pub integer_scaling: bool,
+    /// How the picture is scaled to the window (`scaling = whole | fill |
+    /// original`).
+    pub scaling: Scaling,
+}
+
+/// How the picture is scaled to the window or the screen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scaling {
+    /// By the largest whole multiple that fits (sharp pixels).
+    Whole,
+    /// As large as fits, keeping the shape.
+    Fill,
+    /// Not at all: one pixel of the original is one point of the screen,
+    /// in the middle (cut off if the window is smaller).
+    Original,
+}
+
+impl Scaling {
+    const ALL: [Scaling; 3] = [Scaling::Whole, Scaling::Fill, Scaling::Original];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Scaling::Whole => "Whole multiples (sharp)",
+            Scaling::Fill => "Fill the window",
+            Scaling::Original => "Original size",
+        }
+    }
+
+    /// `by` steps on, round.
+    pub fn step(self, by: i32) -> Scaling {
+        let i = Scaling::ALL.iter().position(|&s| s == self).unwrap_or(0) as i32;
+        Scaling::ALL[(i + by).rem_euclid(Scaling::ALL.len() as i32) as usize]
+    }
+
+    /// The word in the settings file.
+    fn word(self) -> &'static str {
+        match self {
+            Scaling::Whole => "whole",
+            Scaling::Fill => "fill",
+            Scaling::Original => "original",
+        }
+    }
 }
 
 impl Default for Settings {
@@ -53,7 +92,7 @@ impl Default for Settings {
                 Scancode::Escape,
             ],
             fullscreen: false,
-            integer_scaling: true,
+            scaling: Scaling::Whole,
         }
     }
 }
@@ -105,7 +144,7 @@ impl Settings {
                 "music" => settings.music = on,
                 "sounds" => settings.sounds = on,
                 "screen" => settings.fullscreen = value == "full",
-                "scaling" => settings.integer_scaling = value != "fill",
+                "scaling" => settings.scaling = Scaling::ALL.into_iter().find(|s| s.word() == value).unwrap_or(Scaling::Whole),
                 _ => {
                     if let Some(i) = KEY_NAMES.iter().position(|k| k.eq_ignore_ascii_case(name))
                         && let Some(code) = Scancode::from_name(value)
@@ -130,7 +169,7 @@ impl Settings {
             "screen = {}\n",
             if self.fullscreen { "full" } else { "window" }
         );
-        text += &format!("scaling = {}\n", if self.integer_scaling { "whole" } else { "fill" });
+        text += &format!("scaling = {}\n", self.scaling.word());
         for (name, key) in KEY_NAMES.iter().zip(self.keys) {
             text += &format!("{} = {}\n", name.to_lowercase(), key.name());
         }

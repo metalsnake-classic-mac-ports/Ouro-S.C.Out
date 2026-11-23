@@ -537,8 +537,11 @@ Deliberate differences from the original (the rules for all Ouro ports,
   (ouro-ui's timeline); Return plays on from one (a fork). Kept with
   Continue in `continue/`.
 - **Options** (rule 9): Music, Sound Effects, Scaling (whole multiples,
-  the default, or fill the window; new), Full Screen, Keys..., Defaults;
-  saved at once.
+  the default, fill the window, or the original size: one picture pixel
+  one point of the screen, in the middle, in a window and full screen;
+  new), Full Screen, Keys..., Defaults; saved at once. The original size
+  sets SDL's logical size to the window's in points and draws into a
+  viewport of the picture's size, so the mouse is taken relative to it.
 - **Keys** (rule 9): ouro-ui's keys page; any key but Escape (it keeps
   the old key; Defaults gives self destruct its Esc back), Command /
   Ctrl, F11 and Backspace. Assigning a key that is in use swaps the two

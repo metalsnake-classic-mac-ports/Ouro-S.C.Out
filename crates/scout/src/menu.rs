@@ -315,14 +315,15 @@ impl Menu {
 
     fn options_choice(&mut self, choice: ouro_ui::options::Choice, settings: &mut Settings) -> Action {
         use ouro_ui::options::Choice;
-        let row = match choice {
+        let (row, by) = match choice {
             Choice::Back => return self.back(Item::Options),
-            Choice::Change(k, _) | Choice::Take(k) => OPTIONS[k],
+            Choice::Change(k, by) => (OPTIONS[k], by),
+            Choice::Take(k) => (OPTIONS[k], 1),
         };
         match row {
             Opt::Music => settings.music = !settings.music,
             Opt::Sounds => settings.sounds = !settings.sounds,
-            Opt::Scaling => settings.integer_scaling = !settings.integer_scaling,
+            Opt::Scaling => settings.scaling = settings.scaling.step(by),
             Opt::Fullscreen => settings.fullscreen = !settings.fullscreen,
             Opt::Keys => {
                 self.open(Page::Keys);
@@ -455,8 +456,8 @@ fn option_rows(s: &Settings) -> Vec<ouro_ui::options::Row> {
             Opt::Sounds => Row::setting("Sound Effects", on_off(s.sounds), "The game's sounds, on or off"),
             Opt::Scaling => Row::setting(
                 "Scaling",
-                if s.integer_scaling { "Whole multiples (sharp)" } else { "Fill the window" },
-                "The picture scaled by whole multiples, or as large as the window allows",
+                s.scaling.name(),
+                "The picture by whole multiples, as large as the window allows, or not scaled",
             ),
             Opt::Fullscreen => Row::setting("Full Screen", on_off(s.fullscreen), "The whole screen or a window (also F11 or Command / Ctrl + F)"),
             Opt::Keys => Row::action("Keys...", "The keys of the game"),
@@ -527,7 +528,13 @@ mod tests {
         m.key(Scancode::Down, &mut s, 10);
         m.key(Scancode::Down, &mut s, 10);
         assert_eq!(m.key(Scancode::Right, &mut s, 10), Action::SettingsChanged);
-        assert!(!s.integer_scaling);
+        assert_eq!(s.scaling, crate::settings::Scaling::Fill);
+        m.key(Scancode::Right, &mut s, 10);
+        assert_eq!(s.scaling, crate::settings::Scaling::Original);
+        m.key(Scancode::Left, &mut s, 10);
+        m.key(Scancode::Left, &mut s, 10);
+        assert_eq!(s.scaling, crate::settings::Scaling::Whole);
+        m.key(Scancode::Right, &mut s, 10);
         m.key(Scancode::Down, &mut s, 10);
         m.key(Scancode::Down, &mut s, 10);
         m.key(Scancode::Return, &mut s, 10);
