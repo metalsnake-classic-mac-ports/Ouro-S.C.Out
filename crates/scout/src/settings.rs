@@ -111,12 +111,28 @@ pub fn folder() -> Option<PathBuf> {
     if cfg!(test) {
         return None;
     }
-    sdl3::filesystem::get_pref_path("", FOLDER).ok()
+    pref_dir()
+}
+
+/// The folder for everything the game keeps (settings, records, the kept
+/// game ...): `OURO_PREFS` if set (tests, a fresh start, someone's state
+/// to look at; made if missing), else SDL's preference folder.
+pub fn pref_dir() -> Option<PathBuf> {
+    match std::env::var_os("OURO_PREFS") {
+        Some(dir) => {
+            let dir = PathBuf::from(dir);
+            std::fs::create_dir_all(&dir).ok()?;
+            Some(dir)
+        }
+        None => sdl3::filesystem::get_pref_path("", FOLDER).ok(),
+    }
 }
 
 fn path() -> Option<PathBuf> {
-    let path = sdl3::filesystem::get_pref_path("", FOLDER).ok()?.join(FILE);
+    let path = pref_dir()?.join(FILE);
+    // the old folder's settings, not into a folder of OURO_PREFS
     if !path.exists()
+        && std::env::var_os("OURO_PREFS").is_none()
         && let Some(old) = sdl3::filesystem::get_pref_path("", OLD_FOLDER)
             .ok()
             .map(|d| d.join(FILE))

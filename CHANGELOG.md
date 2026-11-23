@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Homebrew installs ready-made on Linux on ARM64 too.
 - Scaling can be off: "Original size" shows the picture at its size in the middle of the
   window or the screen.
+- `OURO_PREFS=<folder>` keeps the settings, records and the kept game in that folder
+  instead of the usual one (for tests or a fresh start).
 
 ## [0.2.0] - 2026-11-20
 

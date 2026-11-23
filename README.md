@@ -58,7 +58,8 @@ F11 or Command (or Ctrl) + F switches to full screen. The game pauses when
 its window loses the focus. Keys, sound, scaling and full screen are set in
 the options, which are saved in SDL's preference folder (macOS:
 `~/Library/Application Support/Ouro S.C.Out`), with the records and the kept
-game.
+game; `OURO_PREFS=<folder>` keeps them all in another folder instead (for
+tests or a fresh start).
 A data pack on the command line, in `SCOUT_DATA`, or as
 `ouro-scout-data.zip` beside the program or in the current folder replaces
 the built-in one. `--dev` adds keys for
