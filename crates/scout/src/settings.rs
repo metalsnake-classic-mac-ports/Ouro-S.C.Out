@@ -102,8 +102,6 @@ const FILE: &str = "settings.txt";
 /// The settings folder (SDL's preference folder, macOS:
 /// `~/Library/Application Support/Ouro S.C.Out`).
 const FOLDER: &str = "Ouro S.C.Out";
-/// Its name before 2026-10-22; settings found there are taken over.
-const OLD_FOLDER: &str = "S.C.Out";
 
 /// The settings folder, where the records and Continue's game are kept
 /// too (none in tests: they never touch the player's files).
@@ -129,18 +127,7 @@ pub fn pref_dir() -> Option<PathBuf> {
 }
 
 fn path() -> Option<PathBuf> {
-    let path = pref_dir()?.join(FILE);
-    // the old folder's settings, not into a folder of OURO_PREFS
-    if !path.exists()
-        && std::env::var_os("OURO_PREFS").is_none()
-        && let Some(old) = sdl3::filesystem::get_pref_path("", OLD_FOLDER)
-            .ok()
-            .map(|d| d.join(FILE))
-            .filter(|p| p.exists())
-    {
-        let _ = std::fs::copy(old, &path);
-    }
-    Some(path)
+    Some(pref_dir()?.join(FILE))
 }
 
 impl Settings {

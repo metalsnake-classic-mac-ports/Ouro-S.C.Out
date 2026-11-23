@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `OURO_PREFS=<folder>` keeps the settings, records and the kept game in that folder
   instead of the usual one (for tests or a fresh start).
 
+### Removed
+
+- Settings are no longer taken over from the settings folder's old name `S.C.Out`
+  (before October 2026); the game starts with its defaults there.
+
 ## [0.2.0] - 2026-11-20
 
 Built with [ouro-framework](https://github.com/metalsnake-classic-mac-ports/ouro-framework)
